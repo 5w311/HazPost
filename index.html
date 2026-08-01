@@ -115,6 +115,18 @@ input.mono{font:500 15px 'Roboto Mono'}
 
 .disclaimer{font-size:11.5px;color:var(--faint);line-height:1.5;padding:14px 4px 0;border-top:1px solid var(--line);margin-top:20px}
 .hidden{display:none!important}
+
+/* data loading / error states */
+.dstate{text-align:center;padding:56px 20px}
+.dstate .big-d{width:56px;height:56px;position:relative;margin:0 auto 18px}
+.dstate .big-d::before{content:"";position:absolute;inset:4px;transform:rotate(45deg);border-radius:6px;border:2.5px solid var(--line);border-top-color:var(--brand);animation:spin 1s linear infinite}
+.dstate.err .big-d::before{border:2.5px solid var(--bad);animation:none}
+.dstate.err .big-d::after{content:"!";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:800 22px 'Barlow';color:var(--bad)}
+@keyframes spin{to{transform:rotate(405deg)}}
+.dstate h3{font:700 19px 'Barlow';margin-bottom:8px}
+.dstate p{font-size:14px;line-height:1.5;color:var(--dim);max-width:340px;margin:0 auto}
+.dstate .msg{font:500 12.5px 'Roboto Mono';color:var(--bad);background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin:14px auto 0;max-width:340px;word-break:break-word;text-align:left}
+.dstate .btn{max-width:220px;margin:18px auto 0}
 </style>
 </head>
 <body>
@@ -131,54 +143,98 @@ input.mono{font:500 15px 'Roboto Mono'}
 </div>
 
 <script>
-/* ---------------- DATA: curated demo subset of the 172.101 table ---------------- */
-const HM = [
- {un:"0209", name:"Trinitrotoluene (TNT), dry", cls:"1.1D", base:"1.1", t1:true,  plc:"expl11", pg:"II"},
- {un:"1017", name:"Chlorine", cls:"2.3", base:"2.3", t1:true, plc:"gas23", pg:"—", pih:"Zone B"},
- {un:"3381", name:"Toxic by inhalation liquid, n.o.s.", cls:"6.1", base:"6.1", t1:true, plc:"pih61", pg:"I", pih:"Zone A"},
- {un:"1428", name:"Sodium", cls:"4.3", base:"4.3", t1:true, plc:"wet43", pg:"I"},
- {un:"1203", name:"Gasoline", cls:"3", base:"3", plc:"flam3", pg:"II"},
- {un:"1090", name:"Acetone", cls:"3", base:"3", plc:"flam3", pg:"II"},
- {un:"1263", name:"Paint (flammable)", cls:"3", base:"3", plc:"flam3", pg:"II"},
- {un:"1993", name:"Flammable liquids, n.o.s.", cls:"3", base:"3", plc:"flam3", pg:"II"},
- {un:"1230", name:"Methanol", cls:"3 (6.1)", base:"3", plc:"flam3", pg:"II", subs:"6.1"},
- {un:"1866", name:"Resin solution", cls:"3", base:"3", plc:"flam3", pg:"III"},
- {un:"1075", name:"Petroleum gases, liquefied (LPG)", cls:"2.1", base:"2.1", plc:"flamgas21", pg:"—"},
- {un:"1950", name:"Aerosols, flammable", cls:"2.1", base:"2.1", plc:"flamgas21", pg:"—"},
- {un:"1066", name:"Nitrogen, compressed", cls:"2.2", base:"2.2", plc:"nfgas22", pg:"—"},
- {un:"1830", name:"Sulfuric acid", cls:"8", base:"8", plc:"corr8", pg:"II"},
- {un:"1824", name:"Sodium hydroxide, solution", cls:"8", base:"8", plc:"corr8", pg:"II"},
- {un:"2794", name:"Batteries, wet, filled with acid", cls:"8", base:"8", plc:"corr8", pg:"—"},
- {un:"1760", name:"Corrosive liquid, n.o.s.", cls:"8", base:"8", plc:"corr8", pg:"II"},
- {un:"1479", name:"Oxidizing solid, n.o.s.", cls:"5.1", base:"5.1", plc:"oxy51", pg:"II"},
- {un:"2067", name:"Ammonium nitrate based fertilizer", cls:"5.1", base:"5.1", plc:"oxy51", pg:"III"},
- {un:"2783", name:"Organophosphorus pesticide, solid, toxic", cls:"6.1", base:"6.1t2", plc:"tox61", pg:"II"},
- {un:"1888", name:"Chloroform", cls:"6.1", base:"6.1t2", plc:"tox61", pg:"III"},
- {un:"1350", name:"Sulfur", cls:"4.1", base:"4.1", plc:"fs41", pg:"III"},
- {un:"1361", name:"Carbon (animal or vegetable origin)", cls:"4.2", base:"4.2", plc:"sc42", pg:"II"},
- {un:"3077", name:"Environmentally hazardous substance, solid, n.o.s.", cls:"9", base:"9", plc:"misc9", pg:"III"},
- {un:"3082", name:"Environmentally hazardous substance, liquid, n.o.s.", cls:"9", base:"9", plc:"misc9", pg:"III"},
-];
+/* ---------------- DATA: the 172.101 table, fetched from hazmat.json ---------------- */
+const DATA_URL = "hazmat.json";
+let HM = [];           /* material records */
+let HMMETA = null;     /* provenance: source, cfrDate, generated */
+let dataState = "loading";   /* loading | ready | error */
+let dataError = "";
 
-/* placard rendering specs */
+async function loadData(){
+  dataState="loading"; dataError=""; render();
+  try{
+    const res = await fetch(DATA_URL, {cache:"no-cache"});
+    if(!res.ok) throw new Error(`the server answered ${res.status} ${res.statusText||""}`.trim());
+    let doc;
+    try{ doc = await res.json(); }
+    catch(e){ throw new Error("hazmat.json is not valid JSON"); }
+    const recs = Array.isArray(doc) ? doc : doc && doc.records;
+    if(!Array.isArray(recs)) throw new Error("hazmat.json has no records array");
+    if(!recs.length) throw new Error("hazmat.json contains zero material records");
+    HM = recs;
+    HMMETA = Array.isArray(doc) ? null : doc;
+    dataState="ready";
+  }catch(e){
+    dataError = (e && e.message) ? e.message : String(e);
+    dataState="error";
+  }
+  render();
+}
+
+/* proper shipping names come straight out of the CFR — escape before they hit innerHTML */
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+/* the table carries UN, NA and ID numbers — don't print "UN" over an NA number */
+function idLabel(x){ return `${(x&&x.pfx)||"UN"}${x?x.un:""}`; }
+
+/* provenance line for the disclaimer */
+function dataNote(){
+  if(!HMMETA) return `${HM.length.toLocaleString()} entries loaded.`;
+  const d = HMMETA.cfrDate ? ` as of ${HMMETA.cfrDate}` : "";
+  return `Material data: ${HM.length.toLocaleString()} entries from ${HMMETA.source||"hazmat.json"}${d}.`;
+}
+
+/* placard rendering specs — colours per the design sections cited on each line */
 const PLC = {
- expl11:{w:"Explosives", n:"1.1", bg:"#FF6720", fg:"#111"},
- gas23:{w:"Poison Gas", n:"2", bg:"#F2F2F2", fg:"#111"},
- pih61:{w:"Inhalation Hazard", n:"6", bg:"#F2F2F2", fg:"#111"},
- wet43:{w:"Dangerous When Wet", n:"4", bg:"#0F5FBF", fg:"#fff"},
- flam3:{w:"Flammable", n:"3", bg:"#C8102E", fg:"#fff"},
- flamgas21:{w:"Flammable Gas", n:"2", bg:"#C8102E", fg:"#fff"},
- nfgas22:{w:"Non-Flammable Gas", n:"2", bg:"#1E8A44", fg:"#fff"},
- corr8:{w:"Corrosive", n:"8", bg:"linear-gradient(180deg,#F2F2F2 50%,#111 50%)", fg:"#111", fg2:"#fff"},
- oxy51:{w:"Oxidizer", n:"5.1", bg:"#FFB612", fg:"#111"},
- tox61:{w:"Poison", n:"6", bg:"#F2F2F2", fg:"#111"},
- fs41:{w:"Flammable Solid", n:"4", bg:"repeating-linear-gradient(90deg,#C8102E 0 10px,#F2F2F2 10px 20px)", fg:"#111"},
- sc42:{w:"Spontaneously Combustible", n:"4", bg:"linear-gradient(180deg,#F2F2F2 50%,#C8102E 50%)", fg:"#111"},
- misc9:{w:"", n:"9", bg:"linear-gradient(180deg,#F2F2F2 50%,#fff 50%)", fg:"#111", stripes:true},
+ /* Table 1 categories — 172.504(e) */
+ expl11:{w:"Explosives", n:"1.1", bg:"#FF6720", fg:"#111"},                                  /* 172.522 */
+ expl12:{w:"Explosives", n:"1.2", bg:"#FF6720", fg:"#111"},                                  /* 172.522 */
+ expl13:{w:"Explosives", n:"1.3", bg:"#FF6720", fg:"#111"},                                  /* 172.522 */
+ gas23:{w:"Poison Gas", n:"2", bg:"#F2F2F2", fg:"#111"},                                     /* 172.540 */
+ wet43:{w:"Dangerous When Wet", n:"4", bg:"#0F5FBF", fg:"#fff"},                             /* 172.548 */
+ pih61:{w:"Inhalation Hazard", n:"6", bg:"#F2F2F2", fg:"#111"},                              /* 172.555 */
+ radio7:{w:"Radioactive", n:"7", bg:"linear-gradient(180deg,#FFB612 45%,#F2F2F2 45%)", fg:"#111"}, /* 172.556 */
+ /* Table 2 categories — 172.504(e) */
+ expl14:{w:"Explosives", n:"1.4", bg:"#FF6720", fg:"#111"},                                  /* 172.523 */
+ expl15:{w:"Explosives", n:"1.5", bg:"#FF6720", fg:"#111"},                                  /* 172.524 */
+ expl16:{w:"Explosives", n:"1.6", bg:"#FF6720", fg:"#111"},                                  /* 172.525 */
+ flamgas21:{w:"Flammable Gas", n:"2", bg:"#C8102E", fg:"#fff"},                              /* 172.532 */
+ nfgas22:{w:"Non-Flammable Gas", n:"2", bg:"#1E8A44", fg:"#fff"},                            /* 172.528 */
+ oxygen22:{w:"Oxygen", n:"2", bg:"#FFB612", fg:"#111"},                                      /* 172.530 */
+ flam3:{w:"Flammable", n:"3", bg:"#C8102E", fg:"#fff"},                                      /* 172.542 */
+ comb3:{w:"Combustible", n:"3", bg:"#C8102E", fg:"#fff"},                                    /* 172.544 */
+ fs41:{w:"Flammable Solid", n:"4", bg:"repeating-linear-gradient(90deg,#C8102E 0 10px,#F2F2F2 10px 20px)", fg:"#111"}, /* 172.546 */
+ sc42:{w:"Spontaneously Combustible", n:"4", bg:"linear-gradient(180deg,#F2F2F2 50%,#C8102E 50%)", fg:"#111"},         /* 172.547 */
+ oxy51:{w:"Oxidizer", n:"5.1", bg:"#FFB612", fg:"#111"},                                     /* 172.550 */
+ operox52:{w:"Organic Peroxide", n:"5.2", bg:"linear-gradient(180deg,#C8102E 50%,#FFB612 50%)", fg:"#111"}, /* 172.552 */
+ tox61:{w:"Poison", n:"6", bg:"#F2F2F2", fg:"#111"},                                         /* 172.554 */
+ corr8:{w:"Corrosive", n:"8", bg:"linear-gradient(180deg,#F2F2F2 50%,#111 50%)", fg:"#111", fg2:"#fff"}, /* 172.558 */
+ misc9:{w:"", n:"9", bg:"linear-gradient(180deg,#F2F2F2 50%,#fff 50%)", fg:"#111", stripes:true},        /* 172.560 */
+ /* not a placard: Table 2 names NONE for Division 6.2, and 172.504(f)(6) excepts unlabelled 1.4S */
+ none:{none:true, why:"49 CFR 172.504 specifies no placard for this material. It still counts toward the 1,001 lb Table 2 aggregate."},
  danger:{w:"Dangerous", n:"", bg:"linear-gradient(180deg,#C8102E 26%,#F2F2F2 26%,#F2F2F2 74%,#C8102E 74%)", fg:"#111"},
 };
-const CLSNAME = {"3":"Class 3 Flammable Liquid","2.1":"Div 2.1 Flammable Gas","2.2":"Div 2.2 Non-Flammable Gas","8":"Class 8 Corrosive","5.1":"Div 5.1 Oxidizer","6.1t2":"Div 6.1 Poison (non-inhalation)","4.1":"Div 4.1 Flammable Solid","4.2":"Div 4.2 Spontaneously Combustible","9":"Class 9 Miscellaneous"};
-const CLSPLC = {"3":"flam3","2.1":"flamgas21","2.2":"nfgas22","8":"corr8","5.1":"oxy51","6.1t2":"tox61","4.1":"fs41","4.2":"sc42","9":"misc9"};
+/* Table 1 category → placard, for reference; these placard at any quantity */
+const T1PLC = {"1.1":"expl11","1.2":"expl12","1.3":"expl13","2.3":"gas23","4.3":"wet43","5.2tc":"operox52","6.1":"pih61","7":"radio7"};
+/* Table 2 category → display name and placard. Keys here are the `base` values in hazmat.json. */
+const CLSNAME = {
+ "1.1":"Div 1.1 Explosives","1.2":"Div 1.2 Explosives","1.3":"Div 1.3 Explosives",
+ "1.4":"Div 1.4 Explosives","1.5":"Div 1.5 Blasting Agents","1.6":"Div 1.6 Explosives",
+ "2.1":"Div 2.1 Flammable Gas","2.2":"Div 2.2 Non-Flammable Gas","2.2oxy":"Div 2.2 Oxygen","2.3":"Div 2.3 Poison Gas",
+ "3":"Class 3 Flammable Liquid","comb":"Combustible Liquid",
+ "4.1":"Div 4.1 Flammable Solid","4.2":"Div 4.2 Spontaneously Combustible","4.3":"Div 4.3 Dangerous When Wet",
+ "5.1":"Div 5.1 Oxidizer","5.2":"Div 5.2 Organic Peroxide","5.2tc":"Div 5.2 Organic Peroxide, Type B, temperature controlled",
+ "6.1":"Div 6.1 Poison Inhalation Hazard","6.1t2":"Div 6.1 Poison (non-inhalation)","6.2":"Div 6.2 Infectious Substance",
+ "7":"Class 7 Radioactive","8":"Class 8 Corrosive","9":"Class 9 Miscellaneous"};
+const CLSPLC = {
+ "1.4":"expl14","1.5":"expl15","1.6":"expl16",
+ "2.1":"flamgas21","2.2":"nfgas22","2.2oxy":"oxygen22",
+ "3":"flam3","comb":"comb3","4.1":"fs41","4.2":"sc42",
+ "5.1":"oxy51","5.2":"operox52","6.1t2":"tox61","6.2":"none","8":"corr8","9":"misc9"};
+/* 172.504(f)(1): only the lowest Class 1 division on board is placarded */
+const EXPLDIV = {expl11:"1.1",expl12:"1.2",expl13:"1.3",expl14:"1.4",expl15:"1.5",expl16:"1.6"};
+/* a line that hangs nothing — Division 6.2, unlabelled 1.4S, excepted radioactive packages */
+function noPlc(l){ const p=PLC[l&&l.plc]; return !p || !!p.none; }
 
 let load = [];
 let view = "home", plcTab = "builder";
@@ -207,13 +263,34 @@ function render(){
   const back=document.getElementById('backBtn'), logo=document.getElementById('logoD'), sub=document.getElementById('subTitle');
   back.style.display = view==="home" ? "none":"flex";
   logo.style.display = view==="home" ? "block":"none";
+
+  /* the whole app is data-driven — nothing renders until hazmat.json is in hand */
+  if(dataState!=="ready"){
+    back.style.display="none"; logo.style.display="block";
+    if(dataState==="loading"){
+      sub.textContent="Loading the 172.101 table…";
+      m.innerHTML=`<div class="dstate"><div class="big-d"></div>
+        <h3>Loading material data</h3>
+        <p>Reading the 49 CFR 172.101 hazardous materials table from <span class="mono">hazmat.json</span>.</p></div>`;
+    } else {
+      sub.textContent="Material data unavailable";
+      m.innerHTML=`<div class="dstate err"><div class="big-d"></div>
+        <h3>Couldn't load the material data</h3>
+        <p>HazPost can't tell you what to hang on the trailer without the 172.101 table, so it won't guess. Check your connection and try again.</p>
+        <div class="msg">${esc(DATA_URL)} — ${esc(dataError)}</div>
+        <button class="btn" onclick="loadData()">Try again</button>
+        <p style="margin-top:16px;font-size:12.5px">If you opened this file straight off the disk, your browser blocks the fetch. Serve the folder over HTTP instead.</p></div>`;
+    }
+    return;
+  }
+
   if(view==="home"){
     sub.textContent="Hazmat tools built for the driver's seat";
     m.innerHTML = `<div class="grid">`+MODULES.map(x=>
       `<div class="tile ${x.live?'live':'stub'}" style="--tc:${x.tc}" onclick="go('${x.id}')">
         <div><div class="td"></div><h3>${x.t}</h3><p>${x.d}</p></div>
         <div class="cfr">${x.cfr}</div></div>`).join("")+`</div>
-      <div class="disclaimer">HazPost is a verification aid, not a substitute for the shipping paper or the regulations. The shipper certifies classification and provides placards. Always confirm against your papers and 49 CFR. Prototype — curated data subset.</div>`;
+      <div class="disclaimer">HazPost is a verification aid, not a substitute for the shipping paper or the regulations. The shipper certifies classification and provides placards. Always confirm against your papers and 49 CFR.<br>${esc(dataNote())}</div>`;
   } else if(view==="placards"){
     sub.textContent="49 CFR 172.504 · Subpart F";
     m.innerHTML = `
@@ -260,11 +337,11 @@ function suggest(q){
   if(!q){s.style.display='none';return;}
   const hits=HM.filter(x=>x.un.includes(q)||x.name.toLowerCase().includes(q)).slice(0,6);
   if(!hits.length){s.style.display='none';return;}
-  s.innerHTML=hits.map(x=>`<div onclick="pick('${x.un}')"><span class="u">UN${x.un}</span>${x.name} · ${x.cls}</div>`).join('');
+  s.innerHTML=hits.map(x=>`<div onclick="pick('${x.id}')"><span class="u">${idLabel(x)}</span>${esc(x.name)} · ${esc(x.cls)}</div>`).join('');
   s.style.display='block';
 }
-function pick(un){ picked=HM.find(x=>x.un===un);
-  document.getElementById('unIn').value=`UN${picked.un} — ${picked.name}`;
+function pick(id){ picked=HM.find(x=>x.id===id);
+  document.getElementById('unIn').value=`${idLabel(picked)} — ${picked.name}`;
   document.getElementById('sugg').style.display='none';
   document.getElementById('wtIn').focus();
 }
@@ -274,25 +351,26 @@ function addLine(){
     picked=HM.find(x=>x.un===raw);
   }
   const wt=parseInt(document.getElementById('wtIn').value.replace(/\D/g,''),10);
-  if(!picked){alert('Pick a material from the list (prototype carries a demo subset).');return;}
+  if(!picked){alert('Pick a material from the list — several shipping names can share one ID number, so HazPost needs to know which entry you mean.');return;}
   if(!wt){alert('Enter the gross weight in pounds.');return;}
   load.push({...picked, wt, fac:document.getElementById('fac').value});
   picked=null; render();
 }
 function demo(){
+  const byUn=u=>HM.find(x=>x.un===u&&(x.pfx||"UN")==="UN");
   load=[
-    {...HM.find(x=>x.un==="1203"), wt:650, fac:"A"},
-    {...HM.find(x=>x.un==="1830"), wt:500, fac:"A"},
-    {...HM.find(x=>x.un==="1479"), wt:2400, fac:"B"},
-  ];
+    {...byUn("1203"), wt:650, fac:"A"},
+    {...byUn("1830"), wt:500, fac:"A"},
+    {...byUn("1479"), wt:2400, fac:"B"},
+  ].filter(l=>l.un);
   render();
 }
 function drawLines(){
   const el=document.getElementById('lines'); if(!el) return;
   el.innerHTML = load.map((l,i)=>`
    <div class="line-item">
-     <span class="un">UN${l.un}</span>
-     <div class="nm"><b>${l.name}${l.t1?'<span class="t1tag">TABLE 1</span>':''}</b><span>Class ${l.cls} · PG ${l.pg} · Facility ${l.fac}</span></div>
+     <span class="un">${idLabel(l)}</span>
+     <div class="nm"><b>${esc(l.name)}${l.t1?'<span class="t1tag">TABLE 1</span>':''}</b><span>Class ${esc(l.cls)} · PG ${esc(l.pg)} · Facility ${esc(l.fac)}</span></div>
      <span class="wt">${l.wt.toLocaleString()} lb</span>
      <button class="x" onclick="load.splice(${i},1);render()">✕</button>
    </div>`).join('');
@@ -307,8 +385,17 @@ function compute(){
 
   // Table 1 — any quantity
   t1.forEach(l=>{
-    placards.add(l.plc);
-    why.push({tone:"bad", txt:`<b>UN${l.un} ${l.name}</b> is a Table 1 material (Class ${l.cls}). Its placard is required at <b>any quantity</b>.`, cite:"172.504(e) Table 1"});
+    if(!noPlc(l)) placards.add(l.plc);
+    why.push({tone:"bad", txt:`<b>${idLabel(l)} ${esc(l.name)}</b> is a Table 1 material (Class ${esc(l.cls)}). Its placard is required at <b>any quantity</b>.`, cite:"172.504(e) Table 1"});
+    if(l.cond) why.push({tone:"warn", txt:`<b>${idLabel(l)}</b> — ${esc(l.cond)}`, cite:"172.504(e) Table 1"});
+  });
+
+  // 172.505(a) — a PIH material carries its inhalation placard on top of its own class placard
+  load.forEach(l=>{
+    if(l.pih && l.base!=="6.1" && l.base!=="2.3"){
+      placards.add("pih61");
+      why.push({tone:"bad", txt:`<b>${idLabel(l)} ${esc(l.name)}</b> is poisonous by inhalation (${esc(l.pih)}). A <b>POISON INHALATION HAZARD</b> placard is required at any quantity, in addition to its Class ${esc(l.cls)} placard.`, cite:"172.505(a)"});
+    }
   });
 
   // Table 2 — aggregate threshold
@@ -318,13 +405,20 @@ function compute(){
   }
   if(t2.length && agg >= 1001){
     why.push({tone:"warn", txt:`Table 2 aggregate is <b>${agg.toLocaleString()} lb</b> — at or over 1,001 lb, so every Table 2 category on board must be placarded.`, cite:"172.504(c)"});
-    // categories present
+    // categories present. A category whose every line is exempt from placarding
+    // (6.2, unlabelled 1.4S) still counts toward the aggregate but hangs nothing.
     const cats={};
-    t2.forEach(l=>{ cats[l.base]=cats[l.base]||{wt:0, byFac:{}, plc:l.plc};
-      cats[l.base].wt+=l.wt;
-      cats[l.base].byFac[l.fac]=(cats[l.base].byFac[l.fac]||0)+l.wt; });
+    t2.forEach(l=>{ const c = cats[l.base] = cats[l.base]||{wt:0, byFac:{}, plc:null};
+      c.wt+=l.wt;
+      c.byFac[l.fac]=(c.byFac[l.fac]||0)+l.wt;
+      if(!c.plc && !noPlc(l)) c.plc=l.plc; });
     const catKeys=Object.keys(cats);
-    catKeys.forEach(c=>placards.add(cats[c].plc));
+    const placardedCats = catKeys.filter(c=>cats[c].plc);
+    placardedCats.forEach(c=>placards.add(cats[c].plc));
+
+    catKeys.filter(c=>!cats[c].plc).forEach(c=>{
+      why.push({tone:"ok", txt:`<b>${CLSNAME[c]||"Category "+c}</b> counts toward the 1,001 lb aggregate, but Table 2 specifies <b>no placard</b> for it.`, cite:"172.504(e) Table 2"});
+    });
 
     // Class 9 domestic note
     if(cats["9"]){
@@ -332,7 +426,7 @@ function compute(){
     }
 
     // DANGEROUS option
-    const nonNine = catKeys.filter(c=>c!=="9");
+    const nonNine = placardedCats.filter(c=>c!=="9");
     if(nonNine.length>=2){
       const blocked = nonNine.filter(c=>Object.values(cats[c].byFac).some(w=>w>=2205));
       if(blocked.length===0){
@@ -347,9 +441,17 @@ function compute(){
       }
     }
     // subsidiary note
-    t2.forEach(l=>{ if(l.subs) why.push({tone:"ok", txt:`<b>UN${l.un} ${l.name}</b> carries a Class ${l.subs} subsidiary hazard — check the papers; subsidiary placarding rules in 172.505 may apply.`, cite:"172.505"}); });
+    t2.forEach(l=>{ if(l.subs && !l.pih) why.push({tone:"ok", txt:`<b>${idLabel(l)} ${esc(l.name)}</b> carries a Class ${esc(l.subs)} subsidiary hazard — check the papers; subsidiary placarding rules in 172.505 may apply.`, cite:"172.505"}); });
   }
   if(!load.length) return null;
+
+  // 172.504(f)(1) — when several Class 1 divisions are aboard, only the lowest is displayed
+  const explOn = [...placards].filter(p=>EXPLDIV[p]).sort((a,b)=>EXPLDIV[a].localeCompare(EXPLDIV[b]));
+  if(explOn.length>1){
+    explOn.slice(1).forEach(p=>placards.delete(p));
+    why.push({tone:"ok", txt:`Explosives divisions ${explOn.map(p=>EXPLDIV[p]).join(", ")} are aboard — only the placard for the <b>lowest division</b>, EXPLOSIVES ${EXPLDIV[explOn[0]]}, must be displayed.`, cite:"172.504(f)(1)"});
+  }
+
   return {placards:[...placards], why, dangerOption, agg, t2cats: t2.length};
 }
 
@@ -378,6 +480,7 @@ function computeAndDraw(){
 }
 function plcHTML(key){
   const p=PLC[key];
+  if(!p || p.none) return "";
   const stripes = p.stripes? `<div style="position:absolute;top:0;left:0;right:0;height:50%;background:repeating-linear-gradient(90deg,#111 0 7px,#F2F2F2 7px 14px)"></div>`:"";
   return `<div class="plc"><div class="dia"><div class="fill" style="background:${p.bg}">${stripes}</div></div>
     <div class="txt" style="color:${p.fg}"><span class="w" style="max-width:60px">${p.w}</span><span class="n">${p.n}</span></div>
@@ -390,7 +493,7 @@ function renderLookup(){
   b.innerHTML=`<div class="card"><h4>Look up a material</h4>
     <input class="mono" id="lkIn" placeholder="UN number or name" oninput="lkSuggest(this.value)" autocomplete="off">
     <div class="sugg" id="lkSugg"></div><div id="lkOut"></div>
-    <div class="hint">Prototype subset — the full app ships the whole 172.101 table.</div></div>`;
+    <div class="hint">${esc(dataNote())}</div></div>`;
 }
 function lkSuggest(q){
   const s=document.getElementById('lkSugg');
@@ -398,25 +501,29 @@ function lkSuggest(q){
   if(!q){s.style.display='none';document.getElementById('lkOut').innerHTML='';return;}
   const hits=HM.filter(x=>x.un.includes(q)||x.name.toLowerCase().includes(q)).slice(0,6);
   if(!hits.length){s.style.display='none';return;}
-  s.innerHTML=hits.map(x=>`<div onclick="lkShow('${x.un}')"><span class="u">UN${x.un}</span>${x.name} · ${x.cls}</div>`).join('');
+  s.innerHTML=hits.map(x=>`<div onclick="lkShow('${x.id}')"><span class="u">${idLabel(x)}</span>${esc(x.name)} · ${esc(x.cls)}</div>`).join('');
   s.style.display='block';
 }
-function lkShow(un){
-  const x=HM.find(h=>h.un===un);
+function lkShow(id){
+  const x=HM.find(h=>h.id===id);
   document.getElementById('lkSugg').style.display='none';
-  document.getElementById('lkIn').value=`UN${x.un}`;
+  document.getElementById('lkIn').value=idLabel(x);
+  const noPlc = PLC[x.plc] && PLC[x.plc].none;
   document.getElementById('lkOut').innerHTML=`
-   <div class="lk"><span class="un">UN${x.un}</span><h5>${x.name}</h5>
-     <div class="kv"><span>Hazard class</span><span>${x.cls}</span></div>
-     <div class="kv"><span>Packing group</span><span>${x.pg}</span></div>
-     ${x.pih?`<div class="kv"><span>Inhalation hazard</span><span>${x.pih}</span></div>`:""}
-     ${x.subs?`<div class="kv"><span>Subsidiary hazard</span><span>Class ${x.subs}</span></div>`:""}
-     <div class="kv"><span>Placarding table</span><span><span class="pill ${x.t1?'t1':'t2'}">${x.t1?'Table 1 — any amount':'Table 2 — 1,001 lb aggregate'}</span></span></div>
+   <div class="lk"><span class="un">${idLabel(x)}</span><h5>${esc(x.name)}</h5>
+     <div class="kv"><span>Hazard class</span><span>${esc(x.cls)}</span></div>
+     <div class="kv"><span>Packing group</span><span>${esc(x.pg)}</span></div>
+     ${x.sym?`<div class="kv"><span>Column 1 symbols</span><span>${esc(x.sym)}</span></div>`:""}
+     ${x.pih?`<div class="kv"><span>Inhalation hazard</span><span>${esc(x.pih)}</span></div>`:""}
+     ${x.subs?`<div class="kv"><span>Subsidiary hazard</span><span>Class ${esc(x.subs)}</span></div>`:""}
+     <div class="kv"><span>Placarding table</span><span>${noPlc?`<span class="pill t2">No placard required</span>`:`<span class="pill ${x.t1?'t1':'t2'}">${x.t1?'Table 1 — any amount':'Table 2 — 1,001 lb aggregate'}</span>`}</span></div>
+     ${x.cond?`<div class="kv"><span>Condition</span><span style="max-width:62%;font-weight:500">${esc(x.cond)}</span></div>`:""}
    </div>
-   <div style="display:flex;justify-content:center;padding:18px 0 4px">${plcHTML(x.plc)}</div>`;
+   ${noPlc?`<div class="hint" style="text-align:center;padding:16px 0 4px">${esc(PLC[x.plc].why||"No placard is specified for this material.")}</div>`
+          :`<div style="display:flex;justify-content:center;padding:18px 0 4px">${plcHTML(x.plc)}</div>`}`;
 }
 
-render();
+loadData();
 </script>
 </body>
 </html>
