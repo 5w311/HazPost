@@ -1,0 +1,266 @@
+{
+ "source": "Curated demo subset of the 49 CFR 172.101 Hazardous Materials Table",
+ "cfrDate": null,
+ "generated": null,
+ "generator": null,
+ "count": 25,
+ "records": [
+  {
+   "id": "UN0209",
+   "un": "0209",
+   "pfx": "UN",
+   "name": "Trinitrotoluene (TNT), dry",
+   "cls": "1.1D",
+   "base": "1.1",
+   "pg": "II",
+   "plc": "expl11",
+   "t1": true
+  },
+  {
+   "id": "UN1017",
+   "un": "1017",
+   "pfx": "UN",
+   "name": "Chlorine",
+   "cls": "2.3",
+   "base": "2.3",
+   "pg": "—",
+   "plc": "gas23",
+   "t1": true,
+   "pih": "Zone B"
+  },
+  {
+   "id": "UN3381",
+   "un": "3381",
+   "pfx": "UN",
+   "name": "Toxic by inhalation liquid, n.o.s.",
+   "cls": "6.1",
+   "base": "6.1",
+   "pg": "I",
+   "plc": "pih61",
+   "t1": true,
+   "pih": "Zone A"
+  },
+  {
+   "id": "UN1428",
+   "un": "1428",
+   "pfx": "UN",
+   "name": "Sodium",
+   "cls": "4.3",
+   "base": "4.3",
+   "pg": "I",
+   "plc": "wet43",
+   "t1": true
+  },
+  {
+   "id": "UN1203",
+   "un": "1203",
+   "pfx": "UN",
+   "name": "Gasoline",
+   "cls": "3",
+   "base": "3",
+   "pg": "II",
+   "plc": "flam3"
+  },
+  {
+   "id": "UN1090",
+   "un": "1090",
+   "pfx": "UN",
+   "name": "Acetone",
+   "cls": "3",
+   "base": "3",
+   "pg": "II",
+   "plc": "flam3"
+  },
+  {
+   "id": "UN1263",
+   "un": "1263",
+   "pfx": "UN",
+   "name": "Paint (flammable)",
+   "cls": "3",
+   "base": "3",
+   "pg": "II",
+   "plc": "flam3"
+  },
+  {
+   "id": "UN1993",
+   "un": "1993",
+   "pfx": "UN",
+   "name": "Flammable liquids, n.o.s.",
+   "cls": "3",
+   "base": "3",
+   "pg": "II",
+   "plc": "flam3"
+  },
+  {
+   "id": "UN1230",
+   "un": "1230",
+   "pfx": "UN",
+   "name": "Methanol",
+   "cls": "3 (6.1)",
+   "base": "3",
+   "pg": "II",
+   "plc": "flam3",
+   "subs": "6.1"
+  },
+  {
+   "id": "UN1866",
+   "un": "1866",
+   "pfx": "UN",
+   "name": "Resin solution",
+   "cls": "3",
+   "base": "3",
+   "pg": "III",
+   "plc": "flam3"
+  },
+  {
+   "id": "UN1075",
+   "un": "1075",
+   "pfx": "UN",
+   "name": "Petroleum gases, liquefied (LPG)",
+   "cls": "2.1",
+   "base": "2.1",
+   "pg": "—",
+   "plc": "flamgas21"
+  },
+  {
+   "id": "UN1950",
+   "un": "1950",
+   "pfx": "UN",
+   "name": "Aerosols, flammable",
+   "cls": "2.1",
+   "base": "2.1",
+   "pg": "—",
+   "plc": "flamgas21"
+  },
+  {
+   "id": "UN1066",
+   "un": "1066",
+   "pfx": "UN",
+   "name": "Nitrogen, compressed",
+   "cls": "2.2",
+   "base": "2.2",
+   "pg": "—",
+   "plc": "nfgas22"
+  },
+  {
+   "id": "UN1830",
+   "un": "1830",
+   "pfx": "UN",
+   "name": "Sulfuric acid",
+   "cls": "8",
+   "base": "8",
+   "pg": "II",
+   "plc": "corr8"
+  },
+  {
+   "id": "UN1824",
+   "un": "1824",
+   "pfx": "UN",
+   "name": "Sodium hydroxide, solution",
+   "cls": "8",
+   "base": "8",
+   "pg": "II",
+   "plc": "corr8"
+  },
+  {
+   "id": "UN2794",
+   "un": "2794",
+   "pfx": "UN",
+   "name": "Batteries, wet, filled with acid",
+   "cls": "8",
+   "base": "8",
+   "pg": "—",
+   "plc": "corr8"
+  },
+  {
+   "id": "UN1760",
+   "un": "1760",
+   "pfx": "UN",
+   "name": "Corrosive liquid, n.o.s.",
+   "cls": "8",
+   "base": "8",
+   "pg": "II",
+   "plc": "corr8"
+  },
+  {
+   "id": "UN1479",
+   "un": "1479",
+   "pfx": "UN",
+   "name": "Oxidizing solid, n.o.s.",
+   "cls": "5.1",
+   "base": "5.1",
+   "pg": "II",
+   "plc": "oxy51"
+  },
+  {
+   "id": "UN2067",
+   "un": "2067",
+   "pfx": "UN",
+   "name": "Ammonium nitrate based fertilizer",
+   "cls": "5.1",
+   "base": "5.1",
+   "pg": "III",
+   "plc": "oxy51"
+  },
+  {
+   "id": "UN2783",
+   "un": "2783",
+   "pfx": "UN",
+   "name": "Organophosphorus pesticide, solid, toxic",
+   "cls": "6.1",
+   "base": "6.1t2",
+   "pg": "II",
+   "plc": "tox61"
+  },
+  {
+   "id": "UN1888",
+   "un": "1888",
+   "pfx": "UN",
+   "name": "Chloroform",
+   "cls": "6.1",
+   "base": "6.1t2",
+   "pg": "III",
+   "plc": "tox61"
+  },
+  {
+   "id": "UN1350",
+   "un": "1350",
+   "pfx": "UN",
+   "name": "Sulfur",
+   "cls": "4.1",
+   "base": "4.1",
+   "pg": "III",
+   "plc": "fs41"
+  },
+  {
+   "id": "UN1361",
+   "un": "1361",
+   "pfx": "UN",
+   "name": "Carbon (animal or vegetable origin)",
+   "cls": "4.2",
+   "base": "4.2",
+   "pg": "II",
+   "plc": "sc42"
+  },
+  {
+   "id": "UN3077",
+   "un": "3077",
+   "pfx": "UN",
+   "name": "Environmentally hazardous substance, solid, n.o.s.",
+   "cls": "9",
+   "base": "9",
+   "pg": "III",
+   "plc": "misc9"
+  },
+  {
+   "id": "UN3082",
+   "un": "3082",
+   "pfx": "UN",
+   "name": "Environmentally hazardous substance, liquid, n.o.s.",
+   "cls": "9",
+   "base": "9",
+   "pg": "III",
+   "plc": "misc9"
+  }
+ ]
+}
