@@ -1,5 +1,6 @@
 {
  "source": "49 CFR 172.101 Hazardous Materials Table",
+ "version": "1.0.0",
  "cfrDate": "2026-07-22",
  "generated": "2026-08-01",
  "generator": "tools/build-hazmat.mjs",

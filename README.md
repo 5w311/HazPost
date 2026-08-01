@@ -24,10 +24,60 @@ HazPost is a verification aid for hazmat drivers. It does not classify materials
 - Static site, no build step, vanilla JS
 - `index.html` — app shell and all logic
 - `hazmat.json` — the full 172.101 material table, fetched at load
+- `sw.js` — service worker: offline cache for the whole app
+- `manifest.json` + `icons/` — installable to the phone home screen
 - `tools/build-hazmat.mjs` — regenerates `hazmat.json` from the eCFR API
+- `tools/build-icons.mjs` — regenerates `icons/`
 - `tools/GENERATION-REPORT.md` — what the last generation run decided, and why
 - Deployed via GitHub Pages
-- Mobile-first; offline support via service worker planned
+- Mobile-first, offline-first
+
+## Offline
+
+Placarding calls happen at docks and in yards with no signal, so the app is
+built to answer with none. The service worker caches the shell, `hazmat.json`,
+the icons and the web fonts, and serves every request cache-first while
+refreshing in the background. Once the app has been opened online a single
+time, it works with the radio off — module grid, load builder, computed
+placard set and UN lookup.
+
+The current load is written to `localStorage` on every change and restored on
+start, so a load built at the dock survives the phone going in a pocket.
+Only the record id, weight and facility are stored: the hazard classification
+is re-read from `hazmat.json` each time, so a load saved before a CFR
+amendment can never resurrect a stale placard category. Lines whose entry has
+left the table are dropped with a notice rather than silently kept.
+
+While offline, a strip under the header says so and shows when the cached
+table was generated and when the cache last refreshed.
+
+### Paths
+
+HazPost is a GitHub Pages **project** site, served from `/HazPost/` rather
+than a domain root. Every install path — the worker registration, the
+manifest, the icons, and every URL cached by `sw.js` — is therefore relative,
+and `sw.js` resolves its relative URLs against `self.registration.scope`.
+A leading slash anywhere would resolve to the domain root, cache the Pages
+404 page and serve that to drivers. Verified under both `/HazPost/` and a
+domain root.
+
+### Releasing
+
+Bump `VERSION` in `sw.js` on every release. The cache name carries it, so a
+new worker installs into a fresh cache and drops the old ones on activate.
+Without a bump, drivers keep the cached copy they already have.
+
+## Icons
+
+```sh
+node tools/build-icons.mjs
+```
+
+Pure Node, no dependencies: the mark is a signed distance field and the PNGs
+are encoded against `node:zlib`. Re-run it rather than editing the binaries.
+Every icon is drawn full-bleed and fully opaque — iOS composites a transparent
+`apple-touch-icon` onto white, which would put the yellow diamond on a white
+tile instead of the app's dark one.
 
 ## Material data
 
@@ -45,6 +95,11 @@ and refuses to write anything if one fails. Every entry it drops or has to judge
 is listed by name in the generation report.
 
 Each record:
+
+Alongside the records, the file carries `version` (the record shape and
+mapping build, bumped by hand in the generator), `cfrDate` (which eCFR text it
+was built from) and `generated` (when). The offline indicator shows these, so
+a driver can see how old the answer is.
 
 | Field | |
 |---|---|
