@@ -13,7 +13,7 @@ HazPost is a verification aid for hazmat drivers. It does not classify materials
 | Module | CFR | Status |
 |---|---|---|
 | Placarding (load builder + UN lookup) | 172.504 | Live |
-| Segregation | 177.848 | Planned |
+| Segregation (load check + reference tables) | 177.848 | Live |
 | On the Road | Part 397 | Planned |
 | Shipping Papers | 177.817 | Planned |
 | Incident Response | 171.15 | Planned |
@@ -24,22 +24,24 @@ HazPost is a verification aid for hazmat drivers. It does not classify materials
 - Static site, no build step, vanilla JS
 - `index.html` — app shell and all logic
 - `hazmat.json` — the full 172.101 material table, fetched at load
+- `segregation.json` — the 177.848 segregation and Class 1 compatibility tables
 - `sw.js` — service worker: offline cache for the whole app
 - `manifest.json` + `icons/` — installable to the phone home screen
 - `tools/build-hazmat.mjs` — regenerates `hazmat.json` from the eCFR API
+- `tools/build-segregation.mjs` — regenerates `segregation.json` from the eCFR API
 - `tools/build-icons.mjs` — regenerates `icons/`
-- `tools/GENERATION-REPORT.md` — what the last generation run decided, and why
+- `tools/GENERATION-REPORT.md`, `tools/SEGREGATION-REPORT.md` — what each generation run decided, and why
 - Deployed via GitHub Pages
 - Mobile-first, offline-first
 
 ## Offline
 
 Placarding calls happen at docks and in yards with no signal, so the app is
-built to answer with none. The service worker caches the shell, `hazmat.json`,
-the icons and the web fonts, and serves every request cache-first while
+built to answer with none. The service worker caches the shell, both data
+files, the icons and the web fonts, and serves every request cache-first while
 refreshing in the background. Once the app has been opened online a single
 time, it works with the radio off — module grid, load builder, computed
-placard set and UN lookup.
+placard set, UN lookup and the segregation check.
 
 The current load is written to `localStorage` on every change and restored on
 start, so a load built at the dock survives the phone going in a pocket.
@@ -71,7 +73,8 @@ and must not be collapsed into one.
 |---|---|---|
 | `index.html` | `APP_VERSION` | which build of the code a driver is running |
 | `sw.js` | `VERSION` | the cache generation, which forces a fresh install |
-| `hazmat.json` | `version` / `cfrDate` | which CFR edition the table came from |
+| `hazmat.json` | `version` / `cfrDate` | which CFR edition the material table came from |
+| `segregation.json` | `version` / `cfrDate` | which CFR edition the segregation tables came from |
 
 The first and third are on screen: `APP_VERSION` in the home footer,
 the data edition in the disclaimer line above it. The cache generation is
@@ -85,8 +88,8 @@ sees no change and serves the old build forever. A deploy that bumps only
 which build they are on is told the wrong thing. Either way the failure is
 silent, which is the exact failure the version footer exists to prevent.
 
-`hazmat.json`'s `version` moves on its own schedule, whenever
-`tools/build-hazmat.mjs` changes the record shape or the mapping rules.
+The two data files' `version` fields move on their own schedule, whenever the
+generator that writes them changes the record shape or the mapping rules.
 
 ### How an update reaches a driver
 
@@ -156,6 +159,72 @@ a driver can see how old the answer is.
 | `pih` | inhalation hazard zone, from special provisions 1-4 and 6 |
 | `subs` | subsidiary hazard label codes |
 | `cond` | condition attached to the Table 1 requirement (Class 7) |
+
+## Segregation data
+
+`segregation.json` holds both tables from 49 CFR 177.848 — the 18 × 18
+segregation table in paragraph (d) and the 13 × 13 Class 1 compatibility table
+in paragraph (f). Generated, never transcribed:
+
+```sh
+node tools/build-segregation.mjs [--date YYYY-MM-DD]
+```
+
+The script refuses to write unless both tables are square, every cell is a
+legal marker, and — the check that earns its keep — **both tables are
+symmetric**. The table means the same thing read down or across, so a dropped
+cell or a column that slipped by one shows up immediately as a mismatched pair
+rather than as a wrong answer on a trailer. It also asserts the row divisions
+and column headers against the expected 18, so a future amendment that
+reorders the axes aborts the build instead of silently shifting markers.
+
+### The 18 categories are not the placard categories
+
+They are narrower in three places, so a load line is mapped to a segregation
+row from scratch rather than reusing `base`:
+
+- **Division 2.3** splits by inhalation zone. Zone A and Zone B are rows;
+  Zones C and D are not and carry no restriction. A 2.3 record with no zone on
+  file is treated as Zone A, the stricter row, and the assumption is stated on
+  screen.
+- **Division 6.1** has one row and it is narrow: poisonous **liquids**, packing
+  group I, hazard zone A. Anything short of all three has no row.
+- **Class 8** has one row and it is **liquids only**.
+
+A class absent from the 18 — Division 6.2, Class 9, combustible liquid — has
+no segregation restriction at all. The module says so rather than leaving a
+driver wondering whether the check simply missed it.
+
+### Physical state is asked, never guessed
+
+Two rows turn on physical state that `hazmat.json` does not record. 245 of the
+303 Class 8 records never say liquid or solid in the proper shipping name, and
+another 214 records carry a subsidiary 8. So HazPost asks — per load line,
+only where the answer would change a verdict, and only for lines that land on
+one of those two rows. The driver has the paper in hand, and an explicit
+question makes them look at it in a way a silent default does not.
+
+The answer rides with the load line and dies with the load. It is never
+carried across loads or reused for the same ID number later, because n.o.s.
+entries genuinely vary between shipments.
+
+**While any state question is unanswered, the module will not show an
+all-clear.** It shows the conflicts it can already prove and lists the
+outstanding lines. A green result that is only true because a question went
+unanswered is the worst thing this module could do.
+
+### Rules that are not in the grid
+
+The table looks complete and is not. Each of these surfaces when relevant:
+the Class 8 liquids placement rule in (e)(3), the cyanide-and-acid warning in
+(c), Note A in (e)(5), the subsidiary-hazard rule in (e)(6) — including its
+second sentence, surfaced as advice rather than automated — and the vessel
+carve-out in (b).
+
+Not implemented: the Class 1 compatibility **engine**. A pair that resolves to
+`*` says both lines are explosives and points at the reference table. The
+numbered rules in (g) and the division-mixing rules in (h) and (i) are a
+second engine.
 
 ## Placarding engine rules implemented
 

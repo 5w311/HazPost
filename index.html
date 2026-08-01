@@ -134,6 +134,44 @@ input.mono{font:500 15px 'Roboto Mono'}
 
 .disclaimer{font-size:11.5px;color:var(--faint);line-height:1.5;padding:14px 4px 0;border-top:1px solid var(--line);margin-top:20px}
 
+/* segregation module */
+.segchip{font:700 9.5px 'Barlow Condensed';letter-spacing:.8px;padding:2px 6px;border-radius:4px;text-transform:uppercase;flex:none}
+.segchip.sub{background:#3A2E4A;color:#C9A7E8}
+.segv{border-radius:12px;padding:14px;margin-bottom:12px;border:1px solid}
+.segv.x{background:#2A1618;border-color:#6B2429}
+.segv.o{background:#2A2415;border-color:#6B5520}
+.segv.s{background:#1E2430;border-color:#39424F}
+.segv.clear{background:#16241A;border-color:#265731}
+.segv.pend{background:#241E15;border-color:#5A4A1E}
+.segv .hd{font:800 15px 'Barlow';display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.segv p{font-size:13.5px;line-height:1.5;color:#DCE2EA}
+.segv .mark{width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;font:800 13px 'Barlow Condensed';flex:none}
+.segv .mark.x{background:var(--bad);color:#fff}
+.segv .mark.o{background:var(--brand);color:#111}
+.segv .mark.s{background:#39424F;color:var(--brand)}
+.segv .mark.c{background:var(--ok);color:#fff}
+.segv .mark.p{background:var(--warn);color:#111}
+.segv .cite{display:inline-block;font:500 11px 'Roboto Mono';color:var(--faint);margin-top:8px}
+.pairline{font:500 12px 'Roboto Mono';color:var(--dim);margin-top:6px;line-height:1.45}
+.pairline.sub{color:#C9A7E8}
+.stateq{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:10px}
+.stateq p{font-size:13.5px;line-height:1.45}
+.stateq p.q{color:var(--dim);margin:5px 0 10px}
+.matwrap{overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:10px}
+table.mat{border-collapse:collapse;font:600 10px 'Roboto Mono'}
+table.mat th,table.mat td{width:27px;height:27px;text-align:center;border:1px solid #262E39;padding:0}
+table.mat th{background:var(--panel2);color:var(--dim);font-size:8.5px;position:sticky;top:0;z-index:2}
+table.mat th.rh{position:sticky;left:0;z-index:3;width:52px;min-width:52px;text-align:left;padding-left:5px}
+table.mat td.x{background:rgba(229,72,77,.85);color:#fff}
+table.mat td.o{background:rgba(255,182,18,.85);color:#111}
+table.mat td.s{background:#39424F;color:var(--brand)}
+table.mat td.n{background:#2A3140;color:var(--brand);font-size:9px}
+table.mat td.b{background:var(--panel)}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;font-size:11.5px;color:var(--dim)}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.legend i.x{background:rgba(229,72,77,.85)} .legend i.o{background:rgba(255,182,18,.85)}
+.legend i.s{background:#39424F} .legend i.b{background:var(--panel);border:1px solid var(--line)}
+
 /* version footer — home only, tap to check for a new build */
 .verfoot{display:block;width:100%;background:none;border:none;cursor:pointer;
   font:500 10.5px 'Roboto Mono',monospace;letter-spacing:.4px;color:var(--faint);
@@ -172,12 +210,15 @@ input.mono{font:500 15px 'Roboto Mono'}
 <script>
 /* The build a driver is running, shown in the home footer.
    Bump this and VERSION in sw.js together on every deploy — see README. */
-const APP_VERSION = "0.2.0";
+const APP_VERSION = "0.3.0";
 
 /* ---------------- DATA: the 172.101 table, fetched from hazmat.json ---------------- */
 const DATA_URL = "hazmat.json";
+const SEG_URL = "segregation.json";
 let HM = [];           /* material records */
 let HMMETA = null;     /* provenance: source, cfrDate, generated */
+let SEG = null;        /* 177.848 tables; null if segregation.json didn't load */
+let segError = "";
 let dataState = "loading";   /* loading | ready | error */
 let dataError = "";
 
@@ -197,6 +238,10 @@ async function loadData(){
     dataState="ready";
     /* only once the table is in hand — restored lines are re-classified from it */
     restoreLoad();
+    /* Segregation data is loaded separately and is not fatal: losing it must
+       not take the placarding module down with it. The segregation module
+       says so for itself if this fails. */
+    await loadSeg();
   }catch(e){
     dataError = (e && e.message) ? e.message : String(e);
     dataState="error";
@@ -204,6 +249,21 @@ async function loadData(){
   await readCacheMeta();
   render();
   paintOffline();
+}
+
+async function loadSeg(){
+  segError = "";
+  try{
+    const res = await fetch(SEG_URL, {cache:"no-cache"});
+    if(!res.ok) throw new Error(`the server answered ${res.status} ${res.statusText||""}`.trim());
+    const doc = await res.json();
+    if(!Array.isArray(doc.table) || doc.table.length!==18) throw new Error("segregation table is not 18 rows");
+    if(!Array.isArray(doc.categories) || doc.categories.length!==18) throw new Error("segregation categories are not 18");
+    SEG = doc;
+  }catch(e){
+    SEG = null;
+    segError = (e && e.message) ? e.message : String(e);
+  }
 }
 
 /* proper shipping names come straight out of the CFR — escape before they hit innerHTML */
@@ -507,8 +567,12 @@ function saveLoad(){
   try{
     localStorage.setItem(LS_LOAD, JSON.stringify({
       saved: new Date().toISOString(),
-      view, plcTab,
-      lines: load.map(l=>({id:l.id, wt:l.wt, fac:l.fac})),
+      view, plcTab, segTab,
+      /* st is the driver's answer to the physical-state question in the
+         segregation module. It rides with the line and dies with the load —
+         never reused for the same ID on a later load, because n.o.s. entries
+         genuinely vary between shipments. */
+      lines: load.map(l=>({id:l.id, wt:l.wt, fac:l.fac, ...(l.st?{st:l.st}:{})})),
     }));
   }catch(e){ /* private mode or quota — the app works, it just won't remember */ }
 }
@@ -524,12 +588,13 @@ function restoreLoad(){
   load = lines.map(l=>{
     const m = HM.find(x=>x.id===l.id);
     if(!m || !(l.wt>0)){ dropped.push(l.id); return null; }
-    return {...m, wt:l.wt, fac:l.fac||"A"};
+    return {...m, wt:l.wt, fac:l.fac||"A", ...(l.st==="liquid"||l.st==="solid" ? {st:l.st} : {})};
   }).filter(Boolean);
   if(dropped.length){
     restoreNote = `${dropped.length} saved line${dropped.length===1?" is":"s are"} no longer in the 172.101 table and ${dropped.length===1?"was":"were"} dropped. Re-check your papers.`;
   }
   if(load.length && doc.view==="placards"){ view = "placards"; plcTab = doc.plcTab==="lookup" ? "lookup" : "builder"; }
+  if(load.length && doc.view==="seg"){ view = "seg"; segTab = doc.segTab==="table" ? "table" : "load"; }
 }
 
 /* every mutation of the load goes through here, so nothing can change on
@@ -542,19 +607,18 @@ function clearLoad(){
   if(!confirm(`Clear all ${n} line${n===1?"":"s"}?\n\nThis also erases the load saved on this phone — it will not come back when you reopen HazPost.`)) return;
   load = []; restoreNote = ""; commit();
 }
-let view = "home", plcTab = "builder";
+let view = "home", plcTab = "builder", segTab = "load";
 
 /* ---------------- ROUTER ---------------- */
 const MODULES = [
  {id:"placards", tc:"var(--brand)", t:"Placarding", d:"Build your load, get the placard set for the trailer", cfr:"49 CFR 172.504", live:true},
- {id:"seg", tc:"var(--flam)", t:"Segregation", d:"What can and can't ride together", cfr:"49 CFR 177.848"},
+ {id:"seg", tc:"var(--flam)", t:"Segregation", d:"What can and can't ride together", cfr:"49 CFR 177.848", live:true},
  {id:"ops", tc:"var(--wet)", t:"On the Road", d:"Attendance, parking, fueling, tire checks", cfr:"49 CFR Part 397"},
  {id:"papers", tc:"var(--gas)", t:"Shipping Papers", d:"What must be on them, where they must sit", cfr:"49 CFR 177.817"},
  {id:"incident", tc:"var(--expl)", t:"Incident Response", d:"When and who you must call, immediately", cfr:"49 CFR 171.15"},
  {id:"creds", tc:"var(--faint)", t:"Credentials", d:"HME, training clock, what you carry", cfr:"49 CFR 172.704"},
 ];
 const STUBTXT = {
- seg:["Segregation","The 177.848 compatibility table, flipped into a simple 'can these two ride together?' checker."],
  ops:["On the Road","Plain-language Part 397: attending the vehicle, where you can park, smoking, fueling, and the tire check rule."],
  papers:["Shipping Papers","A checklist of every required element, the emergency phone rule, and exactly where papers live in the cab."],
  incident:["Incident Response","The immediate-notice triggers, the National Response Center number, and the written report clock."],
@@ -607,6 +671,16 @@ function render(){
       </div>
       <div id="tabBody"></div>`;
     if(plcTab==='builder') renderBuilder(); else renderLookup();
+  } else if(view==="seg"){
+    sub.textContent="49 CFR 177.848 · Segregation";
+    m.innerHTML = `
+      <div class="tabs">
+        <button class="${segTab==='load'?'on':''}" onclick="segTab='load';commit()">Check my load</button>
+        <button class="${segTab==='table'?'on':''}" onclick="segTab='table';commit()">Reference table</button>
+      </div>
+      <div id="segBody"></div>`;
+    document.getElementById('segBody').innerHTML =
+      !SEG ? segUnavailable() : (segTab==='load' ? segLoadView() : segTableView());
   } else {
     const s=STUBTXT[view];
     sub.textContent = MODULES.find(x=>x.id===view).cfr;
@@ -829,6 +903,308 @@ function lkShow(id){
    </div>
    ${noPlc?`<div class="hint" style="text-align:center;padding:16px 0 4px">${esc(PLC[x.plc].why||"No placard is specified for this material.")}</div>`
           :`<div style="display:flex;justify-content:center;padding:18px 0 4px">${plcHTML(x.plc)}</div>`}`;
+}
+
+/* ================= SEGREGATION — 49 CFR 177.848 =================
+
+   The 18 categories on the axes of the (d) table are NOT the placard
+   categories the load builder uses. They are narrower in three places:
+   Division 2.3 splits by inhalation zone, Division 6.1 is one narrow row
+   (poisonous liquids, PG I, Zone A), and Class 8 is liquids only. So a load
+   line is mapped here from scratch rather than reusing `base`.
+
+   A line can occupy more than one category: 177.848(e)(6) requires
+   segregation appropriate to a subsidiary hazard whenever it is more
+   restrictive than the primary. That is the part a driver reading placards
+   alone would never see.                                                  */
+
+const SEGRANK = {"":0, "O":1, "*":2, "X":3};
+
+const segIdx = k => SEG.categories.findIndex(c=>c.key===k);
+const segCat = k => SEG.categories.find(c=>c.key===k) || {key:k, label:k, name:k, axis:k};
+const segCell = (a,b) => SEG.table[segIdx(a)][segIdx(b)];
+
+/** Rows defined as liquids. hazmat.json does not record physical state. */
+const NEEDS_STATE = {"8L":"Class 8", "6.1I-A":"Division 6.1"};
+
+/**
+ * Map one class/division token to a segregation category, or null when the
+ * token has no row at all. `ctx` collects the assumptions worth stating.
+ */
+function segCatFor(tok, l, ctx){
+  tok = String(tok||"").trim();
+  /* placard-category keys that are not plain divisions */
+  if(tok==="2.2oxy") tok = "2.2";
+  if(tok==="5.2tc")  tok = "5.2";
+  if(tok==="6.1t2")  tok = "6.1";
+  if(tok==="comb")   return null;
+
+  if(tok==="1.1" || tok==="1.2") return "1.1-1.2";
+  if(["1.3","1.4","1.5","1.6","2.1","2.2","3","4.1","4.2","4.3","5.1","5.2","7"].includes(tok)) return tok;
+
+  /* a bare Class 1 label with no division — nothing to look up */
+  if(tok==="1"){ ctx.notes.push(`${idLabel(l)} carries a Class 1 subsidiary with no division recorded, so it cannot be placed on the explosives rows. Check the papers.`); return null; }
+
+  if(tok==="2.3"){
+    const z = (l.pih||"").match(/Zone\s*([A-D])/i);
+    if(!z){
+      ctx.notes.push(`${idLabel(l)} is Division 2.3 with no inhalation zone on file — treated as <b>Zone A</b>, the stricter row.`);
+      return "2.3A";
+    }
+    const Z = z[1].toUpperCase();
+    if(Z==="A") return "2.3A";
+    if(Z==="B") return "2.3B";
+    return null;   /* Zones C and D are not rows — no restriction */
+  }
+
+  if(tok==="6.1"){
+    /* the row is poisonous LIQUIDS, PG I, Zone A — all three, or no row */
+    const zoneA = /Zone\s*A/i.test(l.pih||"");
+    const pgI   = String(l.pg||"").split(",").map(x=>x.trim()).includes("I");
+    return (zoneA && pgI) ? "6.1I-A" : null;
+  }
+
+  if(tok==="8") return "8L";
+
+  return null;   /* 6.2, Class 9, combustible liquid and the rest have no row */
+}
+
+/**
+ * Every category a load line occupies, with the state question resolved.
+ * Returns confirmed categories plus any outstanding question.
+ */
+function segCatsFor(l, ctx){
+  const raw = [];
+  const p = segCatFor(l.base, l, ctx);
+  if(p) raw.push({key:p, sub:false, from:"primary"});
+  (l.subs ? String(l.subs).split(/,\s*/) : []).forEach(t=>{
+    const c = segCatFor(t, l, ctx);
+    if(c && !raw.some(r=>r.key===c)) raw.push({key:c, sub:true, from:`subsidiary ${t}`});
+  });
+
+  const cats = [], pending = [];
+  raw.forEach(c=>{
+    if(NEEDS_STATE[c.key]){
+      if(l.st === "liquid") cats.push(c);
+      else if(l.st === "solid") { /* the row is liquids only — line drops off it */ }
+      else pending.push(c);
+    } else cats.push(c);
+  });
+  return {cats, pending, raw};
+}
+
+/** Pairwise check across the whole load. */
+function segCheck(){
+  const ctx = {notes:[]};
+  const mapped = load.map((l,i)=>({i, l, ...segCatsFor(l, ctx)}));
+
+  /* Ask only where the answer changes the outcome. A lone Class 8 line with
+     nothing on the trailer it could ever conflict with does not need the
+     driver to go and read the paper — and a prompt that fires when it cannot
+     matter trains people to dismiss the one that does.
+     `pendingAll` keeps the unfiltered set, because a line whose state is still
+     open may still occupy the row for the advisories below. */
+  const possible = mapped.map(m=>[...m.cats, ...m.pending]);
+  mapped.forEach(m=>{
+    m.pendingAll = m.pending;
+    m.pending = m.pending.filter(pc =>
+      mapped.some((o,j)=> j!==m.i && possible[j].some(oc=> segCell(pc.key, oc.key) !== "")));
+  });
+
+  const pairs = [];
+
+  for(let a=0;a<mapped.length;a++) for(let b=a+1;b<mapped.length;b++){
+    const A = mapped[a], B = mapped[b];
+    let worst = "", via = null;
+    for(const ca of A.cats) for(const cb of B.cats){
+      const v = segCell(ca.key, cb.key);
+      /* strictly worse wins; on a tie prefer the primary-to-primary reading,
+         which is the less alarming way to say the same thing */
+      const better = SEGRANK[v] > SEGRANK[worst] ||
+                     (SEGRANK[v] === SEGRANK[worst] && via && (via[0].sub || via[1].sub) && !ca.sub && !cb.sub);
+      if(better){ worst = v; via = [ca, cb]; }
+    }
+    if(worst === "") continue;
+    pairs.push({A, B, code:worst, via, bySub: !!(via[0].sub || via[1].sub)});
+  }
+
+  const outstanding = mapped.filter(m=>m.pending.length);
+  return {mapped, pairs, outstanding, notes:ctx.notes};
+}
+
+/* ---------------- segregation views ---------------- */
+
+function setLineState(i, v){
+  if(!load[i]) return;
+  load[i].st = v;
+  commit();
+}
+
+function segUnavailable(){
+  return `<div class="card"><h4>Segregation data unavailable</h4>
+    <p style="font-size:14px;line-height:1.5;color:var(--dim)">The 177.848 tables could not be loaded, so HazPost will not guess at what can ride together.</p>
+    <div class="msg" style="font:500 12.5px 'Roboto Mono';color:var(--bad);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:12px;word-break:break-word">${esc(SEG_URL)} — ${esc(segError||"not loaded")}</div>
+    <button class="btn" style="margin-top:12px" onclick="loadSeg().then(render)">Try again</button></div>`;
+}
+
+function segLoadView(){
+  if(!load.length){
+    return `<div class="card"><h4>Nothing on the trailer</h4>
+      <div class="hint" style="margin-top:0">Segregation reads the same load you built for placarding. Add lines in <a href="#" style="color:var(--brand)" onclick="view='placards';plcTab='builder';commit();return false">Placarding → Load Builder</a>, then come back.</div></div>`;
+  }
+
+  const {mapped, pairs, outstanding, notes} = segCheck();
+  const hard = pairs.filter(p=>p.code==="X");
+  const soft = pairs.filter(p=>p.code==="O");
+  const star = pairs.filter(p=>p.code==="*");
+
+  /* the load, with the category each line occupies */
+  let h = `<div class="card"><h4>On the trailer — ${load.length} line${load.length===1?"":"s"}</h4>` +
+    mapped.map(m=>{
+      const shown = m.cats.map(c=>segCat(c.key).label);
+      const pend  = (m.pendingAll||m.pending).map(c=>segCat(c.key).label + "?");
+      const all   = [...shown, ...pend];
+      return `<div class="line-item">
+        <span class="un">${idLabel(m.l)}</span>
+        <div class="nm"><b>${esc(m.l.name)}</b><span>Class ${esc(m.l.cls)} · PG ${esc(m.l.pg)} → ${all.length? esc(all.join(" · ")) : "no segregation row"}</span></div>
+        ${m.l.subs?`<span class="segchip sub">sub ${esc(m.l.subs)}</span>`:""}
+      </div>`;
+    }).join("") + `</div>`;
+
+  /* Outstanding questions come first: they gate the verdict, and the driver
+     has the shipping paper in hand right now. */
+  if(outstanding.length){
+    h += `<div class="card"><h4>Answer before this is a verdict</h4>` +
+      outstanding.map(m=>{
+        const c = m.pending[0];
+        const what = NEEDS_STATE[c.key];
+        const row = segCat(c.key);
+        return `<div class="stateq">
+          <p><b>${idLabel(m.l)} ${esc(m.l.name)}</b></p>
+          <p class="q">${esc(what)} appears on this line${m.pending[0].sub?" as a subsidiary hazard":""}, and the segregation row is <b>${esc(row.axis)}</b>. Is this shipment a liquid or a solid? Read it off the paper — HazPost will not guess.</p>
+          <div class="row" style="margin-bottom:0">
+            <button class="btn ghost" onclick="setLineState(${m.i},'liquid')">Liquid</button>
+            <button class="btn ghost" onclick="setLineState(${m.i},'solid')">Solid</button>
+          </div>
+        </div>`;
+      }).join("") +
+      `<div class="hint">This answer rides with this load only. It is not remembered for the same ID number next time — n.o.s. entries genuinely vary between shipments.</div></div>`;
+  }
+
+  /* Verdicts. An all-clear is only honest once every question is answered. */
+  if(!pairs.length){
+    h += outstanding.length
+      ? `<div class="segv pend"><div class="hd"><span class="mark p">?</span>No verdict yet</div>
+         <p>Nothing on the answered part of this load hits a restricted cell — but ${outstanding.length} line${outstanding.length===1?"":"s"} above still need${outstanding.length===1?"s":""} a physical state before HazPost can say the trailer is clear.</p>
+         <span class="cite">49 CFR 177.848(d)</span></div>`
+      : `<div class="segv clear"><div class="hd"><span class="mark c">✓</span>No segregation conflicts</div>
+         <p>No pair on this load lands on a restricted cell of the 177.848 table.</p>
+         <span class="cite">49 CFR 177.848(d)</span></div>`;
+  } else if(outstanding.length){
+    h += `<div class="segv pend"><div class="hd"><span class="mark p">?</span>Partial result</div>
+      <p>The conflicts below are already proven. ${outstanding.length} line${outstanding.length===1?"":"s"} above still need${outstanding.length===1?"s":""} an answer, so this is not the whole picture.</p>
+      <span class="cite">49 CFR 177.848(d)</span></div>`;
+  }
+
+  hard.forEach(p=> h += segVerdict(p, "x", "X — may not travel together",
+    "These may not be loaded, transported, or stored together in the same vehicle. No method of separation makes it legal.", "177.848(d), (e)(2)"));
+  soft.forEach(p=> h += segVerdict(p, "o", "O — separation required",
+    "May travel together only if separated so that, if a package leaks under normal transport conditions, the contents could not commingle.", "177.848(d), (e)(3)"));
+  star.forEach(p=> h += segVerdict(p, "s", "Both are explosives",
+    "Segregation between these two is governed by the Class 1 compatibility group table, not this one. HazPost does not yet decide that pairing — open the reference table and read it against the compatibility groups on your papers.", "177.848(f)"));
+
+  h += segAdvisories(mapped, notes);
+  return h;
+}
+
+function segVerdict(p, cls, title, body, cite){
+  const ca = segCat(p.via[0].key), cb = segCat(p.via[1].key);
+  const mark = cls==="x" ? "X" : cls==="o" ? "O" : "★";
+  return `<div class="segv ${cls}"><div class="hd"><span class="mark ${cls}">${mark}</span>${title}</div>
+    <p>${body}</p>
+    <div class="pairline">${idLabel(p.A.l)} ${esc(p.A.l.name.slice(0,34))}${p.A.l.name.length>34?"…":""}
+      <span style="color:var(--faint)">✕</span> ${idLabel(p.B.l)} ${esc(p.B.l.name.slice(0,34))}${p.B.l.name.length>34?"…":""}</div>
+    <div class="pairline">via <b>${esc(ca.axis)}</b> ✕ <b>${esc(cb.axis)}</b></div>
+    ${p.bySub?`<div class="pairline sub">Triggered by a subsidiary hazard — ${esc(p.via[0].from)} on ${idLabel(p.A.l)}, ${esc(p.via[1].from)} on ${idLabel(p.B.l)}. A driver reading placards alone would not see this.</div>`:""}
+    <span class="cite">49 CFR ${cite}</span></div>`;
+}
+
+/* Rules that are not in the grid. The table looks complete; it is not. */
+function segAdvisories(mapped, notes){
+  /* Advisories use every row a line might occupy, including one whose state is
+     still open — an advisory that only appears after the question is answered
+     is an advisory that arrives too late. */
+  const held = new Set();
+  mapped.forEach(m=>[...m.cats, ...(m.pendingAll||m.pending)].forEach(c=>held.add(c.key)));
+  const has = k => held.has(k);
+  const adv = [];
+
+  if(has("8L") && ["4.1","4.2","4.3","5.1","5.2"].some(has)){
+    adv.push(["bad", `Whatever separation you use, <b>Class 8 liquids may not be loaded above or adjacent to Class 4 or Class 5 materials</b>. This is a placement rule, so an O verdict alone does not cover it. The only exception is a truckload shipment where the shipper knows the mixture would not cause fire or dangerous evolution of heat or gas.`, "177.848(e)(3)"]);
+  }
+  /* (c) turns on the actual materials, so it is surfaced, never inferred */
+  const anySixOne = mapped.some(m=>/6\.1/.test(m.l.base||"") || /(^|,\s*)6\.1(\s*,|$)/.test(m.l.subs||""));
+  const anyEight  = mapped.some(m=>m.l.base==="8" || /(^|,\s*)8(\s*,|$)/.test(m.l.subs||""));
+  if(anyEight && anySixOne){
+    adv.push(["bad", `This load carries both a Class 8 line and a Division 6.1 line. <b>Cyanides may not be loaded with acids</b> where the mixture would generate hydrogen cyanide. No table can catch this — it turns on the actual materials, so read the papers.`, "177.848(c)"]);
+  }
+  if(mapped.some(m=>m.raw.some(c=>c.sub))){
+    adv.push(["", `A line here carries a subsidiary hazard. Segregation for the subsidiary applies whenever it is more restrictive than for the primary. Materials <i>of the same class</i> may be stored together without regard to subsidiary segregation, but only when they are not capable of reacting dangerously with each other — that is a judgment about the actual materials, and HazPost does not make it for you.`, "177.848(e)(6)"]);
+  }
+  if(has("1.1-1.2") || has("1.5") || has("5.1")){
+    adv.push(["", `<b>Note A:</b> notwithstanding an X, ammonium nitrate (UN1942) and ammonium nitrate fertilizer may be loaded with Division 1.1 or 1.5 materials, unless § 177.835(c) prohibits it.`, "177.848(e)(5)"]);
+  }
+  const noRow = mapped.filter(m=>!m.raw.length);
+  if(noRow.length){
+    adv.push(["ok", `${noRow.map(m=>idLabel(m.l)).join(", ")} ${noRow.length===1?"has":"have"} <b>no segregation row at all</b> — Division 6.2, Class 9 and combustible liquids are not on the 177.848 table, so nothing here restricts them. That is a real answer, not a gap in the check.`, "177.848(d)"]);
+  }
+  adv.push(["", `If this trailer is going onto a vessel other than a ferry, segregation follows § 176.83(b) instead of this table. HazPost does not implement vessel segregation.`, "177.848(b)"]);
+
+  return `<div class="card"><h4>Also applies</h4>` +
+    adv.map(a=>`<div class="why ${a[0]}"><p style="font-size:13.5px">${a[1]}</p><span class="cite">49 CFR ${a[2]}</span></div>`).join("") +
+    notes.map(n=>`<div class="why warn"><p style="font-size:13.5px">${n}</p></div>`).join("") +
+    `</div>`;
+}
+
+function segTableView(){
+  const C = SEG.categories;
+  let h = `<div class="card"><h4>177.848(d) segregation table</h4>
+    <div class="matwrap"><table class="mat"><tr><th class="rh"></th>` +
+    C.map(c=>`<th title="${esc(c.axis)}">${esc(c.label)}</th>`).join("") + `</tr>` +
+    C.map((rc,i)=>`<tr><th class="rh" title="${esc(rc.axis)}">${esc(rc.label)}</th>` +
+      C.map((cc,j)=>{
+        const v = SEG.table[i][j];
+        const cls = v==="X"?"x":v==="O"?"o":v==="*"?"s":"b";
+        return `<td class="${cls}">${v==="*"?"★":esc(v)}</td>`;
+      }).join("") + `</tr>`).join("") +
+    `</table></div>
+    <div class="legend">
+      <span><i class="x"></i>X — never together</span>
+      <span><i class="o"></i>O — separate so leaks can't commingle</span>
+      <span><i class="s"></i>★ — Class 1 compatibility table</span>
+      <span><i class="b"></i>blank — no restriction</span>
+    </div>
+    <div class="hint"><b>6.1L</b> is the narrow row only: poisonous <b>liquids</b>, PG I, Zone A. <b>8L</b> is corrosive <b>liquids</b> only. Classes not on this table — Division 6.2, Class 9, combustible liquid — have no segregation restriction at all.</div>
+  </div>`;
+
+  const G = SEG.compat.groups;
+  h += `<div class="card"><h4>177.848(f) Class 1 compatibility</h4>
+    <div class="matwrap"><table class="mat"><tr><th class="rh"></th>` +
+    G.map(g=>`<th>${g}</th>`).join("") + `</tr>` +
+    G.map((rg,i)=>`<tr><th class="rh">${rg}</th>` +
+      G.map((cg,j)=>{
+        const v = SEG.compat.table[i][j];
+        return `<td class="${v==="X"?"x":v===""?"b":"n"}">${esc(v)}</td>`;
+      }).join("") + `</tr>`).join("") +
+    `</table></div>
+    <div class="hint">Reference only. Numbered cells point at the rules in 177.848(g), and the division-mixing rules in (h) and (i) sit on top of them — HazPost does not yet decide an explosives pairing for you.</div>
+  </div>`;
+
+  h += `<div class="card"><h4>Markers</h4>` +
+    Object.entries(SEG.markers).map(([k,v])=>
+      `<div class="why ${k==="X"?"bad":k==="O"?"warn":""}"><p style="font-size:13.5px"><b>${k===""?"blank":k==="*"?"★":k}</b> — ${esc(v)}</p></div>`).join("") +
+    `<div class="hint">${esc(SEG.source)}, current as of ${esc(SEG.cfrDate)} (table v${esc(SEG.version)}).</div></div>`;
+  return h;
 }
 
 /* ---------------- BOOT ---------------- */
