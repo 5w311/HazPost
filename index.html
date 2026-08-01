@@ -2,8 +2,20 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>HazPost — Hazmat Tools for Drivers</title>
+<meta name="description" content="Hazmat placarding and lookup tools for truck drivers, built to work with no signal.">
+<meta name="theme-color" content="#14171C">
+<!-- All install paths are relative: HazPost is a GitHub Pages project site
+     under /HazPost/, so a leading slash would resolve to the domain root. -->
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<!-- iOS ignores the manifest for Add to Home Screen on anything before 16.4,
+     and never reads it for the icon. These three carry the install there. -->
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="HazPost">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -29,7 +41,14 @@ h1{font:700 22px/1 'Barlow';letter-spacing:.2px}
 h1 span{color:var(--brand)}
 .sub{font-size:12.5px;color:var(--dim);margin-top:3px}
 .back{background:none;border:none;color:var(--brand);font:600 15px 'Barlow';padding:6px 10px 6px 0;cursor:pointer;display:none;align-items:center;gap:4px}
-main{flex:1;padding:0 18px 40px}
+main{flex:1;padding:0 18px calc(40px + env(safe-area-inset-bottom, 0px))}
+
+/* offline indicator — a strip under the header, only while actually offline */
+.offbar{display:flex;align-items:center;gap:9px;margin:0 18px 12px;padding:8px 11px;background:#2A2418;border:1px solid #5A4A1E;border-radius:10px;font-size:12.5px;color:#E8C877;line-height:1.4}
+.offbar[hidden]{display:none}
+.offbar .dot{width:7px;height:7px;border-radius:50%;background:var(--warn);flex:none;box-shadow:0 0 0 3px rgba(255,182,18,.16)}
+.offbar b{font-weight:700;color:#FFCE5C}
+.offbar .when{color:#A8936A;white-space:nowrap}
 
 /* module grid */
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
@@ -139,6 +158,7 @@ input.mono{font:500 15px 'Roboto Mono'}
       <div class="sub" id="subTitle">Hazmat tools built for the driver's seat</div>
     </div>
   </header>
+  <div class="offbar" id="offBar" hidden></div>
   <main id="main"></main>
 </div>
 
@@ -164,11 +184,15 @@ async function loadData(){
     HM = recs;
     HMMETA = Array.isArray(doc) ? null : doc;
     dataState="ready";
+    /* only once the table is in hand — restored lines are re-classified from it */
+    restoreLoad();
   }catch(e){
     dataError = (e && e.message) ? e.message : String(e);
     dataState="error";
   }
+  await readCacheMeta();
   render();
+  paintOffline();
 }
 
 /* proper shipping names come straight out of the CFR — escape before they hit innerHTML */
@@ -181,7 +205,60 @@ function idLabel(x){ return `${(x&&x.pfx)||"UN"}${x?x.un:""}`; }
 function dataNote(){
   if(!HMMETA) return `${HM.length.toLocaleString()} entries loaded.`;
   const d = HMMETA.cfrDate ? ` as of ${HMMETA.cfrDate}` : "";
-  return `Material data: ${HM.length.toLocaleString()} entries from ${HMMETA.source||"hazmat.json"}${d}.`;
+  const v = HMMETA.version ? ` (data v${HMMETA.version})` : "";
+  return `Material data: ${HM.length.toLocaleString()} entries from ${HMMETA.source||"hazmat.json"}${d}${v}.`;
+}
+
+/* ---------------- OFFLINE STATUS ---------------- */
+/* The service worker stamps every cache refresh into __cache-meta; the page
+   reads it back so a driver in a dead zone can see how old the answer is. */
+let cacheMeta = null;
+
+async function readCacheMeta(){
+  if(!("caches" in window)) return;
+  try{
+    const res = await caches.match(new URL("__cache-meta", location.href).toString());
+    if(res) cacheMeta = await res.json();
+  }catch(e){ /* storage blocked (private mode) — the indicator just omits the date */ }
+}
+
+function fmtWhen(iso){
+  const d = new Date(iso);
+  if(isNaN(d)) return null;
+  const sameDay = d.toDateString() === new Date().toDateString();
+  return sameDay
+    ? `today ${d.toLocaleTimeString([], {hour:"numeric", minute:"2-digit"})}`
+    : d.toLocaleDateString([], {day:"numeric", month:"short"});
+}
+
+function paintOffline(){
+  const el = document.getElementById('offBar');
+  if(!el) return;
+  if(navigator.onLine){ el.hidden = true; return; }
+  const gen = HMMETA && HMMETA.generated;
+  const ref = cacheMeta && cacheMeta.refreshed && fmtWhen(cacheMeta.refreshed);
+  el.innerHTML = `<span class="dot"></span><span><b>Offline</b> — answering from the cached 172.101 table${
+    gen ? `, generated ${esc(gen)}` : ""}.${
+    ref ? ` <span class="when">Cache refreshed ${esc(ref)}.</span>` : ""}</span>`;
+  el.hidden = false;
+}
+
+/* ---------------- SERVICE WORKER ---------------- */
+function registerSW(){
+  if(!("serviceWorker" in navigator)) return;
+  /* Relative on purpose. HazPost is served from /HazPost/ on GitHub Pages, so
+     "sw.js" resolves against this document to /HazPost/sw.js and the default
+     scope becomes /HazPost/. A leading slash would ask for /sw.js at the
+     domain root, which does not exist and would fail registration outright. */
+  navigator.serviceWorker.register("sw.js").then(reg=>{
+    reg.addEventListener("updatefound", ()=>{
+      const sw = reg.installing;
+      if(sw) sw.addEventListener("statechange", ()=>{ if(sw.state==="activated") readCacheMeta().then(paintOffline); });
+    });
+  }).catch(e=>{
+    /* No worker means no offline mode, but the app still runs online. */
+    console.warn("HazPost: service worker registration failed —", e && e.message);
+  });
 }
 
 /* placard rendering specs — colours per the design sections cited on each line */
@@ -237,6 +314,54 @@ const EXPLDIV = {expl11:"1.1",expl12:"1.2",expl13:"1.3",expl14:"1.4",expl15:"1.5
 function noPlc(l){ const p=PLC[l&&l.plc]; return !p || !!p.none; }
 
 let load = [];
+
+/* ---------------- LOAD PERSISTENCE ----------------
+   A driver builds a load at the dock, pockets the phone, and comes back to it.
+   Only the id, weight and facility are stored: the hazard classification is
+   re-read from hazmat.json on every start, so a load saved before a CFR
+   amendment can never resurrect a stale placard category. */
+const LS_LOAD = "hazpost.load.v1";
+let restoreNote = "";
+
+function saveLoad(){
+  try{
+    localStorage.setItem(LS_LOAD, JSON.stringify({
+      saved: new Date().toISOString(),
+      view, plcTab,
+      lines: load.map(l=>({id:l.id, wt:l.wt, fac:l.fac})),
+    }));
+  }catch(e){ /* private mode or quota — the app works, it just won't remember */ }
+}
+
+function restoreLoad(){
+  let raw;
+  try{ raw = localStorage.getItem(LS_LOAD); }catch(e){ return; }
+  if(!raw) return;
+  let doc;
+  try{ doc = JSON.parse(raw); }catch(e){ return; }
+  const lines = Array.isArray(doc && doc.lines) ? doc.lines : [];
+  const dropped = [];
+  load = lines.map(l=>{
+    const m = HM.find(x=>x.id===l.id);
+    if(!m || !(l.wt>0)){ dropped.push(l.id); return null; }
+    return {...m, wt:l.wt, fac:l.fac||"A"};
+  }).filter(Boolean);
+  if(dropped.length){
+    restoreNote = `${dropped.length} saved line${dropped.length===1?" is":"s are"} no longer in the 172.101 table and ${dropped.length===1?"was":"were"} dropped. Re-check your papers.`;
+  }
+  if(load.length && doc.view==="placards"){ view = "placards"; plcTab = doc.plcTab==="lookup" ? "lookup" : "builder"; }
+}
+
+/* every mutation of the load goes through here, so nothing can change on
+   screen without also being written down */
+function commit(){ saveLoad(); render(); }
+
+function clearLoad(){
+  if(!load.length) return;
+  const n = load.length;
+  if(!confirm(`Clear all ${n} line${n===1?"":"s"}?\n\nThis also erases the load saved on this phone — it will not come back when you reopen HazPost.`)) return;
+  load = []; restoreNote = ""; commit();
+}
 let view = "home", plcTab = "builder";
 
 /* ---------------- ROUTER ---------------- */
@@ -324,8 +449,9 @@ function renderBuilder(){
    </div>
    <div class="card" id="loadCard">
      <h4>Current load — ${load.length} line${load.length===1?'':'s'}</h4>
+     ${restoreNote?`<div class="why bad" style="margin:0 0 10px"><p style="font-size:13px">${esc(restoreNote)}</p></div>`:''}
      <div id="lines"></div>
-     ${load.length? `<button class="btn ghost" onclick="load=[];render()" style="margin-top:4px">Clear load</button>`:`<div class="hint" style="margin-top:0">Nothing on the trailer yet. Add lines above, or <a href="#" style="color:var(--brand)" onclick="demo();return false">load a demo mixed load</a>.</div>`}
+     ${load.length? `<button class="btn ghost" onclick="clearLoad()" style="margin-top:4px">Clear load</button>`:`<div class="hint" style="margin-top:0">Nothing on the trailer yet. Add lines above, or <a href="#" style="color:var(--brand)" onclick="demo();return false">load a demo mixed load</a>.</div>`}
    </div>
    <div id="result"></div>`;
   drawLines(); computeAndDraw();
@@ -354,7 +480,7 @@ function addLine(){
   if(!picked){alert('Pick a material from the list — several shipping names can share one ID number, so HazPost needs to know which entry you mean.');return;}
   if(!wt){alert('Enter the gross weight in pounds.');return;}
   load.push({...picked, wt, fac:document.getElementById('fac').value});
-  picked=null; render();
+  picked=null; commit();
 }
 function demo(){
   const byUn=u=>HM.find(x=>x.un===u&&(x.pfx||"UN")==="UN");
@@ -363,7 +489,7 @@ function demo(){
     {...byUn("1830"), wt:500, fac:"A"},
     {...byUn("1479"), wt:2400, fac:"B"},
   ].filter(l=>l.un);
-  render();
+  commit();
 }
 function drawLines(){
   const el=document.getElementById('lines'); if(!el) return;
@@ -372,7 +498,7 @@ function drawLines(){
      <span class="un">${idLabel(l)}</span>
      <div class="nm"><b>${esc(l.name)}${l.t1?'<span class="t1tag">TABLE 1</span>':''}</b><span>Class ${esc(l.cls)} · PG ${esc(l.pg)} · Facility ${esc(l.fac)}</span></div>
      <span class="wt">${l.wt.toLocaleString()} lb</span>
-     <button class="x" onclick="load.splice(${i},1);render()">✕</button>
+     <button class="x" onclick="load.splice(${i},1);commit()">✕</button>
    </div>`).join('');
 }
 
@@ -523,6 +649,16 @@ function lkShow(id){
           :`<div style="display:flex;justify-content:center;padding:18px 0 4px">${plcHTML(x.plc)}</div>`}`;
 }
 
+/* ---------------- BOOT ---------------- */
+window.addEventListener("online",  paintOffline);
+window.addEventListener("offline", paintOffline);
+/* the connection can drop between launches; re-check when the app comes back
+   to the foreground, which is how a phone in a pocket behaves */
+document.addEventListener("visibilitychange", ()=>{
+  if(!document.hidden) readCacheMeta().then(paintOffline);
+});
+
+registerSW();
 loadData();
 </script>
 </body>
