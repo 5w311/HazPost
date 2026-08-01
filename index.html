@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>HazPost — Hazmat Tools for Drivers</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#14171C; --panel:#1C2129; --panel2:#232A34; --line:#2E3743;
+  --ink:#EDF0F4; --dim:#8B96A5; --faint:#5A6473;
+  --flam:#C8102E; --oxy:#FFB612; --wet:#0F5FBF; --gas:#1E8A44;
+  --expl:#FF6720; --tox:#F2F2F2; --brand:#FFB612;
+  --ok:#3BAA5C; --warn:#FFB612; --bad:#E5484D;
+  --r:14px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:'Barlow',sans-serif;font-size:16px;overscroll-behavior:none}
+.mono{font-family:'Roboto Mono',monospace}
+.app{max-width:520px;margin:0 auto;min-height:100%;display:flex;flex-direction:column}
+
+/* header */
+header{padding:18px 18px 14px;display:flex;align-items:center;gap:12px;position:sticky;top:0;background:linear-gradient(var(--bg) 75%,transparent);z-index:20}
+.logo-d{width:34px;height:34px;position:relative;flex:none}
+.logo-d::before{content:"";position:absolute;inset:3px;background:var(--brand);transform:rotate(45deg);border-radius:4px}
+.logo-d::after{content:"HZ";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:800 13px 'Barlow Condensed';color:#14171C;letter-spacing:.5px}
+h1{font:700 22px/1 'Barlow';letter-spacing:.2px}
+h1 span{color:var(--brand)}
+.sub{font-size:12.5px;color:var(--dim);margin-top:3px}
+.back{background:none;border:none;color:var(--brand);font:600 15px 'Barlow';padding:6px 10px 6px 0;cursor:pointer;display:none;align-items:center;gap:4px}
+main{flex:1;padding:0 18px 40px}
+
+/* module grid */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px 14px 14px;cursor:pointer;position:relative;transition:transform .08s ease;min-height:118px;display:flex;flex-direction:column;justify-content:space-between}
+.tile:active{transform:scale(.97)}
+.tile .td{width:26px;height:26px;position:relative;margin-bottom:10px}
+.tile .td::before{content:"";position:absolute;inset:2px;transform:rotate(45deg);border-radius:3px;background:var(--tc,#39424F)}
+.tile h3{font:700 16.5px 'Barlow';letter-spacing:.2px}
+.tile p{font-size:12px;color:var(--dim);margin-top:3px;line-height:1.35}
+.tile .cfr{font:500 10.5px 'Roboto Mono';color:var(--faint);margin-top:8px}
+.tile.stub{opacity:.62}
+.tile.stub::after{content:"NEXT";position:absolute;top:12px;right:12px;font:700 9.5px 'Barlow Condensed';letter-spacing:1.2px;color:var(--faint);border:1px solid var(--line);padding:3px 6px;border-radius:20px}
+.tile.live::after{content:"LIVE";position:absolute;top:12px;right:12px;font:700 9.5px 'Barlow Condensed';letter-spacing:1.2px;color:#14171C;background:var(--ok);padding:3px 7px;border-radius:20px}
+
+/* tabs */
+.tabs{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:4px;margin:6px 0 16px}
+.tabs button{flex:1;border:none;background:none;color:var(--dim);font:600 14.5px 'Barlow';padding:9px 0;border-radius:9px;cursor:pointer}
+.tabs button.on{background:var(--panel2);color:var(--ink)}
+
+/* load builder */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:12px}
+.card h4{font:700 13px 'Barlow Condensed';letter-spacing:1.4px;color:var(--dim);text-transform:uppercase;margin-bottom:10px}
+.row{display:flex;gap:8px;margin-bottom:8px}
+input,select{background:var(--bg);border:1px solid var(--line);border-radius:10px;color:var(--ink);font:500 15px 'Barlow';padding:11px 12px;width:100%;outline:none}
+input:focus,select:focus{border-color:var(--brand)}
+input.mono{font:500 15px 'Roboto Mono'}
+.btn{background:var(--brand);color:#14171C;border:none;border-radius:10px;font:700 15px 'Barlow';padding:12px 16px;cursor:pointer;width:100%}
+.btn:active{opacity:.85}
+.btn.ghost{background:none;border:1px solid var(--line);color:var(--ink)}
+.hint{font-size:12px;color:var(--faint);margin-top:8px;line-height:1.4}
+.sugg{background:var(--panel2);border:1px solid var(--line);border-radius:10px;margin-top:-4px;margin-bottom:8px;max-height:180px;overflow:auto;display:none}
+.sugg div{padding:10px 12px;font-size:13.5px;border-bottom:1px solid var(--line);cursor:pointer}
+.sugg div:last-child{border-bottom:none}
+.sugg .u{font:600 13px 'Roboto Mono';color:var(--brand);margin-right:8px}
+
+/* load lines */
+.line-item{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:8px}
+.line-item .un{font:700 14px 'Roboto Mono';color:var(--brand);flex:none}
+.line-item .nm{flex:1;min-width:0}
+.line-item .nm b{display:block;font:600 14px 'Barlow';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.line-item .nm span{font-size:11.5px;color:var(--dim)}
+.line-item .wt{font:500 13px 'Roboto Mono';color:var(--ink);flex:none}
+.line-item .x{background:none;border:none;color:var(--faint);font-size:18px;cursor:pointer;flex:none;padding:2px 4px}
+.t1tag{font:700 9px 'Barlow Condensed';letter-spacing:1px;background:var(--bad);color:#fff;padding:2px 5px;border-radius:4px;margin-left:6px;vertical-align:2px}
+
+/* trailer result */
+.trailer{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:12px}
+.trailer h4{font:700 13px 'Barlow Condensed';letter-spacing:1.4px;color:var(--dim);text-transform:uppercase}
+.trailer .tr-body{background:repeating-linear-gradient(90deg,var(--panel2) 0 46px,var(--line) 46px 47px);border:2px solid var(--line);border-radius:8px;min-height:120px;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:18px;padding:20px 10px;flex-wrap:wrap}
+.tr-none{color:var(--faint);font-size:14px}
+.plc{width:86px;height:86px;position:relative;flex:none}
+.plc .dia{position:absolute;inset:6px;transform:rotate(45deg);border-radius:6px;border:2.5px solid rgba(0,0,0,.55);overflow:hidden;box-shadow:0 3px 10px rgba(0,0,0,.4)}
+.plc .fill{position:absolute;width:141.4%;height:141.4%;left:-20.7%;top:-20.7%;transform:rotate(-45deg)}
+.plc .txt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2;text-align:center}
+.plc .w{font:800 11px 'Barlow Condensed';letter-spacing:.6px;line-height:1.05;text-transform:uppercase}
+.plc .n{font:800 17px 'Barlow Condensed';margin-top:2px}
+.plc .cap{position:absolute;left:0;right:0;bottom:-16px;text-align:center;font:600 10px 'Barlow Condensed';letter-spacing:1px;color:var(--dim);text-transform:uppercase}
+
+/* reasoning */
+.why{border-left:3px solid var(--line);padding:2px 0 2px 12px;margin:10px 0}
+.why.ok{border-color:var(--ok)} .why.warn{border-color:var(--warn)} .why.bad{border-color:var(--bad)}
+.why p{font-size:14px;line-height:1.45}
+.why .cite{display:inline-block;font:500 11px 'Roboto Mono';color:var(--faint);margin-top:3px}
+.optlbl{font:700 12px 'Barlow Condensed';letter-spacing:1.4px;color:var(--brand);text-transform:uppercase;margin:14px 0 4px}
+
+/* lookup detail */
+.lk{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:14px;margin-top:10px}
+.lk .un{font:700 18px 'Roboto Mono';color:var(--brand)}
+.lk h5{font:700 17px 'Barlow';margin:4px 0 10px}
+.kv{display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid var(--line);font-size:14px}
+.kv span:first-child{color:var(--dim)}
+.kv span:last-child{font-weight:600;text-align:right}
+.pill{display:inline-block;font:700 11px 'Barlow Condensed';letter-spacing:1px;padding:3px 8px;border-radius:20px;text-transform:uppercase}
+.pill.t1{background:var(--bad);color:#fff}.pill.t2{background:var(--panel);border:1px solid var(--line);color:var(--dim)}
+
+/* stub view */
+.stubview{text-align:center;padding:60px 20px;color:var(--dim)}
+.stubview .big-d{width:64px;height:64px;position:relative;margin:0 auto 18px;opacity:.5}
+.stubview .big-d::before{content:"";position:absolute;inset:5px;transform:rotate(45deg);border-radius:6px;border:2.5px dashed var(--faint)}
+.stubview h3{font:700 20px 'Barlow';color:var(--ink);margin-bottom:8px}
+.stubview p{font-size:14px;line-height:1.5;max-width:320px;margin:0 auto}
+.stubview .cfr{font:500 12px 'Roboto Mono';color:var(--faint);margin-top:14px;display:block}
+
+.disclaimer{font-size:11.5px;color:var(--faint);line-height:1.5;padding:14px 4px 0;border-top:1px solid var(--line);margin-top:20px}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <button class="back" id="backBtn" onclick="go('home')">‹ Back</button>
+    <div class="logo-d" id="logoD"></div>
+    <div>
+      <h1>Haz<span>Post</span></h1>
+      <div class="sub" id="subTitle">Hazmat tools built for the driver's seat</div>
+    </div>
+  </header>
+  <main id="main"></main>
+</div>
+
+<script>
+/* ---------------- DATA: curated demo subset of the 172.101 table ---------------- */
+const HM = [
+ {un:"0209", name:"Trinitrotoluene (TNT), dry", cls:"1.1D", base:"1.1", t1:true,  plc:"expl11", pg:"II"},
+ {un:"1017", name:"Chlorine", cls:"2.3", base:"2.3", t1:true, plc:"gas23", pg:"—", pih:"Zone B"},
+ {un:"3381", name:"Toxic by inhalation liquid, n.o.s.", cls:"6.1", base:"6.1", t1:true, plc:"pih61", pg:"I", pih:"Zone A"},
+ {un:"1428", name:"Sodium", cls:"4.3", base:"4.3", t1:true, plc:"wet43", pg:"I"},
+ {un:"1203", name:"Gasoline", cls:"3", base:"3", plc:"flam3", pg:"II"},
+ {un:"1090", name:"Acetone", cls:"3", base:"3", plc:"flam3", pg:"II"},
+ {un:"1263", name:"Paint (flammable)", cls:"3", base:"3", plc:"flam3", pg:"II"},
+ {un:"1993", name:"Flammable liquids, n.o.s.", cls:"3", base:"3", plc:"flam3", pg:"II"},
+ {un:"1230", name:"Methanol", cls:"3 (6.1)", base:"3", plc:"flam3", pg:"II", subs:"6.1"},
+ {un:"1866", name:"Resin solution", cls:"3", base:"3", plc:"flam3", pg:"III"},
+ {un:"1075", name:"Petroleum gases, liquefied (LPG)", cls:"2.1", base:"2.1", plc:"flamgas21", pg:"—"},
+ {un:"1950", name:"Aerosols, flammable", cls:"2.1", base:"2.1", plc:"flamgas21", pg:"—"},
+ {un:"1066", name:"Nitrogen, compressed", cls:"2.2", base:"2.2", plc:"nfgas22", pg:"—"},
+ {un:"1830", name:"Sulfuric acid", cls:"8", base:"8", plc:"corr8", pg:"II"},
+ {un:"1824", name:"Sodium hydroxide, solution", cls:"8", base:"8", plc:"corr8", pg:"II"},
+ {un:"2794", name:"Batteries, wet, filled with acid", cls:"8", base:"8", plc:"corr8", pg:"—"},
+ {un:"1760", name:"Corrosive liquid, n.o.s.", cls:"8", base:"8", plc:"corr8", pg:"II"},
+ {un:"1479", name:"Oxidizing solid, n.o.s.", cls:"5.1", base:"5.1", plc:"oxy51", pg:"II"},
+ {un:"2067", name:"Ammonium nitrate based fertilizer", cls:"5.1", base:"5.1", plc:"oxy51", pg:"III"},
+ {un:"2783", name:"Organophosphorus pesticide, solid, toxic", cls:"6.1", base:"6.1t2", plc:"tox61", pg:"II"},
+ {un:"1888", name:"Chloroform", cls:"6.1", base:"6.1t2", plc:"tox61", pg:"III"},
+ {un:"1350", name:"Sulfur", cls:"4.1", base:"4.1", plc:"fs41", pg:"III"},
+ {un:"1361", name:"Carbon (animal or vegetable origin)", cls:"4.2", base:"4.2", plc:"sc42", pg:"II"},
+ {un:"3077", name:"Environmentally hazardous substance, solid, n.o.s.", cls:"9", base:"9", plc:"misc9", pg:"III"},
+ {un:"3082", name:"Environmentally hazardous substance, liquid, n.o.s.", cls:"9", base:"9", plc:"misc9", pg:"III"},
+];
+
+/* placard rendering specs */
+const PLC = {
+ expl11:{w:"Explosives", n:"1.1", bg:"#FF6720", fg:"#111"},
+ gas23:{w:"Poison Gas", n:"2", bg:"#F2F2F2", fg:"#111"},
+ pih61:{w:"Inhalation Hazard", n:"6", bg:"#F2F2F2", fg:"#111"},
+ wet43:{w:"Dangerous When Wet", n:"4", bg:"#0F5FBF", fg:"#fff"},
+ flam3:{w:"Flammable", n:"3", bg:"#C8102E", fg:"#fff"},
+ flamgas21:{w:"Flammable Gas", n:"2", bg:"#C8102E", fg:"#fff"},
+ nfgas22:{w:"Non-Flammable Gas", n:"2", bg:"#1E8A44", fg:"#fff"},
+ corr8:{w:"Corrosive", n:"8", bg:"linear-gradient(180deg,#F2F2F2 50%,#111 50%)", fg:"#111", fg2:"#fff"},
+ oxy51:{w:"Oxidizer", n:"5.1", bg:"#FFB612", fg:"#111"},
+ tox61:{w:"Poison", n:"6", bg:"#F2F2F2", fg:"#111"},
+ fs41:{w:"Flammable Solid", n:"4", bg:"repeating-linear-gradient(90deg,#C8102E 0 10px,#F2F2F2 10px 20px)", fg:"#111"},
+ sc42:{w:"Spontaneously Combustible", n:"4", bg:"linear-gradient(180deg,#F2F2F2 50%,#C8102E 50%)", fg:"#111"},
+ misc9:{w:"", n:"9", bg:"linear-gradient(180deg,#F2F2F2 50%,#fff 50%)", fg:"#111", stripes:true},
+ danger:{w:"Dangerous", n:"", bg:"linear-gradient(180deg,#C8102E 26%,#F2F2F2 26%,#F2F2F2 74%,#C8102E 74%)", fg:"#111"},
+};
+const CLSNAME = {"3":"Class 3 Flammable Liquid","2.1":"Div 2.1 Flammable Gas","2.2":"Div 2.2 Non-Flammable Gas","8":"Class 8 Corrosive","5.1":"Div 5.1 Oxidizer","6.1t2":"Div 6.1 Poison (non-inhalation)","4.1":"Div 4.1 Flammable Solid","4.2":"Div 4.2 Spontaneously Combustible","9":"Class 9 Miscellaneous"};
+const CLSPLC = {"3":"flam3","2.1":"flamgas21","2.2":"nfgas22","8":"corr8","5.1":"oxy51","6.1t2":"tox61","4.1":"fs41","4.2":"sc42","9":"misc9"};
+
+let load = [];
+let view = "home", plcTab = "builder";
+
+/* ---------------- ROUTER ---------------- */
+const MODULES = [
+ {id:"placards", tc:"var(--brand)", t:"Placarding", d:"Build your load, get the placard set for the trailer", cfr:"49 CFR 172.504", live:true},
+ {id:"seg", tc:"var(--flam)", t:"Segregation", d:"What can and can't ride together", cfr:"49 CFR 177.848"},
+ {id:"ops", tc:"var(--wet)", t:"On the Road", d:"Attendance, parking, fueling, tire checks", cfr:"49 CFR Part 397"},
+ {id:"papers", tc:"var(--gas)", t:"Shipping Papers", d:"What must be on them, where they must sit", cfr:"49 CFR 177.817"},
+ {id:"incident", tc:"var(--expl)", t:"Incident Response", d:"When and who you must call, immediately", cfr:"49 CFR 171.15"},
+ {id:"creds", tc:"var(--faint)", t:"Credentials", d:"HME, training clock, what you carry", cfr:"49 CFR 172.704"},
+];
+const STUBTXT = {
+ seg:["Segregation","The 177.848 compatibility table, flipped into a simple 'can these two ride together?' checker."],
+ ops:["On the Road","Plain-language Part 397: attending the vehicle, where you can park, smoking, fueling, and the tire check rule."],
+ papers:["Shipping Papers","A checklist of every required element, the emergency phone rule, and exactly where papers live in the cab."],
+ incident:["Incident Response","The immediate-notice triggers, the National Response Center number, and the written report clock."],
+ creds:["Credentials","Hazmat endorsement, the 3-year recurrent training cycle, and what has to be on you at a stop."],
+};
+
+function go(v){ view=v; render(); window.scrollTo(0,0); }
+
+function render(){
+  const m=document.getElementById('main');
+  const back=document.getElementById('backBtn'), logo=document.getElementById('logoD'), sub=document.getElementById('subTitle');
+  back.style.display = view==="home" ? "none":"flex";
+  logo.style.display = view==="home" ? "block":"none";
+  if(view==="home"){
+    sub.textContent="Hazmat tools built for the driver's seat";
+    m.innerHTML = `<div class="grid">`+MODULES.map(x=>
+      `<div class="tile ${x.live?'live':'stub'}" style="--tc:${x.tc}" onclick="go('${x.id}')">
+        <div><div class="td"></div><h3>${x.t}</h3><p>${x.d}</p></div>
+        <div class="cfr">${x.cfr}</div></div>`).join("")+`</div>
+      <div class="disclaimer">HazPost is a verification aid, not a substitute for the shipping paper or the regulations. The shipper certifies classification and provides placards. Always confirm against your papers and 49 CFR. Prototype — curated data subset.</div>`;
+  } else if(view==="placards"){
+    sub.textContent="49 CFR 172.504 · Subpart F";
+    m.innerHTML = `
+      <div class="tabs">
+        <button class="${plcTab==='builder'?'on':''}" onclick="plcTab='builder';render()">Load Builder</button>
+        <button class="${plcTab==='lookup'?'on':''}" onclick="plcTab='lookup';render()">UN Lookup</button>
+      </div>
+      <div id="tabBody"></div>`;
+    if(plcTab==='builder') renderBuilder(); else renderLookup();
+  } else {
+    const s=STUBTXT[view];
+    sub.textContent = MODULES.find(x=>x.id===view).cfr;
+    m.innerHTML = `<div class="stubview"><div class="big-d"></div><h3>${s[0]}</h3><p>${s[1]}</p><span class="cfr">${MODULES.find(x=>x.id===view).cfr} · next in the build order</span></div>`;
+  }
+}
+
+/* ---------------- LOAD BUILDER ---------------- */
+function renderBuilder(){
+  const b=document.getElementById('tabBody');
+  b.innerHTML = `
+   <div class="card">
+     <h4>Add a line from the shipping paper</h4>
+     <input class="mono" id="unIn" placeholder="UN number or name — try 1203" oninput="suggest(this.value)" autocomplete="off">
+     <div class="sugg" id="sugg"></div>
+     <div class="row" style="margin-top:8px">
+       <input class="mono" id="wtIn" placeholder="Gross weight, lbs" inputmode="numeric">
+       <select id="fac"><option value="A">Facility A</option><option value="B">Facility B</option><option value="C">Facility C</option></select>
+     </div>
+     <button class="btn" onclick="addLine()">Add to load</button>
+     <div class="hint">Weight is package gross weight — the material plus its packaging, straight off the papers. Facility = where you picked it up (it matters for the DANGEROUS placard rule).</div>
+   </div>
+   <div class="card" id="loadCard">
+     <h4>Current load — ${load.length} line${load.length===1?'':'s'}</h4>
+     <div id="lines"></div>
+     ${load.length? `<button class="btn ghost" onclick="load=[];render()" style="margin-top:4px">Clear load</button>`:`<div class="hint" style="margin-top:0">Nothing on the trailer yet. Add lines above, or <a href="#" style="color:var(--brand)" onclick="demo();return false">load a demo mixed load</a>.</div>`}
+   </div>
+   <div id="result"></div>`;
+  drawLines(); computeAndDraw();
+}
+let picked=null;
+function suggest(q){
+  const s=document.getElementById('sugg'); picked=null;
+  q=q.trim().toLowerCase();
+  if(!q){s.style.display='none';return;}
+  const hits=HM.filter(x=>x.un.includes(q)||x.name.toLowerCase().includes(q)).slice(0,6);
+  if(!hits.length){s.style.display='none';return;}
+  s.innerHTML=hits.map(x=>`<div onclick="pick('${x.un}')"><span class="u">UN${x.un}</span>${x.name} · ${x.cls}</div>`).join('');
+  s.style.display='block';
+}
+function pick(un){ picked=HM.find(x=>x.un===un);
+  document.getElementById('unIn').value=`UN${picked.un} — ${picked.name}`;
+  document.getElementById('sugg').style.display='none';
+  document.getElementById('wtIn').focus();
+}
+function addLine(){
+  if(!picked){ // allow raw UN typed without picking
+    const raw=document.getElementById('unIn').value.replace(/\D/g,'');
+    picked=HM.find(x=>x.un===raw);
+  }
+  const wt=parseInt(document.getElementById('wtIn').value.replace(/\D/g,''),10);
+  if(!picked){alert('Pick a material from the list (prototype carries a demo subset).');return;}
+  if(!wt){alert('Enter the gross weight in pounds.');return;}
+  load.push({...picked, wt, fac:document.getElementById('fac').value});
+  picked=null; render();
+}
+function demo(){
+  load=[
+    {...HM.find(x=>x.un==="1203"), wt:650, fac:"A"},
+    {...HM.find(x=>x.un==="1830"), wt:500, fac:"A"},
+    {...HM.find(x=>x.un==="1479"), wt:2400, fac:"B"},
+  ];
+  render();
+}
+function drawLines(){
+  const el=document.getElementById('lines'); if(!el) return;
+  el.innerHTML = load.map((l,i)=>`
+   <div class="line-item">
+     <span class="un">UN${l.un}</span>
+     <div class="nm"><b>${l.name}${l.t1?'<span class="t1tag">TABLE 1</span>':''}</b><span>Class ${l.cls} · PG ${l.pg} · Facility ${l.fac}</span></div>
+     <span class="wt">${l.wt.toLocaleString()} lb</span>
+     <button class="x" onclick="load.splice(${i},1);render()">✕</button>
+   </div>`).join('');
+}
+
+/* ---------------- THE 172.504 ENGINE ---------------- */
+function compute(){
+  const why=[]; const placards=new Set(); let dangerOption=null;
+
+  const t1=load.filter(l=>l.t1);
+  const t2=load.filter(l=>!l.t1);
+
+  // Table 1 — any quantity
+  t1.forEach(l=>{
+    placards.add(l.plc);
+    why.push({tone:"bad", txt:`<b>UN${l.un} ${l.name}</b> is a Table 1 material (Class ${l.cls}). Its placard is required at <b>any quantity</b>.`, cite:"172.504(e) Table 1"});
+  });
+
+  // Table 2 — aggregate threshold
+  const agg = t2.reduce((s,l)=>s+l.wt,0);
+  if(t2.length && agg < 1001){
+    why.push({tone:"ok", txt:`Table 2 aggregate is <b>${agg.toLocaleString()} lb</b> — under the 1,001 lb threshold, so no Table 2 placards are required. Watch it: one more pickup can flip this.`, cite:"172.504(c)"});
+  }
+  if(t2.length && agg >= 1001){
+    why.push({tone:"warn", txt:`Table 2 aggregate is <b>${agg.toLocaleString()} lb</b> — at or over 1,001 lb, so every Table 2 category on board must be placarded.`, cite:"172.504(c)"});
+    // categories present
+    const cats={};
+    t2.forEach(l=>{ cats[l.base]=cats[l.base]||{wt:0, byFac:{}, plc:l.plc};
+      cats[l.base].wt+=l.wt;
+      cats[l.base].byFac[l.fac]=(cats[l.base].byFac[l.fac]||0)+l.wt; });
+    const catKeys=Object.keys(cats);
+    catKeys.forEach(c=>placards.add(cats[c].plc));
+
+    // Class 9 domestic note
+    if(cats["9"]){
+      why.push({tone:"ok", txt:`<b>Class 9</b> is on board — the Class 9 placard is <b>not required</b> for domestic highway transport. You may display it, but you don't have to.`, cite:"172.504(f)(9)"});
+    }
+
+    // DANGEROUS option
+    const nonNine = catKeys.filter(c=>c!=="9");
+    if(nonNine.length>=2){
+      const blocked = nonNine.filter(c=>Object.values(cats[c].byFac).some(w=>w>=2205));
+      if(blocked.length===0){
+        dangerOption={cats:nonNine};
+        why.push({tone:"warn", txt:`Two or more Table 2 categories → you may hang a single <b>DANGEROUS</b> placard instead of the individual ones.`, cite:"172.504(b)"});
+      } else {
+        dangerOption={cats:nonNine.filter(c=>!blocked.includes(c)), blocked};
+        blocked.forEach(c=>{
+          why.push({tone:"bad", txt:`<b>${CLSNAME[c]}</b>: ${Math.max(...Object.values(cats[c].byFac)).toLocaleString()} lb came aboard at one facility — 2,205 lb or more from a single loading point kills the DANGEROUS shortcut for that class. Its own placard must be displayed.`, cite:"172.504(b)(2)"});
+        });
+        if(dangerOption.cats.length<2) dangerOption=null;
+      }
+    }
+    // subsidiary note
+    t2.forEach(l=>{ if(l.subs) why.push({tone:"ok", txt:`<b>UN${l.un} ${l.name}</b> carries a Class ${l.subs} subsidiary hazard — check the papers; subsidiary placarding rules in 172.505 may apply.`, cite:"172.505"}); });
+  }
+  if(!load.length) return null;
+  return {placards:[...placards], why, dangerOption, agg, t2cats: t2.length};
+}
+
+function computeAndDraw(){
+  const el=document.getElementById('result'); if(!el) return;
+  const r=compute();
+  if(!r){ el.innerHTML=""; return; }
+  let trailerA = r.placards.map(p=>plcHTML(p)).join("");
+  let html = `<div class="trailer"><h4>Required on the trailer${r.dangerOption?' — Option A: specific placards':''}</h4>
+     <div class="tr-body">${trailerA||'<span class="tr-none">No placards required for this load</span>'}</div>`;
+  if(r.dangerOption){
+    const dSet=[plcHTML('danger')].concat(
+      r.placards.filter(p=>{
+        // keep table-1 placards and blocked-class placards alongside DANGEROUS
+        const cat=Object.keys(CLSPLC).find(k=>CLSPLC[k]===p);
+        return !cat || !r.dangerOption.cats.includes(cat);
+      }).map(p=>plcHTML(p)));
+    html += `<h4 style="margin-top:22px">Option B: DANGEROUS placard</h4>
+      <div class="tr-body">${dSet.join("")}</div>
+      <div class="hint">Either option is legal for this load. Most fleets prefer specific placards — emergency responders get better information.</div>`;
+  }
+  html += `</div><div class="card"><h4>Why</h4>`+
+    r.why.map(w=>`<div class="why ${w.tone}"><p>${w.txt}</p><span class="cite">49 CFR ${w.cite}</span></div>`).join("")+
+    `</div>`;
+  el.innerHTML=html;
+}
+function plcHTML(key){
+  const p=PLC[key];
+  const stripes = p.stripes? `<div style="position:absolute;top:0;left:0;right:0;height:50%;background:repeating-linear-gradient(90deg,#111 0 7px,#F2F2F2 7px 14px)"></div>`:"";
+  return `<div class="plc"><div class="dia"><div class="fill" style="background:${p.bg}">${stripes}</div></div>
+    <div class="txt" style="color:${p.fg}"><span class="w" style="max-width:60px">${p.w}</span><span class="n">${p.n}</span></div>
+    <div class="cap">${key==='danger'?'dangerous':''}</div></div>`;
+}
+
+/* ---------------- LOOKUP ---------------- */
+function renderLookup(){
+  const b=document.getElementById('tabBody');
+  b.innerHTML=`<div class="card"><h4>Look up a material</h4>
+    <input class="mono" id="lkIn" placeholder="UN number or name" oninput="lkSuggest(this.value)" autocomplete="off">
+    <div class="sugg" id="lkSugg"></div><div id="lkOut"></div>
+    <div class="hint">Prototype subset — the full app ships the whole 172.101 table.</div></div>`;
+}
+function lkSuggest(q){
+  const s=document.getElementById('lkSugg');
+  q=q.trim().toLowerCase();
+  if(!q){s.style.display='none';document.getElementById('lkOut').innerHTML='';return;}
+  const hits=HM.filter(x=>x.un.includes(q)||x.name.toLowerCase().includes(q)).slice(0,6);
+  if(!hits.length){s.style.display='none';return;}
+  s.innerHTML=hits.map(x=>`<div onclick="lkShow('${x.un}')"><span class="u">UN${x.un}</span>${x.name} · ${x.cls}</div>`).join('');
+  s.style.display='block';
+}
+function lkShow(un){
+  const x=HM.find(h=>h.un===un);
+  document.getElementById('lkSugg').style.display='none';
+  document.getElementById('lkIn').value=`UN${x.un}`;
+  document.getElementById('lkOut').innerHTML=`
+   <div class="lk"><span class="un">UN${x.un}</span><h5>${x.name}</h5>
+     <div class="kv"><span>Hazard class</span><span>${x.cls}</span></div>
+     <div class="kv"><span>Packing group</span><span>${x.pg}</span></div>
+     ${x.pih?`<div class="kv"><span>Inhalation hazard</span><span>${x.pih}</span></div>`:""}
+     ${x.subs?`<div class="kv"><span>Subsidiary hazard</span><span>Class ${x.subs}</span></div>`:""}
+     <div class="kv"><span>Placarding table</span><span><span class="pill ${x.t1?'t1':'t2'}">${x.t1?'Table 1 — any amount':'Table 2 — 1,001 lb aggregate'}</span></span></div>
+   </div>
+   <div style="display:flex;justify-content:center;padding:18px 0 4px">${plcHTML(x.plc)}</div>`;
+}
+
+render();
+</script>
+</body>
+</html>
