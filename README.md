@@ -13,7 +13,7 @@ HazPost is a verification aid for hazmat drivers. It does not classify materials
 | Module | CFR | Status |
 |---|---|---|
 | Placarding (load builder + UN lookup) | 172.504 | Live |
-| Segregation (load check + reference tables) | 177.848 | Live |
+| Segregation (load check, Class 1 compatibility, reference tables) | 177.848 | Live |
 | On the Road | Part 397 | Planned |
 | Shipping Papers | 177.817 | Planned |
 | Incident Response | 171.15 | Planned |
@@ -230,10 +230,42 @@ the Class 8 liquids placement rule in (e)(3), the cyanide-and-acid warning in
 second sentence, surfaced as advice rather than automated — and the vessel
 carve-out in (b).
 
-Not implemented: the Class 1 compatibility **engine**. A pair that resolves to
-`*` says both lines are explosives and points at the reference table. The
-numbered rules in (g) and the division-mixing rules in (h) and (i) are a
-second engine.
+### Class 1 compatibility — 177.848(f) to (i)
+
+A pair that resolves to `*` in the segregation table is handed to the
+compatibility engine, which applies the (f) table, the numbered rules in
+(g)(3), and the division rollups in (h) and (i). The rule wording is parsed
+out of the CFR into `segregation.json` alongside the tables and quoted to the
+driver verbatim.
+
+| Rule | Treatment |
+|---|---|
+| `X`, `X(4)` | prohibited pair, named |
+| `1` | group L travels only with an identical explosive — prohibited otherwise |
+| `2` | C/D/E combination assigned to group **E** |
+| `3` | C/D/E with N assigned to group **D** |
+| `4` | condition: § 177.835(g) governs if a detonator is involved |
+| `5` | 1.4S fireworks with 1.1 or 1.2 — see below |
+| `6` | condition: articles only, no substances aboard, G item not fireworks |
+| (h) | same group, mixed divisions → whole shipment rides as the lower one |
+| (i) | 1.5D with 1.2D → shipment rides as **1.1D**, overriding (h) |
+
+Rules 4 and 6 turn on facts the 172.101 table does not carry — whether a
+detonator is involved, and whether an item is an article or a substance — so
+they produce a **stated condition, never a green light**.
+
+Rule 5 is resolved where it can be: all five fireworks entries carry the
+proper shipping name "Fireworks", so a 1.4S line named that is a definite
+prohibition against 1.1 or 1.2. Any other 1.4S line gets the condition
+instead, since nothing in the data says whether it is fireworks.
+
+Paragraph (i) is worth knowing about because it rolls a shipment *below* the
+division either line carries, which changes the placard as well as the
+segregation — the module says so and cites 172.504.
+
+"The shipment travels as" is withheld entirely while any pair is prohibited.
+Telling a driver how to label a load that may not be assembled is worse than
+saying nothing.
 
 ## Placarding engine rules implemented
 

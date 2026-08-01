@@ -109,6 +109,43 @@ function cellText(xml) {
     .trim();
 }
 
+/** Every <P> in the section, flattened to text. */
+function parseParagraphs(xml) {
+  return (xml.match(/<P>[\s\S]*?<\/P>/gi) || []).map(cellText);
+}
+
+/**
+ * Paragraph (g) explains the numbered cells in the compatibility table, and
+ * (h) and (i) say what a mix of divisions becomes. The engine acts on all of
+ * it, so the wording is lifted from the source rather than paraphrased here —
+ * the app quotes the CFR to the driver verbatim.
+ */
+function buildCompatRules(paras) {
+  const rules = {};
+  paras.forEach((t) => {
+    /* (i) "1" means …  through  (vi) "6" means … */
+    const m = t.match(/^\((?:i|ii|iii|iv|v|vi)\)\s*[“"](\d)[”"]\s*means\s+([\s\S]+)$/);
+    if (m) rules[m[1]] = m[2].trim();
+  });
+  for (const n of ["1", "2", "3", "4", "5", "6"]) {
+    if (!rules[n]) fail(`177.848(g)(3) rule ${n} not found — the section may have been amended`);
+  }
+
+  const one = (re, what) => {
+    const hit = paras.find((t) => re.test(t));
+    if (!hit) fail(`${what} not found in § ${SECTION}`);
+    return hit.replace(/^\([a-z]+\)\s*/, "").trim();
+  };
+
+  return {
+    rules,
+    blankMeans: one(/^\(1\) A blank space in the table indicates/, "177.848(g)(1)"),
+    xMeans: one(/^\(2\) The letter .X. in the table indicates that explosives/, "177.848(g)(2)"),
+    divisionRollup: one(/^\(h\) Except as provided in paragraph/, "177.848(h)"),
+    fifteenWithTwelve: one(/^\(i\) When Division 1\.5 materials/, "177.848(i)"),
+  };
+}
+
 /** Every <TABLE> in the section, as arrays of rows of cell text. */
 function parseTables(xml) {
   return (xml.match(/<TABLE[\s\S]*?<\/TABLE>/gi) || []).map((t) => {
@@ -252,7 +289,7 @@ function grid2md(grid, labels, heads) {
   return out;
 }
 
-function writeReport({ meta, seg, compat, notes, bytes, spot }) {
+function writeReport({ meta, seg, compat, compatRules, notes, bytes, spot }) {
   const counts = {};
   seg.grid.flat().forEach((c) => { counts[c || "(blank)"] = (counts[c || "(blank)"] || 0) + 1; });
 
@@ -335,8 +372,18 @@ whether it simply failed to check.
 ${grid2md(seg.grid, CATEGORIES.map((c) => c.label), CATEGORIES.map((c) => c.label))}
 ## Class 1 compatibility — 177.848(f)
 
-Numbered cells refer to the rules in 177.848(g), which this build does not
-implement — the module presents this table as reference only.
+Numbered cells refer to the rules in 177.848(g), captured verbatim into
+\`segregation.json\` alongside (h) and (i) and acted on by the compatibility
+engine.
+
+| Cell | 177.848(g)(3) |
+|---|---|
+${Object.entries(compatRules.rules).map(([k, v]) => `| \`${k}\` | ${v} |`).join("\n")}
+
+| | |
+|---|---|
+| (h) | ${compatRules.divisionRollup} |
+| (i) | ${compatRules.fifteenWithTwelve} |
 
 ${grid2md(compat.grid, COMPAT_GROUPS, COMPAT_GROUPS)}`;
 
@@ -386,13 +433,16 @@ async function main() {
   }
 
   const tables = parseTables(xml);
-  console.log(`  ${tables.length} tables in the section`);
+  const paras = parseParagraphs(xml);
+  console.log(`  ${tables.length} tables, ${paras.length} paragraphs in the section`);
 
   const notes = { noteMismatch: [] };
   const seg = buildSegregation(tables, notes);
   console.log(`  segregation table 18x18 — square, symmetric (${seg.pairs} pairs), markers legal`);
   const compat = buildCompat(tables);
   console.log(`  compatibility table 13x13 — square, symmetric (${compat.pairs} pairs), cells legal`);
+  const cRules = buildCompatRules(paras);
+  console.log(`  177.848(g) rules 1-6 + (h) + (i) captured verbatim`);
 
   const idx = (k) => CATEGORIES.findIndex((c) => c.key === k);
   const spot = SPOT.map(([a, b, want]) => {
@@ -424,7 +474,7 @@ async function main() {
       key, label, name, division, axis, ...(note ? { note } : {}),
     })),
     table: seg.grid,
-    compat: { groups: COMPAT_GROUPS, table: compat.grid },
+    compat: { groups: COMPAT_GROUPS, table: compat.grid, ...cRules },
   };
 
   /* One row per line so an amendment produces a diff a reviewer can read. */
@@ -433,12 +483,13 @@ async function main() {
   const cats = doc.categories.map((c) => "  " + JSON.stringify(c)).join(",\n");
   const rows = doc.table.map((r) => "  " + JSON.stringify(r)).join(",\n");
   const crows = doc.compat.table.map((r) => "  " + JSON.stringify(r)).join(",\n");
+  const cmeta = Object.entries(cRules).map(([k, v]) => `  ${JSON.stringify(k)}: ${JSON.stringify(v)}`).join(",\n");
   fs.writeFileSync(OUT_JSON,
     `{\n${head.join(",\n")},\n "categories": [\n${cats}\n ],\n "table": [\n${rows}\n ],\n` +
-    ` "compat": {\n  "groups": ${JSON.stringify(COMPAT_GROUPS)},\n  "table": [\n${crows}\n  ]\n }\n}\n`);
+    ` "compat": {\n  "groups": ${JSON.stringify(COMPAT_GROUPS)},\n  "table": [\n${crows}\n  ],\n${cmeta}\n }\n}\n`);
 
   const bytes = fs.statSync(OUT_JSON).size;
-  writeReport({ meta, seg, compat, notes, bytes, spot });
+  writeReport({ meta, seg, compat, compatRules: cRules, notes, bytes, spot });
 
   console.log(`\nwrote ${path.relative(REPO, OUT_JSON)} — ${bytes.toLocaleString()} bytes`);
   console.log(`wrote ${path.relative(REPO, OUT_REPORT)}`);
