@@ -49,7 +49,8 @@ amendment can never resurrect a stale placard category. Lines whose entry has
 left the table are dropped with a notice rather than silently kept.
 
 While offline, a strip under the header says so and shows when the cached
-table was generated and when the cache last refreshed.
+table was generated and when the cache last refreshed. The home view carries a
+tappable footer showing the running build; tapping it checks for a new one.
 
 ### Paths
 
@@ -61,11 +62,51 @@ A leading slash anywhere would resolve to the domain root, cache the Pages
 404 page and serve that to drivers. Verified under both `/HazPost/` and a
 domain root.
 
-### Releasing
+## Versions and releasing
 
-Bump `VERSION` in `sw.js` on every release. The cache name carries it, so a
-new worker installs into a fresh cache and drops the old ones on activate.
-Without a bump, drivers keep the cached copy they already have.
+Three version numbers live in this app. They answer three different questions
+and must not be collapsed into one.
+
+| Where | Constant | Answers |
+|---|---|---|
+| `index.html` | `APP_VERSION` | which build of the code a driver is running |
+| `sw.js` | `VERSION` | the cache generation, which forces a fresh install |
+| `hazmat.json` | `version` / `cfrDate` | which CFR edition the table came from |
+
+The first and third are on screen: `APP_VERSION` in the home footer,
+the data edition in the disclaimer line above it. The cache generation is
+plumbing and stays off screen.
+
+**Bump `APP_VERSION` and `VERSION` together on every deploy.** There is no
+build step joining the two files, so nothing enforces it. A deploy that bumps
+only `APP_VERSION` never reaches a phone holding a cached copy — the worker
+sees no change and serves the old build forever. A deploy that bumps only
+`VERSION` ships the new code but reports the old number, so a driver checking
+which build they are on is told the wrong thing. Either way the failure is
+silent, which is the exact failure the version footer exists to prevent.
+
+`hazmat.json`'s `version` moves on its own schedule, whenever
+`tools/build-hazmat.mjs` changes the record shape or the mapping rules.
+
+### How an update reaches a driver
+
+`sw.js` does **not** call `skipWaiting()` on its own. A new worker installs
+and then parks in `waiting` until the page sends it a `"skip"` message, and
+the page only sends that when the driver taps the version footer. On
+activation `clients.claim()` fires `controllerchange`, and the page turns that
+into a reload — guarded so it can only follow a tap.
+
+That gate is what makes background checking safe. HazPost checks for a new
+build silently on load and whenever the app returns to the foreground, so a
+driver who has been away for a week is told they are stale without having to
+go looking. A silent check can surface an update; it can never apply one.
+Reloading someone who is halfway through typing a load off a shipping paper
+is not acceptable, and load persistence is not a licence to do it.
+
+The registration uses `updateViaCache: "none"` so a check always asks the
+server for `sw.js` rather than trusting whatever cache headers Pages sends —
+otherwise a driver can tap "check" and be told they are current by a cached
+copy of the old worker script.
 
 ## Icons
 

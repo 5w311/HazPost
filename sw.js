@@ -15,8 +15,12 @@
  * root, precache the GitHub Pages 404 page, and serve that to drivers — the
  * classic project-page failure.
  *
- * Bump VERSION on every release. The cache name carries it, so a new worker
- * installs into a fresh cache and drops the old ones on activate.
+ * Bump VERSION on every release, together with APP_VERSION in index.html.
+ * The cache name carries VERSION, so a new worker installs into a fresh cache
+ * and drops the old ones on activate. They answer different questions —
+ * VERSION is the cache generation, APP_VERSION is the build a driver is
+ * running — but a deploy that bumps one and not the other is invisible to
+ * every phone already holding a cached copy.
  */
 
 const VERSION = "v1.0.0";
@@ -88,9 +92,12 @@ self.addEventListener("install", (event) => {
       new Promise((r) => setTimeout(r, OPTIONAL_TIMEOUT)),
     ]);
 
-    // Take over as soon as the new worker is ready rather than waiting for
-    // every tab to close — a driver reopening the app should get the update.
-    await self.skipWaiting();
+    // Deliberately NO skipWaiting() here. A worker that activates on its own
+    // claims the open page, which then keeps running the previous index.html
+    // against assets from the new cache — or gets reloaded out from under a
+    // driver halfway through typing a load off a shipping paper. The new
+    // worker waits until the page asks, and the page only asks when the
+    // driver taps the version footer. See the "skip" message below.
   })());
 });
 
@@ -211,7 +218,13 @@ self.addEventListener("fetch", (event) => {
   );
 });
 
-/** Lets the page ask which version is actually serving it. */
 self.addEventListener("message", (event) => {
+  /** Which cache generation is actually serving this page. Diagnostics only —
+   *  the driver-facing footer shows APP_VERSION, not this. */
   if (event.data === "version") event.source?.postMessage({ type: "version", version: VERSION });
+
+  /** The page's explicit go-ahead to take over. Sent only when the driver taps
+   *  the version footer, never by a background check: activating here triggers
+   *  clients.claim(), which the page answers with a reload. */
+  if (event.data === "skip") self.skipWaiting();
 });
