@@ -44,7 +44,9 @@ time, it works with the radio off — module grid, load builder, computed
 placard set, UN lookup and the segregation check.
 
 The current load is written to `localStorage` on every change and restored on
-start, so a load built at the dock survives the phone going in a pocket.
+start, so a load built at the dock survives the phone going in a pocket. The
+load comes back; the view does not — the app opens on the module grid every
+time, so a driver picks the tool for the job in front of them.
 Only the record id, weight and facility are stored: the hazard classification
 is re-read from `hazmat.json` each time, so a load saved before a CFR
 amendment can never resurrect a stale placard category. Lines whose entry has
@@ -194,6 +196,13 @@ row from scratch rather than reusing `base`:
 A class absent from the 18 — Division 6.2, Class 9, combustible liquid — has
 no segregation restriction at all. The module says so rather than leaving a
 driver wondering whether the check simply missed it.
+
+A **bare Class 1 subsidiary label** carries no division, so there is nothing to
+look up directly. It is read as **1.1/1.2**, the strictest explosives row, and
+the assumption is stated on screen. That row is `X` against nearly everything,
+so this is deliberately the loud answer. It affects the four organic peroxide
+Type B entries — UN3101, UN3102, UN3111, UN3112 — whose column 6 reads
+`5.2, 1`.
 
 ### Physical state is asked, never guessed
 

@@ -210,7 +210,7 @@ table.mat td.b{background:var(--panel)}
 <script>
 /* The build a driver is running, shown in the home footer.
    Bump this and VERSION in sw.js together on every deploy — see README. */
-const APP_VERSION = "0.3.0";
+const APP_VERSION = "0.3.1";
 
 /* ---------------- DATA: the 172.101 table, fetched from hazmat.json ---------------- */
 const DATA_URL = "hazmat.json";
@@ -567,7 +567,6 @@ function saveLoad(){
   try{
     localStorage.setItem(LS_LOAD, JSON.stringify({
       saved: new Date().toISOString(),
-      view, plcTab, segTab,
       /* st is the driver's answer to the physical-state question in the
          segregation module. It rides with the line and dies with the load —
          never reused for the same ID on a later load, because n.o.s. entries
@@ -593,8 +592,9 @@ function restoreLoad(){
   if(dropped.length){
     restoreNote = `${dropped.length} saved line${dropped.length===1?" is":"s are"} no longer in the 172.101 table and ${dropped.length===1?"was":"were"} dropped. Re-check your papers.`;
   }
-  if(load.length && doc.view==="placards"){ view = "placards"; plcTab = doc.plcTab==="lookup" ? "lookup" : "builder"; }
-  if(load.length && doc.view==="seg"){ view = "seg"; segTab = doc.segTab==="table" ? "table" : "load"; }
+  /* The load comes back; the view does not. Opening the app lands on the
+     module grid every time, so a driver picks the tool for the job in front
+     of them rather than resuming wherever they happened to stop. */
 }
 
 /* every mutation of the load goes through here, so nothing can change on
@@ -942,8 +942,17 @@ function segCatFor(tok, l, ctx){
   if(tok==="1.1" || tok==="1.2") return "1.1-1.2";
   if(["1.3","1.4","1.5","1.6","2.1","2.2","3","4.1","4.2","4.3","5.1","5.2","7"].includes(tok)) return tok;
 
-  /* a bare Class 1 label with no division — nothing to look up */
-  if(tok==="1"){ ctx.notes.push(`${idLabel(l)} carries a Class 1 subsidiary with no division recorded, so it cannot be placed on the explosives rows. Check the papers.`); return null; }
+  /* A bare Class 1 label carries no division, so there is nothing to look up
+     directly. It is read as 1.1/1.2 — the strictest explosives row — and the
+     assumption is stated on screen. That row is X against nearly everything,
+     so this is deliberately the loud answer: the alternative was to drop the
+     subsidiary entirely and say nothing. Affects the four organic peroxide
+     Type B entries (UN3101, UN3102, UN3111, UN3112), whose column 6 reads
+     "5.2, 1". */
+  if(tok==="1"){
+    ctx.notes.push(`${idLabel(l)} carries a Class 1 subsidiary with no division on file. It is placed on the <b>1.1/1.2</b> row, the strictest explosives row — that row is X against nearly everything, so check the compatibility group on your papers before treating this as final.`);
+    return "1.1-1.2";
+  }
 
   if(tok==="2.3"){
     const z = (l.pih||"").match(/Zone\s*([A-D])/i);
