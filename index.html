@@ -157,6 +157,15 @@ input.mono{font:500 15px 'Roboto Mono'}
 .stateq{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:10px}
 .stateq p{font-size:13.5px;line-height:1.45}
 .stateq p.q{color:var(--dim);margin:5px 0 10px}
+.c1sum{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.c1chip{font:500 11.5px 'Roboto Mono';background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:4px 8px;color:var(--dim)}
+.c1chip b{color:var(--brand);font-weight:700}
+.c1res,.c1rules{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px;margin-top:10px}
+.c1res h5,.c1rules h5{font:700 12px 'Barlow Condensed';letter-spacing:1.3px;color:var(--dim);text-transform:uppercase;margin-bottom:8px}
+.c1res p,.c1rules p{font-size:13.5px;line-height:1.5;margin-bottom:8px}
+.c1res p:last-child,.c1rules p:last-child{margin-bottom:0}
+.c1res p.warn{color:#FFCE5C}
+.c1res .cite,.c1rules .cite{display:block;font:500 11px 'Roboto Mono';color:var(--faint);margin-top:3px}
 .matwrap{overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:10px}
 table.mat{border-collapse:collapse;font:600 10px 'Roboto Mono'}
 table.mat th,table.mat td{width:27px;height:27px;text-align:center;border:1px solid #262E39;padding:0}
@@ -210,7 +219,7 @@ table.mat td.b{background:var(--panel)}
 <script>
 /* The build a driver is running, shown in the home footer.
    Bump this and VERSION in sw.js together on every deploy — see README. */
-const APP_VERSION = "0.3.1";
+const APP_VERSION = "0.4.0";
 
 /* ---------------- DATA: the 172.101 table, fetched from hazmat.json ---------------- */
 const DATA_URL = "hazmat.json";
@@ -1041,6 +1050,186 @@ function segCheck(){
   return {mapped, pairs, outstanding, notes:ctx.notes};
 }
 
+/* ================= CLASS 1 COMPATIBILITY — 177.848(f)-(i) =================
+
+   The segregation table sends every explosives-against-explosives pair here
+   with a `*`. This is the engine behind that: the (f) compatibility table,
+   the numbered rules in (g), and the division rollups in (h) and (i).
+
+   Two of the numbered rules turn on facts the 172.101 table does not carry —
+   whether an item is an article or a substance (rule 6), and whether a
+   detonator is involved (rule 4). Those produce a stated condition, never a
+   green light. Guessing them would be worse than saying so.                */
+
+/** "1.1D" -> {div:"1.1", grp:"D"}; null when the line is not Class 1. */
+function class1Of(l){
+  const m = String(l.cls||"").match(/^(1\.[1-6])([A-S])\b/);
+  return m ? {div:m[1], grp:m[2]} : null;
+}
+
+const compatCell = (a,b) => {
+  const g = SEG.compat.groups;
+  return SEG.compat.table[g.indexOf(a)][g.indexOf(b)];
+};
+
+/** 172.101 gives all five fireworks entries the proper shipping name "Fireworks". */
+const isFireworks = l => String(l.name||"").trim().toLowerCase() === "fireworks";
+
+/**
+ * Resolve every Class 1 line on the load together.
+ *
+ * Pairwise for the prohibitions, then load-wide for the group assignment in
+ * rules 2 and 3 and the division rollup in (h) and (i) — those are properties
+ * of the shipment, not of a pair.
+ */
+function class1Check(){
+  const lines = load.map((l,i)=>({i, l, c:class1Of(l)})).filter(x=>x.c);
+  if(lines.length < 2) return null;
+
+  const bans = [], conds = [], rules = new Set();
+  const groups = [...new Set(lines.map(x=>x.c.grp))].sort();
+  const divs   = [...new Set(lines.map(x=>x.c.div))].sort();
+
+  for(let a=0;a<lines.length;a++) for(let b=a+1;b<lines.length;b++){
+    const A = lines[a], B = lines[b];
+    const cell = compatCell(A.c.grp, B.c.grp);
+
+    if(cell === "X"){
+      bans.push({A, B, cell, why:`Compatibility groups ${A.c.grp} and ${B.c.grp} are X in the table.`, cite:"177.848(f), (g)(2)"});
+      continue;
+    }
+    if(/^X\((\d)\)$/.test(cell)){
+      const n = cell.match(/^X\((\d)\)$/)[1];
+      rules.add(n);
+      bans.push({A, B, cell, why:`Compatibility groups ${A.c.grp} and ${B.c.grp} are X in the table. Rule ${n} also applies.`, cite:"177.848(f), (g)(2)"});
+      continue;
+    }
+    if(cell === "1"){
+      /* the L x L cell — group L may share the vehicle only with an identical explosive */
+      rules.add("1");
+      if(A.l.id !== B.l.id){
+        bans.push({A, B, cell, why:`Group L may only travel with an <b>identical</b> explosive, and these are different entries.`, cite:"177.848(g)(3)(i)"});
+      }
+      continue;
+    }
+    if(cell === "") continue;
+
+    /* everything left is a numbered allowance with strings attached */
+    String(cell).split("/").forEach(n=>rules.add(n));
+    if(cell === "6"){
+      conds.push({A, B, rule:"6", text:`Allowed only if <b>both are explosive articles</b>, the group G item is not fireworks and does not require special handling, and <b>no explosive substances</b> ride in the same vehicle. HazPost cannot tell an article from a substance — that is on the papers.`, cite:"177.848(g)(3)(vi)"});
+    }
+    if(cell.includes("4")){
+      conds.push({A, B, rule:"4", text:`If either of these is a <b>detonator</b>, § 177.835(g) governs the loading and HazPost does not check it.`, cite:"177.848(g)(3)(iv)"});
+    }
+    if(cell.includes("5")){
+      /* rule 5 bites only against 1.1 or 1.2, and only for fireworks */
+      const pair = [A,B], s = pair.find(x=>x.c.div==="1.4" && x.c.grp==="S"), o = pair.find(x=>x!==s);
+      if(s && o && (o.c.div==="1.1" || o.c.div==="1.2")){
+        if(isFireworks(s.l)){
+          bans.push({A, B, cell, why:`${idLabel(s.l)} is Division 1.4S <b>fireworks</b>, and they may not ride with Division ${o.c.div} material.`, cite:"177.848(g)(3)(v)"});
+        } else {
+          conds.push({A, B, rule:"5", text:`If ${idLabel(s.l)} is <b>fireworks</b>, it may not be loaded with Division ${o.c.div} material. Its proper shipping name does not say so — check the papers.`, cite:"177.848(g)(3)(v)"});
+        }
+      }
+    }
+  }
+
+  /* --- rules 2 and 3: what the combination is assigned to --- */
+  let assigned = null;
+  const cde = groups.filter(g=>["C","D","E"].includes(g));
+  if(groups.includes("N") && cde.length){
+    assigned = {grp:"D", rule:"3", cite:"177.848(g)(3)(iii)", from:[...cde,"N"]};
+  } else if(cde.length > 1){
+    assigned = {grp:"E", rule:"2", cite:"177.848(g)(3)(ii)", from:cde};
+  }
+  if(assigned) rules.add(assigned.rule);
+
+  /* --- (i): 1.5D with 1.2D rolls the shipment to 1.1D. Checked first because
+         (h) opens with "Except as provided in paragraph (i)". --- */
+  const has = (d,g) => lines.some(x=>x.c.div===d && x.c.grp===g);
+  const iApplies = has("1.5","D") && has("1.2","D");
+
+  /* --- (h): same group, different divisions, whole shipment rides as the
+         lower numerical division. Group D is left to (i) when (i) bites. --- */
+  const rollups = [];
+  groups.forEach(g=>{
+    if(iApplies && g === "D") return;
+    const ds = [...new Set(lines.filter(x=>x.c.grp===g).map(x=>x.c.div))].sort();
+    if(ds.length > 1) rollups.push({grp:g, from:ds, to:ds[0]});
+  });
+
+  const shipmentDiv = iApplies ? "1.1" : divs[0];
+
+  return {lines, groups, divs, bans, conds, rules:[...rules].sort(), assigned, rollups, iApplies, shipmentDiv};
+}
+
+function class1View(r){
+  if(!r) return "";
+  const R = SEG.compat.rules;
+  const line = x => `${idLabel(x.l)} <span style="color:var(--faint)">${esc(x.l.cls.split(" ")[0])}</span>`;
+
+  let h = `<div class="card"><h4>Explosives compatibility — 177.848(f)</h4>`;
+
+  h += `<div class="c1sum">${r.lines.map(x=>
+    `<span class="c1chip">${idLabel(x.l)} <b>${esc(x.c.div)}${esc(x.c.grp)}</b></span>`).join("")}</div>`;
+
+  r.bans.forEach(bn=>{
+    h += `<div class="segv x"><div class="hd"><span class="mark x">X</span>May not travel together</div>
+      <p>${bn.why}</p>
+      <div class="pairline">${line(bn.A)} <span style="color:var(--faint)">✕</span> ${line(bn.B)} — table cell <b>${esc(bn.cell)}</b></div>
+      <span class="cite">49 CFR ${bn.cite}</span></div>`;
+  });
+
+  r.conds.forEach(c=>{
+    h += `<div class="segv o"><div class="hd"><span class="mark o">${esc(c.rule)}</span>Allowed, with a condition</div>
+      <p>${c.text}</p>
+      <div class="pairline">${line(c.A)} <span style="color:var(--faint)">✕</span> ${line(c.B)}</div>
+      <span class="cite">49 CFR ${c.cite}</span></div>`;
+  });
+
+  if(!r.bans.length && !r.conds.length){
+    h += `<div class="segv clear"><div class="hd"><span class="mark c">✓</span>Compatible</div>
+      <p>Every explosives pair on this load is blank in the compatibility table — no restriction between them.</p>
+      <span class="cite">49 CFR 177.848(f), (g)(1)</span></div>`;
+  }
+
+  /* What the shipment becomes. Withheld while any pair is prohibited: telling
+     a driver how to label a load that may not be built is worse than silence. */
+  if(r.bans.length){
+    h += `<div class="c1res"><h5>The shipment travels as</h5>
+      <p>Not shown — this load may not be assembled as it stands. Resolve the prohibited pair${r.bans.length===1?"":"s"} above first.</p></div>`;
+  } else if(r.assigned || r.rollups.length || r.iApplies){
+    h += `<div class="c1res"><h5>The shipment travels as</h5>`;
+    if(r.assigned){
+      h += `<p><b>Compatibility group ${esc(r.assigned.grp)}</b> — ${esc(R[r.assigned.rule])}
+        <span class="cite">49 CFR ${r.assigned.cite}</span></p>`;
+    }
+    r.rollups.forEach(ru=>{
+      h += `<p><b>Division ${esc(ru.to)}</b> for group ${esc(ru.grp)} — divisions ${esc(ru.from.join(" and "))} are aboard in the same compatibility group, so the whole shipment rides as the lower numerical division.
+        <span class="cite">49 CFR 177.848(h)</span></p>`;
+    });
+    if(r.iApplies){
+      h += `<p class="warn"><b>Division 1.1D</b> — ${esc(SEG.compat.fifteenWithTwelve)}
+        <span class="cite">49 CFR 177.848(i)</span></p>
+        <p class="warn">That is a lower division than either line carries, so it also changes the placard: check that the trailer shows <b>EXPLOSIVES 1.1</b>.
+        <span class="cite">49 CFR 172.504(e), (f)(1)</span></p>`;
+    } else if(r.divs.length > 1){
+      h += `<p>Lowest division aboard is <b>${esc(r.shipmentDiv)}</b>, which is what the placard follows.
+        <span class="cite">49 CFR 172.504(f)(1)</span></p>`;
+    }
+    h += `</div>`;
+  }
+
+  if(r.rules.length){
+    h += `<div class="c1rules"><h5>Rules in play</h5>` +
+      r.rules.map(n=>`<p><b>${esc(n)}</b> — ${esc(R[n]||"")}</p>`).join("") +
+      `<span class="cite">49 CFR 177.848(g)(3)</span></div>`;
+  }
+
+  return h + `</div>`;
+}
+
 /* ---------------- segregation views ---------------- */
 
 function setLineState(i, v){
@@ -1119,9 +1308,13 @@ function segLoadView(){
     "These may not be loaded, transported, or stored together in the same vehicle. No method of separation makes it legal.", "177.848(d), (e)(2)"));
   soft.forEach(p=> h += segVerdict(p, "o", "O — separation required",
     "May travel together only if separated so that, if a package leaks under normal transport conditions, the contents could not commingle.", "177.848(d), (e)(3)"));
-  star.forEach(p=> h += segVerdict(p, "s", "Both are explosives",
-    "Segregation between these two is governed by the Class 1 compatibility group table, not this one. HazPost does not yet decide that pairing — open the reference table and read it against the compatibility groups on your papers.", "177.848(f)"));
+  if(star.length){
+    h += `<div class="segv s"><div class="hd"><span class="mark s">★</span>Explosives against explosives</div>
+      <p>${star.length} pair${star.length===1?" is":"s are"} both Class 1, so the segregation table hands them to the compatibility group table. Resolved below.</p>
+      <span class="cite">49 CFR 177.848(d), (f)</span></div>`;
+  }
 
+  h += class1View(class1Check());
   h += segAdvisories(mapped, notes);
   return h;
 }
@@ -1206,7 +1399,19 @@ function segTableView(){
         return `<td class="${v==="X"?"x":v===""?"b":"n"}">${esc(v)}</td>`;
       }).join("") + `</tr>`).join("") +
     `</table></div>
-    <div class="hint">Reference only. Numbered cells point at the rules in 177.848(g), and the division-mixing rules in (h) and (i) sit on top of them — HazPost does not yet decide an explosives pairing for you.</div>
+    <div class="legend">
+      <span><i class="x"></i>X — not on the same vehicle</span>
+      <span><i class="n"></i>number — see the rule below</span>
+      <span><i class="b"></i>blank — no restriction</span>
+    </div>
+    <div class="c1rules"><h5>177.848(g)(3) — what the numbers mean</h5>` +
+    Object.entries(SEG.compat.rules).map(([k,v])=>`<p><b>${esc(k)}</b> — ${esc(v)}</p>`).join("") +
+    `</div>
+    <div class="c1rules"><h5>Mixing divisions</h5>
+      <p><b>(h)</b> ${esc(SEG.compat.divisionRollup)}</p>
+      <p><b>(i)</b> ${esc(SEG.compat.fifteenWithTwelve)}</p>
+    </div>
+    <div class="hint">Check my load applies all of this to the explosives on your trailer. Rules 4 and 6 turn on facts the 172.101 table does not carry — whether a detonator is involved, and whether an item is an article or a substance — so those come back as a stated condition rather than a verdict.</div>
   </div>`;
 
   h += `<div class="card"><h4>Markers</h4>` +

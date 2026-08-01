@@ -62,6 +62,11 @@
   ["X","X","X","X","X","X","X","X","X","X","1","X","X"],
   ["X","X","3","3","3","X","X","X","X","X","X","","4/5"],
   ["X","4/5","4/5","4/5","4/5","4/5","4/5","4/5","4/5","4/5","X","4/5",""]
-  ]
+  ],
+  "rules": {"1":"an explosive from compatibility group L shall only be carried on the same transport vehicle with an identical explosive.","2":"any combination of explosives from compatibility groups C, D, or E is assigned to compatibility group E.","3":"any combination of explosives from compatibility groups C, D, or E with those in compatibility group N is assigned to compatibility group D.","4":"see § 177.835(g) when transporting detonators.","5":"Division 1.4S fireworks may not be loaded on the same transport vehicle with Division 1.1 or 1.2 (explosive) materials.","6":"explosive articles in compatibility group G, other than fireworks and those requiring special handling, may be loaded, transported and stored with other explosive articles of compatibility groups C, D and E, provided that explosive substances (such as those not contained in articles) are not carried in the same transport vehicle."},
+  "blankMeans": "(1) A blank space in the table indicates that no restrictions apply.",
+  "xMeans": "(2) The letter “X” in the table indicates that explosives of different compatibility groups may not be carried on the same transport vehicle.",
+  "divisionRollup": "Except as provided in paragraph (i) of this section, explosives of the same compatibility group but of different divisions may be transported together provided that the whole shipment is transported as though its entire contents were of the lower numerical division (i.e., Division 1.1 being lower than Division 1.2). For example, a mixed shipment of Division 1.2 (explosive) materials and Division 1.4 (explosive) materials, both of compatibility group D, must be transported as Division 1.2 (explosive) materials.",
+  "fifteenWithTwelve": "When Division 1.5 materials, compatibility group D, are transported in the same freight container as Division 1.2 (explosive) materials, compatibility group D, the shipment must be transported as Division 1.1 (explosive) materials, compatibility group D."
  }
 }
