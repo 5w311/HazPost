@@ -259,9 +259,12 @@ proper shipping name "Fireworks", so a 1.4S line named that is a definite
 prohibition against 1.1 or 1.2. Any other 1.4S line gets the condition
 instead, since nothing in the data says whether it is fireworks.
 
-Paragraph (i) is worth knowing about because it rolls a shipment *below* the
-division either line carries, which changes the placard as well as the
-segregation — the module says so and cites 172.504.
+Paragraph (i) rolls a shipment *below* the division either line carries, so it
+changes the placard as well as the segregation. Both modules read it from a
+single `rule848i()` helper rather than each deciding for itself — the
+placarding engine promotes the trailer to EXPLOSIVES 1.1, and the segregation
+module says so. Two modules disagreeing about the same trailer is the failure
+worth designing against here.
 
 "The shipment travels as" is withheld entirely while any pair is prohibited.
 Telling a driver how to label a load that may not be assembled is worse than
@@ -273,6 +276,7 @@ saying nothing.
 - Table 2 materials: placard when aggregate gross weight of all Table 2 hazmat reaches 1,001 lb — 172.504(c)
 - DANGEROUS placard permitted for 2+ Table 2 categories, voided per-class by 2,205+ lb loaded at one facility — 172.504(b)
 - Only the lowest Class 1 division on board is placarded — 172.504(f)(1)
+- Division 1.5D riding with Division 1.2D re-divisions the shipment to 1.1D, so the trailer takes EXPLOSIVES 1.1 — 177.848(i)
 - Class 9 placard not required for domestic highway transport — 172.504(f)(9)
 - Division 6.2 and unlabelled 1.4S count toward the aggregate but hang no placard — 172.504(e) Table 2, 172.504(f)(6)
 - Materials poisonous by inhalation carry POISON INHALATION HAZARD on top of their class placard — 172.505(a)

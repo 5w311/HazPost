@@ -23,7 +23,7 @@
  * every phone already holding a cached copy.
  */
 
-const VERSION = "v1.2.0";
+const VERSION = "v1.2.1";
 const CACHE = `hazpost-${VERSION}`;
 
 /** Where the cache-refresh timestamp lives, for the offline indicator. */

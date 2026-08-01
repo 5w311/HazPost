@@ -219,7 +219,7 @@ table.mat td.b{background:var(--panel)}
 <script>
 /* The build a driver is running, shown in the home footer.
    Bump this and VERSION in sw.js together on every deploy — see README. */
-const APP_VERSION = "0.4.0";
+const APP_VERSION = "0.4.1";
 
 /* ---------------- DATA: the 172.101 table, fetched from hazmat.json ---------------- */
 const DATA_URL = "hazmat.json";
@@ -559,6 +559,20 @@ const CLSPLC = {
  "5.1":"oxy51","5.2":"operox52","6.1t2":"tox61","6.2":"none","8":"corr8","9":"misc9"};
 /* 172.504(f)(1): only the lowest Class 1 division on board is placarded */
 const EXPLDIV = {expl11:"1.1",expl12:"1.2",expl13:"1.3",expl14:"1.4",expl15:"1.5",expl16:"1.6"};
+
+/**
+ * 177.848(i): Division 1.5 compatibility group D riding with Division 1.2
+ * compatibility group D must be transported as Division 1.1D.
+ *
+ * It lives in the segregation section but it re-divisions the shipment, which
+ * is what 172.504 placards off — so both modules read it from here rather
+ * than each deciding for itself and disagreeing on the same trailer.
+ */
+function rule848i(lines){
+  const cls = l => String(l.cls||"").match(/^(1\.[1-6])([A-S])\b/);
+  const has = (d,g) => lines.some(l=>{ const m = cls(l); return m && m[1]===d && m[2]===g; });
+  return has("1.5","D") && has("1.2","D");
+}
 /* a line that hangs nothing — Division 6.2, unlabelled 1.4S, excepted radioactive packages */
 function noPlc(l){ const p=PLC[l&&l.plc]; return !p || !!p.none; }
 
@@ -836,11 +850,25 @@ function compute(){
   }
   if(!load.length) return null;
 
+  // 177.848(i) — Division 1.5D riding with Division 1.2D re-divisions the whole
+  // shipment to 1.1D, which is lower than either line carries. Applied before
+  // (f)(1) so the lowest-division rule then settles on 1.1 on its own.
+  const promoted = rule848i(load);
+  if(promoted){
+    placards.add("expl11");
+    why.push({tone:"bad", txt:`Division <b>1.5D</b> and Division <b>1.2D</b> are both aboard, so the shipment must be transported as <b>Division 1.1D</b> — a lower division than either line carries. The trailer takes <b>EXPLOSIVES 1.1</b>.`, cite:"177.848(i)"});
+  }
+
   // 172.504(f)(1) — when several Class 1 divisions are aboard, only the lowest is displayed
   const explOn = [...placards].filter(p=>EXPLDIV[p]).sort((a,b)=>EXPLDIV[a].localeCompare(EXPLDIV[b]));
   if(explOn.length>1){
     explOn.slice(1).forEach(p=>placards.delete(p));
-    why.push({tone:"ok", txt:`Explosives divisions ${explOn.map(p=>EXPLDIV[p]).join(", ")} are aboard — only the placard for the <b>lowest division</b>, EXPLOSIVES ${EXPLDIV[explOn[0]]}, must be displayed.`, cite:"172.504(f)(1)"});
+    /* Silent when 177.848(i) put 1.1 there: that note has already explained
+       the outcome, and saying division 1.1 is "aboard" would be wrong — no
+       line on this load carries it. */
+    if(!promoted){
+      why.push({tone:"ok", txt:`Explosives divisions ${explOn.map(p=>EXPLDIV[p]).join(", ")} are aboard — only the placard for the <b>lowest division</b>, EXPLOSIVES ${EXPLDIV[explOn[0]]}, must be displayed.`, cite:"172.504(f)(1)"});
+    }
   }
 
   return {placards:[...placards], why, dangerOption, agg, t2cats: t2.length};
@@ -1147,8 +1175,7 @@ function class1Check(){
 
   /* --- (i): 1.5D with 1.2D rolls the shipment to 1.1D. Checked first because
          (h) opens with "Except as provided in paragraph (i)". --- */
-  const has = (d,g) => lines.some(x=>x.c.div===d && x.c.grp===g);
-  const iApplies = has("1.5","D") && has("1.2","D");
+  const iApplies = rule848i(lines.map(x=>x.l));
 
   /* --- (h): same group, different divisions, whole shipment rides as the
          lower numerical division. Group D is left to (i) when (i) bites. --- */
@@ -1212,7 +1239,7 @@ function class1View(r){
     if(r.iApplies){
       h += `<p class="warn"><b>Division 1.1D</b> — ${esc(SEG.compat.fifteenWithTwelve)}
         <span class="cite">49 CFR 177.848(i)</span></p>
-        <p class="warn">That is a lower division than either line carries, so it also changes the placard: check that the trailer shows <b>EXPLOSIVES 1.1</b>.
+        <p class="warn">That is a lower division than either line carries, so it moves the placard too. Placarding applies this — the trailer shows <b>EXPLOSIVES 1.1</b> for this load.
         <span class="cite">49 CFR 172.504(e), (f)(1)</span></p>`;
     } else if(r.divs.length > 1){
       h += `<p>Lowest division aboard is <b>${esc(r.shipmentDiv)}</b>, which is what the placard follows.
