@@ -133,6 +133,13 @@ input.mono{font:500 15px 'Roboto Mono'}
 .stubview .cfr{font:500 12px 'Roboto Mono';color:var(--faint);margin-top:14px;display:block}
 
 .disclaimer{font-size:11.5px;color:var(--faint);line-height:1.5;padding:14px 4px 0;border-top:1px solid var(--line);margin-top:20px}
+
+/* version footer — home only, tap to check for a new build */
+.verfoot{display:block;width:100%;background:none;border:none;cursor:pointer;
+  font:500 10.5px 'Roboto Mono',monospace;letter-spacing:.4px;color:var(--faint);
+  text-align:center;padding:14px 4px 2px}
+.verfoot:active{opacity:.6}
+.verfoot.live{color:var(--brand)}
 .hidden{display:none!important}
 
 /* data loading / error states */
@@ -163,6 +170,10 @@ input.mono{font:500 15px 'Roboto Mono'}
 </div>
 
 <script>
+/* The build a driver is running, shown in the home footer.
+   Bump this and VERSION in sw.js together on every deploy — see README. */
+const APP_VERSION = "0.2.0";
+
 /* ---------------- DATA: the 172.101 table, fetched from hazmat.json ---------------- */
 const DATA_URL = "hazmat.json";
 let HM = [];           /* material records */
@@ -243,22 +254,191 @@ function paintOffline(){
   el.hidden = false;
 }
 
-/* ---------------- SERVICE WORKER ---------------- */
+/* ---------------- SERVICE WORKER + UPDATE CHECK ----------------
+
+   Three version numbers live in this app and they answer three questions:
+
+     APP_VERSION (here)          the code a driver is running
+     VERSION     (sw.js)         the cache generation, forces a fresh install
+     version/cfrDate (hazmat.json)  which CFR edition the table came from
+
+   Only the first and third belong on screen; the cache generation is
+   plumbing. The footer shows the build, dataNote shows the data.
+
+   sw.js does not call skipWaiting on its own. A new worker sits in `waiting`
+   until this page sends "skip", and this page only sends it when the driver
+   taps the footer. That is what makes a background check safe: it can find an
+   update and say so, but it cannot pull the rug on someone mid load build. */
+
+let swReg = null;             /* registration, reachable from the footer handler */
+let updateReady = false;      /* a new worker is installed and waiting */
+let verState = "idle";        /* idle | checking | uptodate | ready | updating */
+let verRevert = null;
+
+/* Set by applyUpdate(), and by nothing else. It is the whole guard on the
+   reload below.
+
+   The obvious guard — snapshot navigator.serviceWorker.controller at startup
+   and only reload if the page already had one — has a hole. On a first-ever
+   visit there is no controller at script time, so the snapshot is false for
+   the entire life of that page. If the driver then taps to update in that
+   same session, controllerchange fires and the snapshot suppresses the
+   reload: the footer sits on "Updating…" against a worker that has already
+   taken over. Keying on the tap instead is both narrower and exactly the
+   rule we want — no reload the driver did not ask for, on any visit. */
+let userAskedToUpdate = false;
+
+if("serviceWorker" in navigator){
+  let reloading = false;
+  navigator.serviceWorker.addEventListener("controllerchange", ()=>{
+    /* A claim nobody asked for: a first install taking control, or a worker
+       activating behind a background check. Let it happen silently. */
+    if(!userAskedToUpdate || reloading) return;
+    reloading = true;
+    location.reload();
+  });
+}
+
 function registerSW(){
   if(!("serviceWorker" in navigator)) return;
   /* Relative on purpose. HazPost is served from /HazPost/ on GitHub Pages, so
      "sw.js" resolves against this document to /HazPost/sw.js and the default
      scope becomes /HazPost/. A leading slash would ask for /sw.js at the
-     domain root, which does not exist and would fail registration outright. */
-  navigator.serviceWorker.register("sw.js").then(reg=>{
+     domain root, which does not exist and would fail registration outright.
+
+     updateViaCache:"none" keeps sw.js itself out of the HTTP cache, so a check
+     asks the server rather than trusting whatever headers Pages happens to
+     send. Without it a driver can tap "check" and be told they are current by
+     a cached copy of the old worker script. */
+  navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(reg=>{
+    swReg = reg;
+
     reg.addEventListener("updatefound", ()=>{
       const sw = reg.installing;
-      if(sw) sw.addEventListener("statechange", ()=>{ if(sw.state==="activated") readCacheMeta().then(paintOffline); });
+      if(!sw) return;
+      sw.addEventListener("statechange", ()=>{
+        /* installed + an existing controller means this is an update waiting,
+           not a first install */
+        if(sw.state==="installed" && navigator.serviceWorker.controller) markUpdateReady();
+        if(sw.state==="activated") readCacheMeta().then(paintOffline);
+      });
     });
+
+    /* a worker may already be waiting from a previous visit */
+    if(reg.waiting && navigator.serviceWorker.controller) markUpdateReady();
+
+    checkForUpdate();  /* silent check on load */
   }).catch(e=>{
     /* No worker means no offline mode, but the app still runs online. */
     console.warn("HazPost: service worker registration failed —", e && e.message);
   });
+}
+
+function markUpdateReady(){
+  updateReady = true;
+  /* never stomp on a tap already in flight */
+  if(verState==="idle" || verState==="uptodate"){ setVerState("ready"); }
+}
+
+function setVerState(s){
+  verState = s;
+  clearTimeout(verRevert);
+  if(s==="uptodate" || s==="nocheck" || s==="failed"){
+    /* fall back to whatever is true once the message has been read */
+    verRevert = setTimeout(()=>setVerState(updateReady ? "ready" : "idle"), s==="failed" ? 5000 : 2000);
+  }
+  paintVersionFoot();
+}
+
+/* Silent by design: no checking label, no result message. A driver who
+   backgrounds the app for a week should not have to go tapping to find out
+   they are stale — but a check they did not ask for never reloads and never
+   flashes. All it can do is light up the footer via markUpdateReady. */
+async function checkForUpdate(){
+  if(!swReg) return;
+  try{ await swReg.update(); }catch(e){ /* offline, or the server is unreachable */ }
+}
+
+function verFootText(){
+  switch(verState){
+    case "checking": return "Checking for updates…";
+    case "uptodate": return "You're up to date";
+    case "nocheck":  return "Offline — can't check for updates";
+    case "failed":   return "Update didn't finish — tap to retry";
+    case "ready":    return "Update ready — tap to install";
+    case "updating": return "Updating…";
+    default:         return `HazPost v${APP_VERSION}`;
+  }
+}
+
+/* The home view is rebuilt by render() on every navigation, so the footer is
+   drawn from verState each time rather than being written once at startup. */
+function paintVersionFoot(){
+  const el = document.getElementById('verFoot');
+  if(!el) return;
+  el.textContent = verFootText();
+  el.classList.toggle('live', verState==="ready" || verState==="updating");
+}
+
+/* The driver's explicit tap — the only path that is allowed to reload. */
+async function tapVersion(){
+  if(!swReg || verState==="checking" || verState==="updating") return;
+
+  if(updateReady && swReg.waiting){ applyUpdate(); return; }
+
+  setVerState("checking");
+
+  /* updatefound fires as soon as a new worker starts installing — the earliest
+     positive signal that a new build exists. */
+  let found = false;
+  const onFound = ()=>{ found = true; };
+  swReg.addEventListener("updatefound", onFound);
+
+  let reached = true;
+  try{ await swReg.update(); }catch(e){ reached = false; }
+  await sleep(600);                       /* let a just-started install announce itself */
+  swReg.removeEventListener("updatefound", onFound);
+
+  if(found || swReg.installing || swReg.waiting){
+    /* Wait for the lifecycle rather than a fixed window. Installing a new
+       HazPost means caching a ~370 KB table plus icons, and sw.js gives its
+       optional phase up to 10 s — a short fixed timeout here would report
+       "up to date" while the update was still downloading. */
+    setVerState("updating");
+    if(await waitForWaiting(swReg, 30000)){ applyUpdate(); return; }
+    setVerState("failed");
+    return;
+  }
+
+  /* Never answer "up to date" for a check that never reached the server. A
+     driver reading that would take it as confirmation their rules are
+     current, which is the exact thing this footer exists to prevent. */
+  setVerState(reached && navigator.onLine ? "uptodate" : "nocheck");
+}
+
+const sleep = ms => new Promise(r=>setTimeout(r, ms));
+
+/** Resolve true once a new worker finishes installing and parks in `waiting`. */
+function waitForWaiting(reg, ms){
+  return new Promise(res=>{
+    const t0 = Date.now();
+    (function poll(){
+      if(reg.waiting) return res(true);
+      if(Date.now() - t0 > ms) return res(false);
+      setTimeout(poll, 250);
+    })();
+  });
+}
+
+/* Hand the waiting worker its go-ahead. It activates, calls clients.claim(),
+   and the controllerchange listener above turns that into the reload. */
+function applyUpdate(){
+  userAskedToUpdate = true;
+  setVerState("updating");
+  if(swReg.waiting) swReg.waiting.postMessage("skip");
+  /* If the handover never lands, don't strand the driver on "Updating…".
+     Reloading is already what they asked for, so the fallback is safe. */
+  setTimeout(()=>{ if(!document.hidden) location.reload(); }, 6000);
 }
 
 /* placard rendering specs — colours per the design sections cited on each line */
@@ -415,7 +595,9 @@ function render(){
       `<div class="tile ${x.live?'live':'stub'}" style="--tc:${x.tc}" onclick="go('${x.id}')">
         <div><div class="td"></div><h3>${x.t}</h3><p>${x.d}</p></div>
         <div class="cfr">${x.cfr}</div></div>`).join("")+`</div>
-      <div class="disclaimer">HazPost is a verification aid, not a substitute for the shipping paper or the regulations. The shipper certifies classification and provides placards. Always confirm against your papers and 49 CFR.<br>${esc(dataNote())}</div>`;
+      <div class="disclaimer">HazPost is a verification aid, not a substitute for the shipping paper or the regulations. The shipper certifies classification and provides placards. Always confirm against your papers and 49 CFR.<br>${esc(dataNote())}</div>
+      <button type="button" class="verfoot${verState==="ready"||verState==="updating"?" live":""}" id="verFoot"
+        onclick="tapVersion()" aria-label="Check for app updates">${esc(verFootText())}</button>`;
   } else if(view==="placards"){
     sub.textContent="49 CFR 172.504 · Subpart F";
     m.innerHTML = `
@@ -653,9 +835,13 @@ function lkShow(id){
 window.addEventListener("online",  paintOffline);
 window.addEventListener("offline", paintOffline);
 /* the connection can drop between launches; re-check when the app comes back
-   to the foreground, which is how a phone in a pocket behaves */
+   to the foreground, which is how a phone in a pocket behaves. The update
+   check here is silent — it can surface that a new build exists, never act
+   on it. A driver mid load build does not get reloaded out from under. */
 document.addEventListener("visibilitychange", ()=>{
-  if(!document.hidden) readCacheMeta().then(paintOffline);
+  if(document.hidden) return;
+  readCacheMeta().then(paintOffline);
+  checkForUpdate();
 });
 
 registerSW();
