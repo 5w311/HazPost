@@ -134,6 +134,52 @@ input.mono{font:500 15px 'Roboto Mono'}
 
 .disclaimer{font-size:11.5px;color:var(--faint);line-height:1.5;padding:14px 4px 0;border-top:1px solid var(--line);margin-top:20px}
 
+/* on the road module */
+.tierbar{border-radius:12px;padding:12px 14px;margin-bottom:12px;border:1px solid;display:flex;gap:11px;align-items:flex-start}
+.tierbar.e{background:#2A1618;border-color:#6B2429}
+.tierbar.o{background:#1B2430;border-color:#31465E}
+.tierbar .badge{font:800 10px 'Barlow Condensed';letter-spacing:1px;padding:4px 7px;border-radius:5px;flex:none;text-transform:uppercase;margin-top:1px}
+.tierbar.e .badge{background:var(--bad);color:#fff}
+.tierbar.o .badge{background:#3C566F;color:#DCE9F5}
+.tierbar b{display:block;font:700 15px 'Barlow';margin-bottom:2px}
+.tierbar p{font-size:13px;line-height:1.45;color:#C6CED8}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{flex:1 1 46%;border:1px solid var(--line);background:var(--bg);color:var(--dim);font:600 13px 'Barlow';padding:11px 8px;border-radius:10px;cursor:pointer;line-height:1.25;text-align:left}
+.seg button.on{background:var(--panel2);color:var(--ink);border-color:var(--brand)}
+.opshead{border-radius:12px;padding:14px;margin-bottom:12px;border:1px solid}
+.opshead.bad{background:#2A1618;border-color:#6B2429}
+.opshead.ok{background:#16241A;border-color:#265731}
+.opshead b{display:block;font:800 16px 'Barlow';margin-bottom:5px}
+.opshead.bad b{color:#FF9CA1} .opshead.ok b{color:#7FD69B}
+.opshead p{font-size:13.5px;line-height:1.5;color:#DCE2EA}
+.rule{border-left:3px solid var(--line);padding:6px 0 6px 12px;margin:12px 0}
+.rule.stop{border-color:var(--bad)} .rule.care{border-color:var(--brand)} .rule.ok{border-color:var(--ok)}
+.rule b{display:block;font:700 14.5px 'Barlow';margin-bottom:3px}
+.rule p{font-size:13.5px;line-height:1.5;color:#C6CED8}
+.rule .cite{display:inline-block;font:500 11px 'Roboto Mono';color:var(--faint);margin-top:5px}
+.verb{background:var(--bg);border:1px solid var(--line);border-left:2px solid var(--faint);border-radius:0 8px 8px 0;padding:8px 10px;margin-top:8px}
+.verb b{display:block;font:500 10px 'Roboto Mono';color:var(--faint);letter-spacing:.3px;margin-bottom:4px}
+.verb p{font-size:12.5px;line-height:1.5;color:#A9B3C0;font-style:italic}
+.eyebox{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px 12px;margin-top:10px}
+.eyebox b{font:700 10px 'Barlow Condensed';letter-spacing:1.2px;color:var(--brand);display:block;margin-bottom:4px;text-transform:uppercase}
+.eyebox p{font-size:12.5px;color:#B4BDC9;line-height:1.5}
+.limitbox{border:1px dashed var(--line);border-radius:10px;padding:11px 12px;margin-top:12px}
+.limitbox p{font-size:12.5px;color:var(--dim);line-height:1.55}
+.limitbox b{color:var(--ink)}
+.onboard{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-top:8px}
+.onboard b{font:700 9.5px 'Barlow Condensed';letter-spacing:1.2px;color:var(--bad);display:block;margin-bottom:3px;text-transform:uppercase}
+.onboard.ok b{color:var(--ok)}
+.onboard p{font:600 12.5px 'Roboto Mono';color:#C6CED8;line-height:1.45}
+.refp{display:flex;gap:9px;padding:6px 0;border-top:1px solid var(--line)}
+.refp:first-child{border-top:none}
+.refp .pid{font:600 11.5px 'Roboto Mono';color:var(--brand);flex:none;min-width:52px}
+.verbfold{margin-top:8px}
+.verbfold>summary{font:500 11px 'Roboto Mono';color:var(--brand);cursor:pointer;padding:5px 0;list-style:none;opacity:.85}
+.verbfold>summary::-webkit-details-marker{display:none}
+.verbfold>summary::before{content:"▸ ";font-size:10px}
+.verbfold[open]>summary::before{content:"▾ "}
+.refp p{font-size:13px;line-height:1.55;color:#C6CED8}
+
 /* segregation module */
 .segchip{font:700 9.5px 'Barlow Condensed';letter-spacing:.8px;padding:2px 6px;border-radius:4px;text-transform:uppercase;flex:none}
 .segchip.sub{background:#3A2E4A;color:#C9A7E8}
@@ -219,15 +265,18 @@ table.mat td.b{background:var(--panel)}
 <script>
 /* The build a driver is running, shown in the home footer.
    Bump this and VERSION in sw.js together on every deploy — see README. */
-const APP_VERSION = "0.4.1";
+const APP_VERSION = "0.5.0";
 
 /* ---------------- DATA: the 172.101 table, fetched from hazmat.json ---------------- */
 const DATA_URL = "hazmat.json";
 const SEG_URL = "segregation.json";
+const OPS_URL = "ops.json";
 let HM = [];           /* material records */
 let HMMETA = null;     /* provenance: source, cfrDate, generated */
 let SEG = null;        /* 177.848 tables; null if segregation.json didn't load */
 let segError = "";
+let OPS = null;        /* Part 397 Subpart A; null if ops.json didn't load */
+let opsError = "";
 let dataState = "loading";   /* loading | ready | error */
 let dataError = "";
 
@@ -251,6 +300,7 @@ async function loadData(){
        not take the placarding module down with it. The segregation module
        says so for itself if this fails. */
     await loadSeg();
+    await loadOps();
   }catch(e){
     dataError = (e && e.message) ? e.message : String(e);
     dataState="error";
@@ -272,6 +322,20 @@ async function loadSeg(){
   }catch(e){
     SEG = null;
     segError = (e && e.message) ? e.message : String(e);
+  }
+}
+
+async function loadOps(){
+  opsError = "";
+  try{
+    const res = await fetch(OPS_URL, {cache:"no-cache"});
+    if(!res.ok) throw new Error(`the server answered ${res.status} ${res.statusText||""}`.trim());
+    const doc = await res.json();
+    if(!Array.isArray(doc.sections) || doc.sections.length!==11) throw new Error("Part 397 Subpart A is not 11 sections");
+    OPS = doc;
+  }catch(e){
+    OPS = null;
+    opsError = (e && e.message) ? e.message : String(e);
   }
 }
 
@@ -594,6 +658,7 @@ function saveLoad(){
          segregation module. It rides with the line and dies with the load —
          never reused for the same ID on a later load, because n.o.s. entries
          genuinely vary between shipments. */
+      ...(opsPlace?{opsPlace}:{}),
       lines: load.map(l=>({id:l.id, wt:l.wt, fac:l.fac, ...(l.st?{st:l.st}:{})})),
     }));
   }catch(e){ /* private mode or quota — the app works, it just won't remember */ }
@@ -606,6 +671,7 @@ function restoreLoad(){
   let doc;
   try{ doc = JSON.parse(raw); }catch(e){ return; }
   const lines = Array.isArray(doc && doc.lines) ? doc.lines : [];
+  if(OPS_PLACES.some(x=>x.k===doc.opsPlace)) opsPlace = doc.opsPlace;
   const dropped = [];
   load = lines.map(l=>{
     const m = HM.find(x=>x.id===l.id);
@@ -628,21 +694,21 @@ function clearLoad(){
   if(!load.length) return;
   const n = load.length;
   if(!confirm(`Clear all ${n} line${n===1?"":"s"}?\n\nThis also erases the load saved on this phone — it will not come back when you reopen HazPost.`)) return;
-  load = []; restoreNote = ""; commit();
+  load = []; restoreNote = ""; opsPlace = null; commit();
 }
-let view = "home", plcTab = "builder", segTab = "load";
+let view = "home", plcTab = "builder", segTab = "load", opsTab = "where";
+let opsPlace = null;   /* where the truck is stopping — rides with the load */
 
 /* ---------------- ROUTER ---------------- */
 const MODULES = [
  {id:"placards", tc:"var(--brand)", t:"Placarding", d:"Build your load, get the placard set for the trailer", cfr:"49 CFR 172.504", live:true},
  {id:"seg", tc:"var(--flam)", t:"Segregation", d:"What can and can't ride together", cfr:"49 CFR 177.848", live:true},
- {id:"ops", tc:"var(--wet)", t:"On the Road", d:"Attendance, parking, fueling, tire checks", cfr:"49 CFR Part 397"},
+ {id:"ops", tc:"var(--wet)", t:"On the Road", d:"Attendance, parking, fueling, tire checks", cfr:"49 CFR Part 397", live:true},
  {id:"papers", tc:"var(--gas)", t:"Shipping Papers", d:"What must be on them, where they must sit", cfr:"49 CFR 177.817"},
  {id:"incident", tc:"var(--expl)", t:"Incident Response", d:"When and who you must call, immediately", cfr:"49 CFR 171.15"},
  {id:"creds", tc:"var(--faint)", t:"Credentials", d:"HME, training clock, what you carry", cfr:"49 CFR 172.704"},
 ];
 const STUBTXT = {
- ops:["On the Road","Plain-language Part 397: attending the vehicle, where you can park, smoking, fueling, and the tire check rule."],
  papers:["Shipping Papers","A checklist of every required element, the emergency phone rule, and exactly where papers live in the cab."],
  incident:["Incident Response","The immediate-notice triggers, the National Response Center number, and the written report clock."],
  creds:["Credentials","Hazmat endorsement, the 3-year recurrent training cycle, and what has to be on you at a stop."],
@@ -694,6 +760,16 @@ function render(){
       </div>
       <div id="tabBody"></div>`;
     if(plcTab==='builder') renderBuilder(); else renderLookup();
+  } else if(view==="ops"){
+    sub.textContent="49 CFR Part 397 Subpart A";
+    m.innerHTML = `
+      <div class="tabs">
+        <button class="${opsTab==='where'?'on':''}" onclick="opsTab='where';commit()">Where am I stopping</button>
+        <button class="${opsTab==='ref'?'on':''}" onclick="opsTab='ref';commit()">Reference</button>
+      </div>
+      <div id="opsBody"></div>`;
+    document.getElementById('opsBody').innerHTML =
+      !OPS ? opsUnavailable() : (opsTab==='where' ? opsWhereView() : opsRefView());
   } else if(view==="seg"){
     sub.textContent="49 CFR 177.848 · Segregation";
     m.innerHTML = `
@@ -1445,6 +1521,280 @@ function segTableView(){
     Object.entries(SEG.markers).map(([k,v])=>
       `<div class="why ${k==="X"?"bad":k==="O"?"warn":""}"><p style="font-size:13.5px"><b>${k===""?"blank":k==="*"?"★":k}</b> — ${esc(v)}</p></div>`).join("") +
     `<div class="hint">${esc(SEG.source)}, current as of ${esc(SEG.cfrDate)} (table v${esc(SEG.version)}).</div></div>`;
+  return h;
+}
+
+/* ================= ON THE ROAD — 49 CFR Part 397 Subpart A =================
+
+   Part 397 is prose, and the temptation is to ship it as a reg reader. A
+   driver can already read the reg. What the app knows and the paper does not
+   is what is on the trailer, and the part turns on exactly one question about
+   that: is there Division 1.1, 1.2 or 1.3 aboard. Everything operational is
+   that answer crossed with where the truck is sitting.
+
+   Every plain-language line below is ours. The verbatim paragraph sits beside
+   it, never instead of it — this is the module where a loose paraphrase does
+   the most damage.                                                          */
+
+const OPS_PLACES = [
+  {k:"road",    lbl:"Public street, highway, or shoulder", hint:"Including the shoulder of a public highway."},
+  {k:"private", lbl:"Private property — truck stop, eating facility, other business", hint:"Anywhere private that is not your carrier, the shipper, or the consignee."},
+  {k:"carrier", lbl:"Property of the carrier, shipper, or consignee", hint:"Your own yard, the shipper's, or the receiver's."},
+  {k:"haven",   lbl:"An approved safe haven", hint:"Approved in writing for parking unattended explosives. A fenced yard is not automatically one."},
+];
+
+const opsSec  = n => (OPS.sections.find(s=>s.n===n) || {paras:[]});
+const opsText = (n,id) => { const p = opsSec(n).paras.find(x=>x.id===id); return p ? p.text : ""; };
+
+/** Divisions that put a load in the strict tier. */
+const TIER1_BASES = ["1.1","1.2","1.3"];
+
+/** 397.13 names these and only these. */
+const SMOKE_CLASSES = [
+  {test:b=>/^1\./.test(b),      lbl:"Class 1"},
+  {test:b=>/^5\./.test(b),      lbl:"Class 5"},
+  {test:b=>b==="2.1",           lbl:"Division 2.1"},
+  {test:b=>b==="3",             lbl:"Class 3"},
+  {test:b=>b==="4.1",           lbl:"Division 4.1"},
+  {test:b=>b==="4.2",           lbl:"Division 4.2"},
+];
+
+function opsCheck(){
+  const r = load.length ? compute() : null;
+  const placarded = !!(r && r.placards.length);
+  const tier1 = load.some(l=>TIER1_BASES.includes(l.base));
+  /* a Class 1 subsidiary does not make the material a Division 1.1/1.2/1.3 —
+     its class is whatever column 3 says — but it is worth putting in front of
+     the driver rather than deciding silently */
+  const cls1sub = load.filter(l=>String(l.subs||"").split(/,\s*/).some(t=>t==="1"||/^1\./.test(t)));
+  const bases = [...new Set(load.map(l=>l.base))];
+  const smoking = SMOKE_CLASSES.filter(c=>bases.some(c.test)).map(c=>c.lbl);
+  return {placarded, tier1, cls1sub, smoking, place:opsPlace, placards:(r&&r.placards)||[]};
+}
+
+/* ---------- the decision ---------- */
+
+function opsRules(st){
+  const P = st.place, out = [];
+  const R = (tone,title,body,cite,verb) => out.push({tone,title,body,cite,verb});
+
+  if(st.tier1){
+    /* --- 397.5 attendance --- */
+    if(P==="haven"){
+      R("care","Unattended is possible — but the bailee condition still stands",
+        `A safe haven satisfies two of the three conditions on its own: the vehicle is in a safe haven, and being in a safe haven also satisfies the field-of-view condition. The third does not come free — the lawful bailee must still be aware of the nature of the explosives and instructed in emergency procedures. All three must exist together.`,
+        "397.5(b)", opsText("397.5","(b)")+" "+opsText("397.5","(b)(1)")+" "+opsText("397.5","(b)(2)")+" "+opsText("397.5","(b)(3)"));
+    } else if(P==="carrier"){
+      R("care","Unattended only if all three conditions hold together",
+        `Carrier, shipper or consignee property satisfies the first condition. The other two are facts about a person, not a place: the lawful bailee must be aware of what the explosives are and instructed in emergency procedures, and the vehicle must be in their unobstructed field of view. Miss one and attendance is still required.`,
+        "397.5(b)(1)–(3)", opsText("397.5","(b)")+" "+opsText("397.5","(b)(1)")+" "+opsText("397.5","(b)(2)")+" "+opsText("397.5","(b)(3)"));
+    } else {
+      R("stop","Attended at all times — no exception reaches here",
+        `The exception only reaches carrier, shipper or consignee property, a safe haven, or 50 lb or less on a construction or survey site. ${P==="road"?"A public street or highway is none of those.":"A truck stop or other business is none of those."}`,
+        "397.5(a), (b)(1)", opsText("397.5","(a)"));
+    }
+
+    /* --- 397.7(a) parking --- */
+    if(P==="road"){
+      R("stop","Not on or within 5 feet of the traveled portion",
+        `Flat prohibition for this load. The brief-necessity escape that other hazmat gets under 397.7(b) is not in 397.7(a)(1).`,
+        "397.7(a)(1)", opsText("397.7","(a)")+" "+opsText("397.7","(a)(1)"));
+    } else {
+      R("care","The 5-foot rule still reaches a lot entrance",
+        `Off the public roadway 397.7(a)(1) is not what stops you — but it applies to any part of the vehicle on or within 5 feet of the traveled portion, which a nose sticking out of an entrance can be.`,
+        "397.7(a)(1)", opsText("397.7","(a)(1)"));
+    }
+
+    if(P==="private" || P==="carrier" || P==="haven"){
+      R(P==="private"?"stop":"care", P==="private"?"Private property needs informed consent":"Consent still has to be informed",
+        P==="private"
+          ? `The rule names fueling and eating facilities specifically. Consent must come from the person in charge of the property, <b>and that person must be aware of what the vehicle contains</b>. An attendant who does not know what is on the trailer has not given consent under this rule.`
+          : `Carrier, shipper and consignee property is still private property. Consent is normally implicit here, but the rule wants the person in charge to be aware of the nature of the materials${P==="haven"?" — and a safe haven may itself sit on private property":""}.`,
+        "397.7(a)(2)", opsText("397.7","(a)(2)"));
+    }
+
+    R("stop","300 feet from a bridge, tunnel, dwelling, or where people gather",
+      `The exception is narrow: brief periods when the necessities of operation require the vehicle to be parked and make parking anywhere else impracticable. Being tired at the end of a shift is not, on its own, that.${P==="haven"?" A safe haven approval is about parking unattended under 397.5 — 397.7(a)(3) carries no safe-haven exception on its face.":""}`,
+      "397.7(a)(3)", opsText("397.7","(a)(3)"));
+
+  } else {
+    /* --- Tier 2 --- */
+    if(P==="road"){
+      R("care","Attended by its driver while here",
+        `The rule is tied to being on a public street or highway or the shoulder — which is where you are. It does not apply while the driver is performing duties incident and necessary to operating the vehicle.`,
+        "397.5(c)", opsText("397.5","(c)"));
+      R("care","Not on or within 5 feet of the traveled portion",
+        `Except for brief periods when the necessities of operation require the vehicle to be parked and make parking anywhere else impracticable.`,
+        "397.7(b)", opsText("397.7","(b)"));
+    } else {
+      R("ok","397.5 does not reach you here",
+        `The attendance rule for a load without 1.1, 1.2 or 1.3 is tied to being on a public street or highway or the shoulder. Parked off the roadway it does not apply to the driver at all — which is not obvious from reading it. Your carrier's policy or the customer may still require otherwise; that is not this rule.`,
+        "397.5(c)", opsText("397.5","(c)"));
+      R("ok","The 5-foot rule applies if you are near the roadway",
+        `Off the public roadway 397.7(b) is not what stops you, but it reaches any part of the vehicle on or within 5 feet of the traveled portion.`,
+        "397.7(b)", opsText("397.7","(b)"));
+    }
+  }
+  return out;
+}
+
+/** The compounding conclusion, said plainly rather than left to be assembled. */
+function opsHeadline(st){
+  if(!st.tier1){
+    return st.place==="road"
+      ? null
+      : null;
+  }
+  if(st.place==="private"){
+    return {t:"A truck stop does not work for this load",
+      p:`Put the three together. You must stay with the vehicle, so the sleeper berth is out. The lot is a place where people work and congregate, so the 300-foot rule bites. And parking there needs consent from someone who knows what is on your trailer. Plan the safe haven before you are out of hours, not after.`};
+  }
+  if(st.place==="road"){
+    return {t:"You cannot park here",
+      p:`397.7(a)(1) has no brief-necessity escape for a 1.1, 1.2 or 1.3 load, and attendance is required at all times with no exception that reaches a public roadway. This is a stop to move on from, not one to manage.`};
+  }
+  if(st.place==="carrier"){
+    return {t:"Workable, if the bailee conditions actually hold",
+      p:`This is one of the two places the attendance exception can reach. It turns on a person, not the address: someone must be a lawful bailee, know what the explosives are, be instructed in emergencies, and have the vehicle in view. If nobody there fits that, you are still attending the vehicle.`};
+  }
+  return {t:"This is the case that works",
+    p:`A safe haven is the place designed for exactly this. Confirm it is approved in writing rather than simply fenced, and that the bailee condition is satisfied — the three conditions in 397.5(b) apply together, and the haven only answers two of them.`};
+}
+
+/* ---------- views ---------- */
+
+function setOpsPlace(k){ opsPlace = k; commit(); }
+
+function opsUnavailable(){
+  return `<div class="card"><h4>Part 397 text unavailable</h4>
+    <p style="font-size:14px;line-height:1.5;color:var(--dim)">HazPost will not paraphrase a rule it could not load.</p>
+    <div style="font:500 12.5px 'Roboto Mono';color:var(--bad);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:12px;word-break:break-word">${esc(OPS_URL)} — ${esc(opsError||"not loaded")}</div>
+    <button class="btn" style="margin-top:12px" onclick="loadOps().then(render)">Try again</button></div>`;
+}
+
+function opsVerb(cite, txt){
+  return txt ? `<div class="verb"><b>49 CFR ${esc(cite)}</b><p>${esc(txt)}</p></div>` : "";
+}
+
+function opsWhereView(){
+  if(!load.length){
+    return `<div class="card"><h4>Nothing on the trailer</h4>
+      <div class="hint" style="margin-top:0">On the Road reads the same load you built for placarding. Add lines in <a href="#" style="color:var(--brand)" onclick="view='placards';plcTab='builder';commit();return false">Placarding → Load Builder</a>, then come back.</div></div>`;
+  }
+
+  const st = opsCheck();
+
+  /* 397.1 — the part hangs off the vehicle being marked or placarded */
+  if(!st.placarded){
+    return `<div class="card"><h4>Part 397 — does it apply?</h4>
+      <div class="segv clear"><div class="hd"><span class="mark c">✓</span>Most of Part 397 does not apply</div>
+        <p>Placarding shows <b>no placards required</b> for this load, and Part 397 hangs off the vehicle having to be marked or placarded. The driving and parking rules in Subpart A are not reaching you.</p>
+        <span class="cite">49 CFR 397.1(a)</span></div>
+      ${opsVerb("397.1(a)", opsText("397.1","(a)"))}
+      <div class="hint">Two things this does not say. Add one more line and the aggregate can cross 1,001 lb, at which point it does apply. And 397.1 reads "marked <b>or</b> placarded" — HazPost computes placards, not markings, so a marking requirement is yours to check.</div>
+      <div class="hint">§ 397.3 applies regardless: state and local law on driving and parking still binds you.</div>
+      ${opsVerb("397.3", opsText("397.3",""))}
+    </div>`;
+  }
+
+  const rules = st.place ? opsRules(st) : [];
+  const head  = st.place ? opsHeadline(st) : null;
+
+  let h = st.tier1
+    ? `<div class="tierbar e"><span class="badge">Tier 1</span><div><b>Division 1.1, 1.2 or 1.3 aboard</b>
+        <p>The strict tier. Attendance, parking setbacks and written documents all tighten.</p></div></div>`
+    : `<div class="tierbar o"><span class="badge">Tier 2</span><div><b>Placarded, no 1.1, 1.2 or 1.3</b>
+        <p>Baseline tier. The 5-foot rule, and attendance only while on the roadway.</p></div></div>`;
+
+  if(st.cls1sub.length){
+    h += `<div class="why warn" style="margin:0 0 12px"><p style="font-size:13px">${st.cls1sub.map(l=>idLabel(l)).join(", ")} carr${st.cls1sub.length===1?"ies":"y"} a <b>Class 1 subsidiary</b> label. That does not make the material a Division 1.1, 1.2 or 1.3 — its division is what column 3 assigns — so it does not by itself put you in Tier 1. Worth confirming against the papers.</p><span class="cite">49 CFR 397.5(a)</span></div>`;
+  }
+
+  /* the one question */
+  h += `<div class="card"><h4>Where are you stopping?</h4>
+    <div class="seg">` + OPS_PLACES.map(x=>
+      `<button class="${st.place===x.k?'on':''}" onclick="setOpsPlace('${x.k}')">${esc(x.lbl)}</button>`).join("") +
+    `</div>` +
+    (st.place ? `<div class="hint" style="margin-top:8px">${esc((OPS_PLACES.find(x=>x.k===st.place)||{}).hint||"")}</div>` : `<div class="hint" style="margin-top:8px">Part 397 crosses what is on the trailer with where the truck is sitting. Pick one to see what applies.</div>`) +
+    `</div>`;
+
+  if(!st.place) return h;
+
+  if(head) h += `<div class="opshead ${st.tier1&&(st.place==="private"||st.place==="road")?"bad":"ok"}"><b>${esc(head.t)}</b><p>${head.p}</p></div>`;
+
+  h += `<div class="card"><h4>What applies right now</h4>` +
+    rules.map(x=>`<div class="rule ${x.tone}"><b>${esc(x.title)}</b><p>${x.body}</p>
+      <span class="cite">49 CFR ${esc(x.cite)}</span>${opsVerb(x.cite, x.verb)}</div>`).join("");
+
+  /* what "attended" means, wherever attendance is live */
+  if(st.tier1 || st.place==="road"){
+    h += `<div class="eyebox"><b>What "attended" actually means</b>
+      <p>On the vehicle, awake, and <b>not in a sleeper berth</b> — or within 100 feet of it with the vehicle in an unobstructed field of view. A locked truck out of sight is not attended.</p>
+      ${opsVerb("397.5(d)(1)", opsText("397.5","(d)(1)"))}</div>`;
+  }
+  if(st.tier1){
+    h += `<div class="eyebox"><b>What a safe haven is</b>
+      <p>An area <b>specifically approved in writing</b> by local, State or Federal authority for parking unattended explosives. A fenced yard is not automatically a safe haven, and that assumption turns up in enforcement cases.</p>
+      ${opsVerb("397.5(d)(3)", opsText("397.5","(d)(3)"))}</div>`;
+  }
+
+  h += `<div class="limitbox"><p><b>What this cannot tell you.</b> HazPost has no map and does not know what is around your truck. It cannot measure 300 feet to a dwelling, cannot recognise a place where people assemble, and cannot tell you whether the lot you are in is an approved safe haven. It tells you which rules apply and what to look for. The looking is yours.</p></div>`;
+  h += `</div>`;
+
+  return h + opsAlwaysOn(st);
+}
+
+/** 397.11, 397.13, 397.15, 397.17, 397.19 — any placarded load. */
+function opsAlwaysOn(st){
+  let h = `<div class="card"><h4>Always on — any placarded load</h4>`;
+
+  /* The verbatim text is on every card, but folded. Printed flat these five
+     sections run longer than the decision they sit under, and the section a
+     driver came here for stops being findable. It is one tap, never a
+     summary standing in for the rule, and the Reference tab has it all open. */
+  const card = (n, title, body, extra) =>
+    `<div class="rule"><b>${esc(title)}</b>${body?`<p>${body}</p>`:""}${extra||""}
+      <details class="verbfold"><summary>§ ${esc(n)} — full text</summary>
+        ${opsSec(n).paras.map(p=>opsVerb(n+(p.id||""), p.text)).join("")}</details></div>`;
+
+  h += card("397.11", "Fires", `Not operated near an open fire without first checking the vehicle can pass safely without stopping, and not parked within 300 feet of one.`);
+
+  h += card("397.13", "Smoking — 25 feet",
+    `The setback names specific classes rather than all hazmat.`,
+    st.smoking.length
+      ? `<div class="onboard"><b>On your trailer</b><p>${st.smoking.map(esc).join(" · ")}</p></div>`
+      : `<div class="onboard ok"><b>On your trailer</b><p>None of the classes 397.13(a) names are aboard. Paragraph (b) can still reach an empty tank vehicle that carried Class 3, flammable material or Division 2.1.</p></div>`);
+
+  h += card("397.15", "Fueling", `Engine off, and someone in control of the process at the point where the tank is filled.`);
+
+  h += card("397.17", "Tires",
+    `Examine each tire at the <b>beginning of each trip and each time the vehicle is parked</b>. The current text sets no clock and no mileage — the trigger is the trip and the stop, so a long run with no stops is not a run with no checks.`);
+
+  h += card("397.19", "Instructions and documents",
+    st.tier1
+      ? `This one is yours right now: the carrier must furnish a copy of the rules in this part and written emergency instructions, you sign a receipt, and you must have and be familiar with those plus the 177.817 shipping papers and the written route plan under 397.67.`
+      : `Tied to Division 1.1, 1.2 and 1.3, so it is <b>not</b> reaching this load. It would if an explosive of those divisions came aboard.`,
+    st.tier1 ? "" : `<div class="onboard ok"><b>Applies to</b><p>Division 1.1, 1.2 and 1.3 only.</p></div>`);
+
+  return h + `</div>`;
+}
+
+function opsRefView(){
+  let h = `<div class="card"><h4>${esc(OPS.source)}</h4>
+    <div class="hint" style="margin-top:0">Verbatim, as generated from the eCFR API. Everything the decision view says in plain language is our wording; this is the text it was written from.</div></div>`;
+
+  OPS.sections.forEach(s=>{
+    h += `<div class="card"><h4>${esc(s.head.replace(/^§\s*/,""))}</h4>` +
+      (s.reserved
+        ? `<p style="font-size:13.5px;color:var(--dim)">[Reserved]</p>`
+        : s.paras.map(p=>`<div class="refp">${p.id?`<span class="pid">${esc(p.id)}</span>`:""}<p>${esc(p.text)}</p></div>`).join("")) +
+      `</div>`;
+  });
+
+  h += `<div class="card"><h4>Not covered</h4>` +
+    OPS.otherSubparts.map(s=>`<div class="rule"><b>Subpart ${esc(s.id)}</b><p>${esc(s.head.replace(/^Subpart\s+\w+\s*—?\s*/,"")||"[Reserved]")}</p></div>`).join("") +
+    `<div class="hint">Subparts C and D are routing and the national route registry; Subpart E is preemption procedure. HazPost implements none of them, and does not do routing at all.</div>
+    <div class="hint">${esc(OPS.source)}, current as of ${esc(OPS.cfrDate)} (text v${esc(OPS.version)}).</div></div>`;
   return h;
 }
 

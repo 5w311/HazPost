@@ -14,7 +14,7 @@ HazPost is a verification aid for hazmat drivers. It does not classify materials
 |---|---|---|
 | Placarding (load builder + UN lookup) | 172.504 | Live |
 | Segregation (load check, Class 1 compatibility, reference tables) | 177.848 | Live |
-| On the Road | Part 397 | Planned |
+| On the Road (attendance, parking, always-on rules) | Part 397 Subpart A | Live |
 | Shipping Papers | 177.817 | Planned |
 | Incident Response | 171.15 | Planned |
 | Credentials | 172.704 | Planned |
@@ -25,12 +25,14 @@ HazPost is a verification aid for hazmat drivers. It does not classify materials
 - `index.html` — app shell and all logic
 - `hazmat.json` — the full 172.101 material table, fetched at load
 - `segregation.json` — the 177.848 segregation and Class 1 compatibility tables
+- `ops.json` — 49 CFR Part 397 Subpart A, verbatim
 - `sw.js` — service worker: offline cache for the whole app
 - `manifest.json` + `icons/` — installable to the phone home screen
 - `tools/build-hazmat.mjs` — regenerates `hazmat.json` from the eCFR API
 - `tools/build-segregation.mjs` — regenerates `segregation.json` from the eCFR API
+- `tools/build-ops.mjs` — regenerates `ops.json` from the eCFR API
 - `tools/build-icons.mjs` — regenerates `icons/`
-- `tools/GENERATION-REPORT.md`, `tools/SEGREGATION-REPORT.md` — what each generation run decided, and why
+- `tools/GENERATION-REPORT.md`, `tools/SEGREGATION-REPORT.md`, `tools/OPS-REPORT.md` — what each generation run decided, and why
 - Deployed via GitHub Pages
 - Mobile-first, offline-first
 
@@ -41,7 +43,7 @@ built to answer with none. The service worker caches the shell, both data
 files, the icons and the web fonts, and serves every request cache-first while
 refreshing in the background. Once the app has been opened online a single
 time, it works with the radio off — module grid, load builder, computed
-placard set, UN lookup and the segregation check.
+placard set, UN lookup, the segregation check and the Part 397 decision.
 
 The current load is written to `localStorage` on every change and restored on
 start, so a load built at the dock survives the phone going in a pocket. The
@@ -77,6 +79,7 @@ and must not be collapsed into one.
 | `sw.js` | `VERSION` | the cache generation, which forces a fresh install |
 | `hazmat.json` | `version` / `cfrDate` | which CFR edition the material table came from |
 | `segregation.json` | `version` / `cfrDate` | which CFR edition the segregation tables came from |
+| `ops.json` | `version` / `cfrDate` | which CFR edition the Part 397 text came from |
 
 The first and third are on screen: `APP_VERSION` in the home footer,
 the data edition in the disclaimer line above it. The cache generation is
@@ -290,3 +293,62 @@ as an alternative to NON-FLAMMABLE GAS.
 ## Disclaimer
 
 HazPost is not a substitute for the shipping paper or the regulations. Always confirm against your papers and 49 CFR.
+
+## On the Road — Part 397 Subpart A
+
+Part 397 is prose, and the obvious thing to build is a reg reader. A driver can
+already read the reg. What the app knows and the paper does not is what is on
+the trailer — and the part turns on exactly one question about that.
+
+```sh
+node tools/build-ops.mjs [--date YYYY-MM-DD]
+```
+
+`ops.json` holds all 11 Subpart A sections **verbatim**, paragraph by
+paragraph, with the nesting rebuilt: the CFR prints only the innermost
+designator, so 397.5(b)(1) appears as "(1)" and would be ambiguous four ways
+in that section alone.
+
+### The one question
+
+**Tier 1** is a load containing Division 1.1, 1.2 or 1.3. **Tier 2** is a
+placarded load without any. The tier comes from the load already in the load
+builder; the driver is asked only where the truck is stopping — public road,
+private property, carrier/shipper/consignee property, or an approved safe
+haven. Tier crossed with location is the whole decision.
+
+The answer worth surfacing is Tier 1 at a truck stop, where three rules
+compound: attendance is required and the sleeper berth does not count, the lot
+is a place where people work and congregate so the 300-foot rule bites, and
+parking there needs consent from someone who knows what is on the trailer. The
+module says that as one conclusion rather than leaving it to be assembled from
+three cards.
+
+If the load needs no placards, the module says most of Part 397 does not apply
+rather than listing rules that are not reaching the driver — 397.1 hangs the
+whole part off the vehicle having to be marked or placarded.
+
+### Verbatim, always
+
+Every plain-language line in the module is ours, and the CFR paragraph it was
+written from sits beside it. This is the module where a loose paraphrase does
+the most damage, so the summary never stands in for the rule. The build
+asserts anchor phrases in every operative section — prose is the dangerous
+case, because a paragraph that lost half its sentence still reads like a
+regulation.
+
+The section set is asserted too. A section appearing or disappearing aborts
+the build, since the entire decision tree hangs off 397.5 and 397.7.
+
+### What it will not do
+
+HazPost has no map and no knowledge of what surrounds the truck. It cannot
+measure 300 feet to a dwelling, recognise a place where people assemble, or
+tell a driver whether a lot is an approved safe haven. The module states that
+limit rather than implying a completeness it does not have — the same posture
+as the placarding module being a verification aid rather than a classifier.
+
+No geolocation, mapping or proximity estimation, here or anywhere else.
+Routing was excluded from this app from the start, and Part 397 Subparts C and
+D — routing and the national route registry — are noted as existing and not
+implemented.

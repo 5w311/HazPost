@@ -23,7 +23,7 @@
  * every phone already holding a cached copy.
  */
 
-const VERSION = "v1.2.1";
+const VERSION = "v1.3.0";
 const CACHE = `hazpost-${VERSION}`;
 
 /** Where the cache-refresh timestamp lives, for the offline indicator. */
@@ -36,7 +36,7 @@ const url = (p) => new URL(p, self.registration.scope).toString();
  * The app shell. If any of these fail the install fails and the old worker
  * stays in charge — better a stale app that works than a half-cached one.
  */
-const SHELL = ["./", "index.html", "hazmat.json", "segregation.json", "manifest.json"];
+const SHELL = ["./", "index.html", "hazmat.json", "segregation.json", "ops.json", "manifest.json"];
 
 /**
  * Wanted, but not worth failing an install over: icons a running app never
