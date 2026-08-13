@@ -1,0 +1,97 @@
+{
+ "source": "49 CFR Part 397 Subpart A — Transportation of Hazardous Materials; Driving and Parking",
+ "version": "1.0.0",
+ "cfrDate": "2026-08-07",
+ "generated": "2026-08-13",
+ "generator": "tools/build-ops.mjs",
+ "count": 11,
+ "sections": [
+  {"n": "397.1", "key": "application", "head": "§ 397.1 Application of the rules in this part.",
+   "paras": [
+    {"id":"(a)","text":"The rules in this part apply to each motor carrier engaged in the transportation of hazardous materials by a motor vehicle which must be marked or placarded in accordance with § 177.823 of this title and to—"},
+    {"id":"(a)(1)","text":"Each officer or employee of the motor carrier who performs supervisory duties related to the transportation of hazardous materials; and"},
+    {"id":"(a)(2)","text":"Each person who operates or who is in charge of a motor vehicle containing hazardous materials."},
+    {"id":"(b)","text":"Each person designated in paragraph (a) of this section must know and obey the rules in this part."}
+   ]},
+  {"n": "397.2", "key": "fmcsr", "head": "§ 397.2 Compliance with Federal motor carrier safety regulations.",
+   "paras": [
+    {"id":"","text":"A motor carrier or other person to whom this part is applicable must comply with the rules in parts 390 through 397, inclusive, of this subchapter when he/she is transporting hazardous materials by a motor vehicle which must be marked or placarded in accordance with § 177.823 of this title."}
+   ]},
+  {"n": "397.3", "key": "stateLocal", "head": "§ 397.3 State and local laws, ordinances, and regulations.",
+   "paras": [
+    {"id":"","text":"Every motor vehicle containing hazardous materials must be driven and parked in compliance with the laws, ordinances, and regulations of the jurisdiction in which it is being operated, unless they are at variance with specific regulations of the Department of Transportation which are applicable to the operation of that vehicle and which impose a more stringent obligation or restraint."}
+   ]},
+  {"n": "397.5", "key": "attendance", "head": "§ 397.5 Attendance and surveillance of motor vehicles.",
+   "paras": [
+    {"id":"(a)","text":"Except as provided in paragraph (b) of this section, a motor vehicle which contains a Division 1.1, 1.2, or 1.3 (explosive) material must be attended at all times by its driver or a qualified representative of the motor carrier that operates it."},
+    {"id":"(b)","text":"The rules in paragraph (a) of this section do not apply to a motor vehicle which contains Division 1.1, 1.2, or 1.3 material if all the following conditions exist—"},
+    {"id":"(b)(1)","text":"The vehicle is located on the property of a motor carrier, on the property of a shipper or consignee of the explosives, in a safe haven, or, in the case of a vehicle containing 50 pounds or less of a Division 1.1, 1.2, or 1.3 material, on a construction or survey site; and"},
+    {"id":"(b)(2)","text":"The lawful bailee of the explosives is aware of the nature of the explosives the vehicle contains and has been instructed in the procedures which must be followed in emergencies; and"},
+    {"id":"(b)(3)","text":"The vehicle is within the bailee's unobstructed field of view or is located in a safe haven."},
+    {"id":"(c)","text":"A motor vehicle which contains hazardous materials other than Division 1.1, 1.2, or 1.3, materials, and which is located on a public street or highway, or the shoulder of a public highway, must be attended by its driver. However, the vehicle need not be attended while its driver is performing duties which are incident and necessary to the driver's duties as the operator of the vehicle."},
+    {"id":"(d)","text":"For purposes of this section—"},
+    {"id":"(d)(1)","text":"A motor vehicle is attended when the person in charge of the vehicle is on the vehicle, awake, and not in a sleeper berth, or is within 100 feet of the vehicle and has it within his/her unobstructed field of view."},
+    {"id":"(d)(2)","text":"A qualified representative of a motor carrier is a person who—"},
+    {"id":"(d)(2)(i)","text":"Has been designated by the carrier to attend the vehicle;"},
+    {"id":"(d)(2)(ii)","text":"Is aware of the nature of the hazardous materials contained in the vehicle he/she attends;"},
+    {"id":"(d)(2)(iii)","text":"Has been instructed in the procedures he/she must follow in emergencies; and"},
+    {"id":"(d)(2)(iv)","text":"Is authorized to move the vehicle and has the means and ability to do so."},
+    {"id":"(d)(3)","text":"A safe haven is an area specifically approved in writing by local, State, or Federal governmental authorities for the parking of unattended vehicles containing Division 1.1, 1.2, or 1.3 materials."},
+    {"id":"(e)","text":"The rules in this section do not relieve the driver from any obligation imposed by law relating to the placing of warning devices when a motor vehicle is stopped on a public street or highway."}
+   ]},
+  {"n": "397.7", "key": "parking", "head": "§ 397.7 Parking.",
+   "paras": [
+    {"id":"(a)","text":"A motor vehicle which contains Division 1.1, 1.2, or 1.3 materials must not be parked under any of the following circumstances—"},
+    {"id":"(a)(1)","text":"On or within 5 feet of the traveled portion of a public street or highway;"},
+    {"id":"(a)(2)","text":"On private property (including premises of fueling or eating facility) without the knowledge and consent of the person who is in charge of the property and who is aware of the nature of the hazardous materials the vehicle contains; or"},
+    {"id":"(a)(3)","text":"Within 300 feet of a bridge, tunnel, dwelling, or place where people work, congregate, or assemble, except for brief periods when the necessities of operation require the vehicle to be parked and make it impracticable to park the vehicle in any other place."},
+    {"id":"(b)","text":"A motor vehicle which contains hazardous materials other than Division 1.1, 1.2, or 1.3 materials must not be parked on or within five feet of the traveled portion of public street or highway except for brief periods when the necessities of operation require the vehicle to be parked and make it impracticable to park the vehicle in any other place."}
+   ]},
+  {"n": "397.9", "key": "reserved", "head": "§ 397.9 [Reserved]", "reserved": true,
+   "paras": [
+
+   ]},
+  {"n": "397.11", "key": "fires", "head": "§ 397.11 Fires.",
+   "paras": [
+    {"id":"(a)","text":"A motor vehicle containing hazardous materials must not be operated near an open fire unless its driver has first taken precautions to ascertain that the vehicle can safely pass the fire without stopping."},
+    {"id":"(b)","text":"A motor vehicle containing hazardous materials must not be parked within 300 feet of an open fire."}
+   ]},
+  {"n": "397.13", "key": "smoking", "head": "§ 397.13 Smoking.",
+   "paras": [
+    {"id":"","text":"No person may smoke or carry a lighted cigarette, cigar, or pipe on or within 25 feet of—"},
+    {"id":"(a)","text":"A motor vehicle which contains Class 1 materials, Class 5 materials, or flammable materials classified as Division 2.1, Class 3, Divisions 4.1 and 4.2; or"},
+    {"id":"(b)","text":"An empty tank motor vehicle which has been used to transport Class 3, flammable materials, or Division 2.1 flammable gases, which when so used, was required to be marked or placarded in accordance with the rules in § 177.823 of this title."}
+   ]},
+  {"n": "397.15", "key": "fueling", "head": "§ 397.15 Fueling.",
+   "paras": [
+    {"id":"","text":"When a motor vehicle which contains hazardous materials is being fueled—"},
+    {"id":"(a)","text":"Its engine must not be operating; and"},
+    {"id":"(b)","text":"A person must be in control of the fueling process at the point where the fuel tank is filled."}
+   ]},
+  {"n": "397.17", "key": "tires", "head": "§ 397.17 Tires.",
+   "paras": [
+    {"id":"(a)","text":"A driver must examine each tire on a motor vehicle at the beginning of each trip and each time the vehicle is parked."},
+    {"id":"(b)","text":"If, as the result of an examination pursuant to paragraph (a) of this section, or otherwise, a tire if found to be flat, leaking, or improperly inflated, the driver must cause the tire to be repaired, replaced, or properly inflated before the vehicle is driven. However, the vehicle may be driven to the nearest safe place to perform the required repair, replacement, or inflation."},
+    {"id":"(c)","text":"If, as the result of an examination pursuant to paragraph (a) of this section, or otherwise, a tire is found to be overheated, the driver shall immediately cause the overheated tire to be removed and placed at a safe distance from the vehicle. The driver shall not operate the vehicle until the cause of the overheating is corrected."},
+    {"id":"(d)","text":"Compliance with the rules in this section does not relieve a driver from the duty to comply with the rules in §§ 397.5 and 397.7."}
+   ]},
+  {"n": "397.19", "key": "documents", "head": "§ 397.19 Instructions and documents.",
+   "paras": [
+    {"id":"(a)","text":"A motor carrier that transports Division 1.1, 1.2, or 1.3 (explosive) materials must furnish the driver of each motor vehicle in which the explosives are transported with the following documents:"},
+    {"id":"(a)(1)","text":"A copy of the rules in this part;"},
+    {"id":"(a)(2)","text":"[Reserved]"},
+    {"id":"(a)(3)","text":"A document containing instructions on procedures to be followed in the event of accident or delay. The documents must include the names and telephone numbers of persons (including representatives of carriers or shippers) to be contacted, the nature of the explosives being transported, and the precautions to be taken in emergencies such as fires, accidents, or leakages."},
+    {"id":"(b)","text":"A driver who receives documents in accordance with paragraph (a) of this section must sign a receipt for them. The motor carrier shall maintain the receipt for a period of one year from the date of signature."},
+    {"id":"(c)","text":"A driver of a motor vehicle which contains Division 1.1, 1.2, or 1.3 materials must be in possession of, be familiar with, and be in compliance with"},
+    {"id":"(c)(1)","text":"The documents specified in paragraph (a) of this section;"},
+    {"id":"(c)(2)","text":"The documents specified in § 177.817 of this title; and"},
+    {"id":"(c)(3)","text":"The written route plan specified in § 397.67."}
+   ]}
+ ],
+ "otherSubparts": [
+  {"id":"B","head":"Subpart B [Reserved]"},
+  {"id":"C","head":"Subpart C—Routing of Non-Radioactive Hazardous Materials"},
+  {"id":"D","head":"Subpart D—Routing of Class 7 (Radioactive) Materials"},
+  {"id":"E","head":"Subpart E—Preemption Procedures"}
+ ]
+}
