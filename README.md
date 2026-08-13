@@ -15,7 +15,7 @@ HazPost is a verification aid for hazmat drivers. It does not classify materials
 | Placarding (load builder + UN lookup) | 172.504 | Live |
 | Segregation (load check, Class 1 compatibility, reference tables) | 177.848 | Live |
 | On the Road (attendance, parking, always-on rules) | Part 397 Subpart A | Live |
-| Shipping Papers | 177.817 | Planned |
+| Shipping Papers (basic description check + placement) | 172 Subpart C, 177.817 | Live |
 | Incident Response | 171.15 | Planned |
 | Credentials | 172.704 | Planned |
 
@@ -26,13 +26,15 @@ HazPost is a verification aid for hazmat drivers. It does not classify materials
 - `hazmat.json` — the full 172.101 material table, fetched at load
 - `segregation.json` — the 177.848 segregation and Class 1 compatibility tables
 - `ops.json` — 49 CFR Part 397 Subpart A, verbatim
+- `papers.json` — 172 Subparts C and G, and 177.817, verbatim
 - `sw.js` — service worker: offline cache for the whole app
 - `manifest.json` + `icons/` — installable to the phone home screen
 - `tools/build-hazmat.mjs` — regenerates `hazmat.json` from the eCFR API
 - `tools/build-segregation.mjs` — regenerates `segregation.json` from the eCFR API
 - `tools/build-ops.mjs` — regenerates `ops.json` from the eCFR API
+- `tools/build-papers.mjs` — regenerates `papers.json` from the eCFR API
 - `tools/build-icons.mjs` — regenerates `icons/`
-- `tools/GENERATION-REPORT.md`, `tools/SEGREGATION-REPORT.md`, `tools/OPS-REPORT.md` — what each generation run decided, and why
+- `tools/GENERATION-REPORT.md`, `tools/SEGREGATION-REPORT.md`, `tools/OPS-REPORT.md`, `tools/PAPERS-REPORT.md` — what each generation run decided, and why
 - Deployed via GitHub Pages
 - Mobile-first, offline-first
 
@@ -43,7 +45,8 @@ built to answer with none. The service worker caches the shell, both data
 files, the icons and the web fonts, and serves every request cache-first while
 refreshing in the background. Once the app has been opened online a single
 time, it works with the radio off — module grid, load builder, computed
-placard set, UN lookup, the segregation check and the Part 397 decision.
+placard set, UN lookup, the segregation check, the Part 397 decision and the
+shipping paper comparison.
 
 The current load is written to `localStorage` on every change and restored on
 start, so a load built at the dock survives the phone going in a pocket. The
@@ -80,6 +83,7 @@ and must not be collapsed into one.
 | `hazmat.json` | `version` / `cfrDate` | which CFR edition the material table came from |
 | `segregation.json` | `version` / `cfrDate` | which CFR edition the segregation tables came from |
 | `ops.json` | `version` / `cfrDate` | which CFR edition the Part 397 text came from |
+| `papers.json` | `version` / `cfrDate` | which CFR edition the shipping-paper text came from |
 
 The first and third are on screen: `APP_VERSION` in the home footer,
 the data edition in the disclaimer line above it. The cache generation is
@@ -161,6 +165,7 @@ a driver can see how old the answer is.
 | `plc` | placard design key, defined in `index.html` |
 | `t1` | present when the material placards at any quantity |
 | `sym` | column 1 symbols (+, A, D, G, I, W) |
+| `psn` | proper shipping name alone, where column 2 also carries italic qualifier text |
 | `pih` | inhalation hazard zone, from special provisions 1-4 and 6 |
 | `subs` | subsidiary hazard label codes |
 | `cond` | condition attached to the Table 1 requirement (Class 7) |
@@ -352,3 +357,64 @@ No geolocation, mapping or proximity estimation, here or anywhere else.
 Routing was excluded from this app from the start, and Part 397 Subparts C and
 D — routing and the national route registry — are noted as existing and not
 implemented.
+
+## Shipping Papers — 172 Subpart C, 177.817
+
+Not a checklist of what a shipping paper contains; a driver can read that
+anywhere. What HazPost has that the paper does not is the load, so it builds
+the basic description each line should carry and lets the driver hold it
+against the paper in their hand.
+
+```sh
+node tools/build-papers.mjs [--date YYYY-MM-DD]
+```
+
+Nine sections, each fetched on its own — § 172.101 makes a whole-part fetch of
+Part 172 nearly three megabytes.
+
+### Compare, do not copy
+
+If the app and the paper disagree, **the paper and the shipper win**. The
+driver calls the shipper; they do not correct the paper themselves and do not
+copy HazPost's version onto it. The module says so at the top of the view, and
+it does not produce anything that looks like a document an inspector could be
+handed.
+
+### The basic description
+
+172.202(a)(1) to (a)(4) in sequence, nothing interspersed — identification
+number, proper shipping name, hazard class, packing group.
+
+`cls` is used **verbatim** for the hazard class rather than rebuilt from
+`base`. Column 3 already carries the compatibility group letter on explosives
+(1.1D, not 1.1) and any subsidiary in parentheses (3 (6.1)); rebuilding drops
+the letter on every Class 1 line.
+
+Packing group is omitted, with a note saying the absence is correct, for Class
+1, self-reactive substances, Division 5.2 and entries with none assigned. A
+collapsed packing group range renders as a visible gap rather than inline,
+so its commas cannot be mistaken for extra elements.
+
+### False mismatches are the failure mode
+
+A comparison tool that flags a correct paper as wrong is worse than no tool.
+Three places that bites, all handled:
+
+- **Italic text in column 2 is not part of the proper shipping name**
+  (172.101(c)(10)), and 610 records carry some. `hazmat.json` gained a `psn`
+  field holding the roman-only name, so UN1203 compares as `Gasoline`, not
+  `Gasoline includes gasoline mixed with ethyl alcohol…`.
+- **An italic "or" marks a choice of names**, so those are preserved and the
+  module says the paper will carry one of them.
+- **The technical name behind a symbol-G entry has more than one permitted
+  punctuation.** 172.202(d) attaches it to the name with no comma; 172.203(k)
+  shows a comma form and also allows it after the whole basic description. The
+  module renders one and names the others.
+
+### Where the paper lives
+
+177.817(e), on its own tab. A correct paper in the wrong place is still a
+citation, and this rule is enforced on its own. At the controls it is two
+conditions joined by "and", the second of which is itself an either/or — the
+module makes that structure explicit. Away from the controls there are exactly
+two permitted places.
