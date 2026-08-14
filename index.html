@@ -165,7 +165,7 @@ input.mono{font:500 15px 'Roboto Mono'}
 .tierbar .badge{font:800 10px 'Barlow Condensed';letter-spacing:1px;padding:4px 7px;border-radius:5px;flex:none;text-transform:uppercase;margin-top:1px}
 .tierbar.e .badge{background:var(--bad);color:#fff}
 .tierbar.o .badge{background:#3C566F;color:#DCE9F5}
-.tierbar b{display:block;font:700 15px 'Barlow';margin-bottom:2px}
+.tierbar>b{display:block;font:700 15px 'Barlow';margin-bottom:2px}
 .tierbar p{font-size:13px;line-height:1.45;color:#C6CED8}
 .seg{display:flex;flex-wrap:wrap;gap:6px}
 .seg button{flex:1 1 46%;border:1px solid var(--line);background:var(--bg);color:var(--dim);font:600 13px 'Barlow';padding:11px 8px;border-radius:10px;cursor:pointer;line-height:1.25;text-align:left}
@@ -173,16 +173,16 @@ input.mono{font:500 15px 'Roboto Mono'}
 .opshead{border-radius:12px;padding:14px;margin-bottom:12px;border:1px solid}
 .opshead.bad{background:#2A1618;border-color:#6B2429}
 .opshead.ok{background:#16241A;border-color:#265731}
-.opshead b{display:block;font:800 16px 'Barlow';margin-bottom:5px}
+.opshead>b{display:block;font:800 16px 'Barlow';margin-bottom:5px}
 .opshead.bad b{color:#FF9CA1} .opshead.ok b{color:#7FD69B}
 .opshead p{font-size:13.5px;line-height:1.5;color:#DCE2EA}
 .rule{border-left:3px solid var(--line);padding:6px 0 6px 12px;margin:12px 0}
 .rule.stop{border-color:var(--bad)} .rule.care{border-color:var(--brand)} .rule.ok{border-color:var(--ok)}
-.rule b{display:block;font:700 14.5px 'Barlow';margin-bottom:3px}
+.rule>b{display:block;font:700 14.5px 'Barlow';margin-bottom:3px}
 .rule p{font-size:13.5px;line-height:1.5;color:#C6CED8}
 .rule .cite{display:inline-block;font:500 11px 'Roboto Mono';color:var(--faint);margin-top:5px}
 .verb{background:var(--bg);border:1px solid var(--line);border-left:2px solid var(--faint);border-radius:0 8px 8px 0;padding:8px 10px;margin-top:8px}
-.verb b{display:block;font:500 10px 'Roboto Mono';color:var(--faint);letter-spacing:.3px;margin-bottom:4px}
+.verb>b{display:block;font:500 10px 'Roboto Mono';color:var(--faint);letter-spacing:.3px;margin-bottom:4px}
 .verb p{font-size:12.5px;line-height:1.5;color:#A9B3C0;font-style:italic}
 .eyebox{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px 12px;margin-top:10px}
 .eyebox b{font:700 10px 'Barlow Condensed';letter-spacing:1.2px;color:var(--brand);display:block;margin-bottom:4px;text-transform:uppercase}
@@ -204,24 +204,57 @@ input.mono{font:500 15px 'Roboto Mono'}
 .verbfold[open]>summary::before{content:"▾ "}
 .refp p{font-size:13px;line-height:1.55;color:#C6CED8}
 
+/* what you carry module */
+.item{display:flex;gap:11px;align-items:flex-start;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:8px}
+.item .dot{width:9px;height:9px;border-radius:50%;background:var(--brand);flex:none;margin-top:6px}
+.item .dot.cond{background:var(--expl)}
+.item .dot.off{background:var(--faint)}
+.item .in>b{display:block;font:700 14.5px 'Barlow';margin-bottom:2px}
+.item p{font-size:12.8px;line-height:1.45;color:#C6CED8}
+.item p+p{margin-top:5px}
+.item .cite{display:block;font:500 10.5px 'Roboto Mono';color:var(--faint);margin-top:4px}
+.item .in{flex:1;min-width:0}
+.cond-tag{display:inline-block;font:700 9px 'Barlow Condensed';letter-spacing:.9px;background:var(--expl);color:#14171C;padding:2px 5px;border-radius:4px;margin-left:6px;vertical-align:1.5px}
+.not{border:1px dashed var(--line);border-radius:11px;padding:12px}
+.not>b{display:block;font:700 14px 'Barlow';color:var(--ink);margin-bottom:4px}
+.not p{font-size:12.8px;color:var(--dim);line-height:1.5}
+.not p+p{margin-top:6px}
+.not .cite{display:block;font:500 10.5px 'Roboto Mono';color:var(--faint);margin-top:6px}
+
+/* the expiry tracker */
+.exp{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:8px}
+.exp .top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.exp b{font:700 14.5px 'Barlow'}
+.exp input[type=date]{width:150px;flex:none;font:500 13px 'Roboto Mono';padding:8px 9px}
+.days{display:inline-block;font:700 12px 'Barlow Condensed';letter-spacing:.8px;padding:3px 9px;border-radius:20px;text-transform:uppercase;margin-top:9px}
+.days.ok{background:#16241A;color:#7FD79A;border:1px solid #265731}
+.days.soon{background:#2A2015;color:#FFD98A;border:1px solid #6B5520}
+.days.bad{background:#2A1618;color:#FF9CA1;border:1px solid #6B2429}
+.days.none{background:var(--panel);color:var(--faint);border:1px solid var(--line)}
+.exp .due{font:500 11.5px 'Roboto Mono';color:var(--dim);margin-left:8px}
+.exp .note{font-size:12.3px;color:var(--dim);line-height:1.5;margin-top:8px}
+.exp .note p+p{margin-top:7px}
+.exp .note b{font:700 12.3px 'Barlow';color:#C6CED8;display:inline}
+.exp .cite{display:block;font:500 10.5px 'Roboto Mono';color:var(--faint);margin-top:5px}
+
 /* incident response module — the call blocks are never gated behind a question */
 .call{display:flex;align-items:center;gap:13px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:9px;text-decoration:none;color:inherit}
 .call.urgent{background:#2A1618;border-color:#8B2E34}
 .call .n{font:800 21px 'Barlow Condensed';letter-spacing:.5px;flex:none;width:74px;color:var(--brand);line-height:1.05}
 .call.urgent .n{color:#FF7A80;font-size:30px}
-.call .t b{display:block;font:700 15px 'Barlow'}
+.call .t>b{display:block;font:700 15px 'Barlow'}
 .call .t span{font-size:12.5px;color:var(--dim);line-height:1.4;display:block;margin-top:2px}
 .call .t span.num{font:600 13px 'Roboto Mono';color:#C6CED8}
 .paper{border:2px dashed #6B5520;background:#2A2015;border-radius:12px;padding:14px;margin-bottom:9px}
-.paper b{display:block;font:700 15px 'Barlow';color:#FFD98A;margin-bottom:3px}
+.paper>b{display:block;font:700 15px 'Barlow';color:#FFD98A;margin-bottom:3px}
 .paper p{font-size:13px;color:#E0CFA8;line-height:1.5}
 .paper .cite,.myth .cite{display:inline-block;font:500 11px 'Roboto Mono';color:var(--faint);margin-top:6px}
 .myth{background:#1B2430;border:1px solid #31465E;border-radius:12px;padding:14px;margin-bottom:12px}
-.myth b{display:block;font:700 15px 'Barlow';color:#9FD0F0;margin-bottom:5px}
+.myth>b{display:block;font:700 15px 'Barlow';color:#9FD0F0;margin-bottom:5px}
 .myth p{font-size:13.5px;line-height:1.55;color:#C6D6E4}
 .myth p+p{margin-top:7px}
 .carbox{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:9px}
-.carbox b{display:block;font:700 15px 'Barlow';margin-bottom:3px}
+.carbox>b{display:block;font:700 15px 'Barlow';margin-bottom:3px}
 .carbox p{font-size:12.5px;color:var(--dim);line-height:1.45}
 .carrow{display:flex;gap:8px;margin-top:10px}
 .carrow .btn{width:auto;flex:none;padding:11px 15px}
@@ -331,7 +364,7 @@ table.mat td.b{background:var(--panel)}
 <script>
 /* The build a driver is running, shown in the home footer.
    Bump this and VERSION in sw.js together on every deploy — see README. */
-const APP_VERSION = "0.7.0";
+const APP_VERSION = "0.8.0";
 
 /* ---------------- DATA: the 172.101 table, fetched from hazmat.json ---------------- */
 const DATA_URL = "hazmat.json";
@@ -339,6 +372,7 @@ const SEG_URL = "segregation.json";
 const OPS_URL = "ops.json";
 const PAPERS_URL = "papers.json";
 const INCIDENT_URL = "incident.json";
+const CARRY_URL = "carry.json";
 let HM = [];           /* material records */
 let HMMETA = null;     /* provenance: source, cfrDate, generated */
 let SEG = null;        /* 177.848 tables; null if segregation.json didn't load */
@@ -349,6 +383,8 @@ let PAPERS = null;     /* 172 subparts C and G + 177.817 */
 let papersError = "";
 let INC = null;        /* 171.15 and 171.16 */
 let incError = "";
+let CAR = null;        /* 172.602/704, 383.93/141/153, 391.41/43/45, 397.19, 1572.13 */
+let carError = "";
 let dataState = "loading";   /* loading | ready | error */
 let dataError = "";
 
@@ -379,6 +415,7 @@ async function loadData(){
     await loadSeg();
     await loadOps();
     await loadPapers();
+    await loadCarry();
   }catch(e){
     dataError = (e && e.message) ? e.message : String(e);
     dataState="error";
@@ -447,6 +484,20 @@ async function loadIncident(){
   }catch(e){
     INC = null;
     incError = (e && e.message) ? e.message : String(e);
+  }
+}
+
+async function loadCarry(){
+  carError = "";
+  try{
+    const res = await fetch(CARRY_URL, {cache:"no-cache"});
+    if(!res.ok) throw new Error(`the server answered ${res.status} ${res.statusText||""}`.trim());
+    const doc = await res.json();
+    if(!Array.isArray(doc.sections) || doc.sections.length!==10) throw new Error("expected 10 sections across PHMSA, FMCSA and TSA");
+    CAR = doc;
+  }catch(e){
+    CAR = null;
+    carError = (e && e.message) ? e.message : String(e);
   }
 }
 
@@ -844,6 +895,48 @@ function clearCarrier(){
   render();
 }
 
+/* ---------------- THE DATES THAT LAPSE ----------------
+   Four optional dates on their own key. They are the most personal thing this
+   app holds, they never leave the phone, and there is deliberately nothing
+   here that stores an image of a document — see the What You Carry module for
+   why that stays out.
+
+   Stored as typed. Nothing is derived at save time: the training due date is
+   computed on every render from the last-training date, so a stored value can
+   never disagree with the rule it came from. */
+const LS_DATES = "hazpost.dates.v1";
+const DATE_KEYS = ["hme", "med", "cdl", "train"];
+
+function readDates(){
+  const out = {};
+  let raw;
+  try{ raw = localStorage.getItem(LS_DATES); }catch(e){ return out; }
+  if(!raw) return out;
+  let doc;
+  try{ doc = JSON.parse(raw); }catch(e){ return out; }
+  if(!doc || typeof doc!=="object") return out;
+  /* Anything unparseable is dropped on the way in rather than rendered as an
+     error later — an empty field is a state the module already handles. */
+  for(const k of DATE_KEYS) if(parseISODate(doc[k])!==null) out[k] = doc[k];
+  return out;
+}
+let dates = readDates();
+
+function setDate(k, v){
+  if(!DATE_KEYS.includes(k)) return;
+  if(parseISODate(v)===null) delete dates[k]; else dates[k] = v;
+  try{ localStorage.setItem(LS_DATES, JSON.stringify(dates)); }catch(e){ /* private mode — it just won't stick */ }
+  render();
+}
+
+function clearDates(){
+  if(!Object.keys(dates).length) return;
+  if(!confirm("Clear all four dates?\n\nThis erases them from this phone. Nothing was sent anywhere, so there is no copy to restore.")) return;
+  dates = {};
+  try{ localStorage.removeItem(LS_DATES); }catch(e){}
+  render();
+}
+
 /* every mutation of the load goes through here, so nothing can change on
    screen without also being written down */
 function commit(){ saveLoad(); render(); }
@@ -854,7 +947,7 @@ function clearLoad(){
   if(!confirm(`Clear all ${n} line${n===1?"":"s"}?\n\nThis also erases the load saved on this phone — it will not come back when you reopen HazPost.`)) return;
   load = []; restoreNote = ""; opsPlace = null; commit();
 }
-let view = "home", plcTab = "builder", segTab = "load", opsTab = "where", papTab = "check", incTab = "now";
+let view = "home", plcTab = "builder", segTab = "load", opsTab = "where", papTab = "check", incTab = "now", carTab = "stop";
 let incPicked = {};    /* trigger checklist, this session only */
 let opsPlace = null;   /* where the truck is stopping — rides with the load */
 
@@ -865,11 +958,10 @@ const MODULES = [
  {id:"ops", tc:"var(--wet)", t:"On the Road", d:"Attendance, parking, fueling, tire checks", cfr:"49 CFR Part 397", live:true},
  {id:"papers", tc:"var(--gas)", t:"Shipping Papers", d:"What must be on them, where they must sit", cfr:"49 CFR 177.817", live:true},
  {id:"incident", tc:"var(--expl)", t:"Incident Response", d:"When and who you must call, immediately", cfr:"49 CFR 171.15", live:true},
- {id:"creds", tc:"var(--faint)", t:"Credentials", d:"HME, training clock, what you carry", cfr:"49 CFR 172.704"},
+ {id:"carry", tc:"var(--tox)", t:"What You Carry", d:"What is on you at a stop, and what expires", cfr:"49 CFR 383.93", live:true},
 ];
-const STUBTXT = {
- creds:["Credentials","Hazmat endorsement, the 3-year recurrent training cycle, and what has to be on you at a stop."],
-};
+/* Every tile is live. STUBTXT is kept for the next module that is not. */
+const STUBTXT = {};
 
 function go(v){ view=v; render(); window.scrollTo(0,0); }
 
@@ -935,6 +1027,17 @@ function render(){
       <div id="incBody"></div>`;
     document.getElementById('incBody').innerHTML =
       !INC ? incUnavailable() : (incTab==='now' ? incNowView() : incTab==='notice' ? incNoticeView() : incWrittenView());
+  } else if(view==="carry"){
+    sub.textContent="49 CFR 383.93 · 383.141 · 172.704";
+    m.innerHTML = `
+      <div class="tabs">
+        <button class="${carTab==='stop'?'on':''}" onclick="carTab='stop';render()">At a stop</button>
+        <button class="${carTab==='exp'?'on':''}" onclick="carTab='exp';render()">What expires</button>
+        <button class="${carTab==='train'?'on':''}" onclick="carTab='train';render()">Training rules</button>
+      </div>
+      <div id="carBody"></div>`;
+    document.getElementById('carBody').innerHTML =
+      !CAR ? carUnavailable() : (carTab==='stop' ? carStopView() : carTab==='exp' ? carExpView() : carTrainView());
   } else if(view==="papers"){
     sub.textContent="49 CFR 172 Subpart C · 177.817";
     m.innerHTML = `
@@ -1947,6 +2050,12 @@ const opsText = (n,id) => { const p = opsSec(n).paras.find(x=>x.id===id); return
 /** Divisions that put a load in the strict tier. */
 const TIER1_BASES = ["1.1","1.2","1.3"];
 
+/** Is Division 1.1, 1.2 or 1.3 on the trailer?
+    Part 397's operational tier and the 397.19 document set turn on the same
+    question, so both modules ask it through this one function rather than each
+    keeping its own copy of the test. */
+function hasTier1(lines){ return (lines||[]).some(l=>TIER1_BASES.includes(l.base)); }
+
 /** 397.13 names these and only these. */
 const SMOKE_CLASSES = [
   {test:b=>/^1\./.test(b),      lbl:"Class 1"},
@@ -1960,7 +2069,7 @@ const SMOKE_CLASSES = [
 function opsCheck(){
   const r = load.length ? compute() : null;
   const placarded = !!(r && r.placards.length);
-  const tier1 = load.some(l=>TIER1_BASES.includes(l.base));
+  const tier1 = hasTier1(load);
   /* a Class 1 subsidiary does not make the material a Division 1.1/1.2/1.3 —
      its class is whatever column 3 says — but it is worth putting in front of
      the driver rather than deciding silently */
@@ -2444,6 +2553,354 @@ function incWrittenView(){
       ${incSec("171.15").paras.map(p=>incVerb("171.15"+(p.id||" — note"), p.text)).join("")}</details>
     <details class="verbfold"><summary>§ 171.16 — full text</summary>
       ${incSec("171.16").paras.map(p=>incVerb("171.16"+(p.id||""), p.text)).join("")}</details></div>`;
+
+  return h;
+}
+
+/* ================= WHAT YOU CARRY — 383.93, 383.141, 172.704 =================
+
+   This tile used to be called Credentials and was cited to 172.704, and that
+   framing was wrong from end to end. 172.704 is an employer obligation
+   throughout: the hazmat employer trains, tests, certifies and keeps the
+   record, and (c)(4) puts compliance on the employer whether or not the
+   training was ever done. A driver carries no training certificate and cannot
+   act on the three-year clock except by asking their carrier. A module built
+   around that clock answers a question the driver does not have.
+
+   What the driver does have is a wallet of things that expire and an inspector
+   asking for them. That is what this is.
+
+   No photographs, no scans, no uploads, no image storage of any credential —
+   see the note in carExpView(). Dates are low stakes if the phone is lost;
+   images of a licence and a medical card are not.                           */
+
+const carSec  = n => ((CAR && CAR.sections.find(s=>s.n===n)) || {paras:[]});
+const carText = (n,id) => { const p = carSec(n).paras.find(x=>x.id===id); return p ? p.text : ""; };
+
+function carVerb(cite, txt){
+  return txt ? `<div class="verb"><b>49 CFR ${esc(cite)}</b><p>${esc(txt)}</p></div>` : "";
+}
+function carFold(cite, txt){
+  return txt ? `<details class="verbfold"><summary>§ ${esc(cite)} — full text</summary>${carVerb(cite, txt)}</details>` : "";
+}
+/** Several items rest on more than one paragraph; fold them together. */
+function carFolds(label, list){
+  const body = list.map(([cite,txt])=>carVerb(cite,txt)).filter(Boolean).join("");
+  return body ? `<details class="verbfold"><summary>${esc(label)}</summary>${body}</details>` : "";
+}
+
+/* ---------------- DATE ARITHMETIC ----------------
+   Pure and separate from the view, because this is the part that has to be
+   right across a month end, a year end and a leap day, and the only way to
+   know it is is to test it directly. tools/test-carry.mjs does.
+
+   Everything runs on UTC midnights. The phone's local calendar date goes in,
+   is reinterpreted as a UTC midnight, and the difference is exact whole days —
+   no DST hour can round a boundary the wrong way. */
+
+/** A calendar date, or null. Null covers unset, malformed and impossible
+    alike: the module has one "not set" state and no error state. */
+function parseISODate(s){
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s==null?"":s).trim());
+  if(!m) return null;
+  const y = +m[1], mo = +m[2], d = +m[3];
+  const t = Date.UTC(y, mo-1, d);
+  const dt = new Date(t);
+  /* round-trip: rejects 2026-02-30 and 2026-13-01, which Date.UTC would
+     silently roll forward into a different month */
+  if(dt.getUTCFullYear()!==y || dt.getUTCMonth()!==mo-1 || dt.getUTCDate()!==d) return null;
+  return t;
+}
+
+const isoOf = t => new Date(t).toISOString().slice(0,10);
+
+/** Today on the phone's own calendar, not UTC's — a driver at 8pm in Denver
+    is on today's date, not tomorrow's. */
+function todayISO(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
+/** Whole days from `today` to `iso`. Negative is past. Null if either is unset
+    or unparseable. */
+function daysUntil(iso, today){
+  const a = parseISODate(iso);
+  if(a===null) return null;
+  const b = parseISODate(today || todayISO());
+  if(b===null) return null;
+  return Math.round((a - b) / 86400000);
+}
+
+/** `iso` plus n calendar years. 29 February plus three years does not exist,
+    and rolling it forward to 1 March would push a due date into the next
+    month; clamped back to the 28th so the prompt comes early rather than
+    late. */
+function addYears(iso, n){
+  const t = parseISODate(iso);
+  if(t===null) return null;
+  const d = new Date(t), mo = d.getUTCMonth();
+  const out = new Date(Date.UTC(d.getUTCFullYear()+n, mo, d.getUTCDate()));
+  if(out.getUTCMonth()!==mo) out.setUTCDate(0);
+  return isoOf(out);
+}
+
+const plural = (n, w) => `${n} ${w}${Math.abs(n)===1?"":"s"}`;
+
+/** The badge. Thresholds are expired, inside 60 days, inside 180, then fine. */
+function expStatus(days){
+  if(days===null)  return {cls:"none", txt:"Not set"};
+  if(days < 0)     return {cls:"bad",  txt:`Expired ${plural(-days,"day")} ago`};
+  if(days === 0)   return {cls:"bad",  txt:"Expires today"};
+  if(days <= 60)   return {cls:"bad",  txt:`${plural(days,"day")} left`};
+  if(days <= 180)  return {cls:"soon", txt:`${plural(days,"day")} left`};
+  return {cls:"ok", txt:`${plural(days,"day")} left`};
+}
+
+/**
+ * One row of the tracker, resolved. `add` is the field that is not an expiry
+ * at all — the driver types the date of their last training and the rule adds
+ * three years, so the date typed and the date that matters are different, and
+ * both are shown.
+ */
+function expRow(field, stored, today){
+  const typed = stored[field.k] || "";
+  const due = field.addYears ? addYears(typed, field.addYears) : (parseISODate(typed)!==null ? typed : null);
+  const days = due===null ? null : daysUntil(due, today);
+  return {typed, due, days, status:expStatus(days)};
+}
+
+const EXP_FIELDS = [
+ {k:"hme", lbl:"Hazmat endorsement", cite:"49 CFR 383.141(c), (d) · 49 CFR 1572.13"},
+ {k:"med", lbl:"Medical certification", cite:"49 CFR 391.45(b)"},
+ {k:"cdl", lbl:"CDL", cite:"49 CFR 383 — State-issued"},
+ {k:"train", lbl:"Last hazmat training", cite:"49 CFR 172.704(c)(2)", addYears:3},
+];
+
+/* ---------------- VIEWS ---------------- */
+
+function carUnavailable(){
+  return `<div class="card"><h4>Reference text unavailable</h4>
+    <p style="font-size:14px;line-height:1.5;color:var(--dim)">HazPost will not tell you what to carry from memory. The rules did not load, so this module is showing nothing rather than guessing.</p>
+    <div style="font:500 12.5px 'Roboto Mono';color:var(--bad);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:12px;word-break:break-word">${esc(CARRY_URL)} — ${esc(carError||"not loaded")}</div>
+    <button class="btn" style="margin-top:12px" onclick="loadCarry().then(render)">Try again</button>
+    <div class="hint">Your saved dates are untouched — they live on this phone, not in the file that failed.</div></div>`;
+}
+
+/* ---- TAB 1: AT A STOP ---- */
+function carStopView(){
+  const tier1 = hasTier1(load);
+
+  const item = (title, body, cite, verb, opts) =>
+    `<div class="item"><span class="dot ${(opts&&opts.dot)||""}"></span><div class="in">
+      <b>${title}</b>${body}<span class="cite">49 CFR ${esc(cite)}</span>${verb||""}</div></div>`;
+
+  let h = `<div class="card"><h4>On you, or in the cab</h4>` +
+
+    item("CDL with the H or X endorsement",
+      `<p>An endorsement is required to operate a vehicle used to transport hazardous materials. <b>H</b> is hazmat; <b>X</b> is the combined tank and hazmat endorsement. The letter is the same in every state — it is a federal code.</p>`,
+      "383.93(b)(4), 383.153(a)(9)(iv), (v)",
+      carFolds("§ 383.93(b)(4) and the letter codes — full text", [
+        ["383.93(b)", carText("383.93","(b)")],
+        ["383.93(b)(4)", carText("383.93","(b)(4)")],
+        ["383.153(a)(9)(iv)", carText("383.153","(a)(9)(iv)")],
+        ["383.153(a)(9)(v)", carText("383.153","(a)(9)(v)")],
+      ])) +
+
+    item("Medical certification — on the record, not in your pocket",
+      `<p>This changed and it is worth knowing. Since <b>23 June 2025</b>, a driver required to hold a CDL or CLP <b>no longer carries the medical examiner's certificate</b>. The examiner reports the result to FMCSA, it reaches your driving record, and that record is what an inspector reads.</p>
+       <p>Carrying the card does no harm. Relying on it does: if the paper copy and the electronic record disagree, <b>the electronic record controls</b>. What actually stops the truck is the certification lapsing on the record, which gets the CDL downgraded — so it is on the next tab.</p>`,
+      "391.41(a)(2)(i)(B), (a)(2)(iv)",
+      carFolds("§ 391.41(a)(2) — full text", [
+        ["391.41(a)(2)(i)(B)", carText("391.41","(a)(2)(i)(B)")],
+        ["391.41(a)(2)(iv)", carText("391.41","(a)(2)(iv)")],
+      ])) +
+
+    item("A medical variance, if you hold one",
+      `<p>The exception to the item above. An FMCSA <b>exemption letter or skill performance evaluation certificate</b> must be on your person whenever you are on duty — that one is still a piece of paper you carry, and the rule says so twice.</p>`,
+      "391.41(a)(1)(ii), (a)(2)(iii)",
+      carFolds("§ 391.41(a)(1)(ii) and (a)(2)(iii) — full text", [
+        ["391.41(a)(1)(ii)", carText("391.41","(a)(1)(ii)")],
+        ["391.41(a)(2)(iii)", carText("391.41","(a)(2)(iii)")],
+      ])) +
+
+    item("The shipping paper",
+      `<p>Tabbed or first in the stack, and in one of the places the rule names — which depends on whether you are at the controls. <a href="#" style="color:var(--brand)" onclick="view='papers';papTab='where';render();window.scrollTo(0,0);return false">Shipping Papers → Where they live</a> has the whole rule; it is not repeated here.</p>`,
+      "177.817(e)", "") +
+
+    item("Emergency response information",
+      `<p>In English, <b>usable away from the package</b> so not sealed inside it, and immediately accessible to you. The ERG satisfies this. HazPost reproduces no guide content — carry the official book or PHMSA's app.</p>`,
+      "172.602(b)(1), (b)(2), (c)(1)",
+      carFolds("§ 172.602 — full text", [
+        ["172.602(b)", carText("172.602","(b)")],
+        ["172.602(b)(1)", carText("172.602","(b)(1)")],
+        ["172.602(b)(2)", carText("172.602","(b)(2)")],
+        ["172.602(c)(1)", carText("172.602","(c)(1)")],
+      ]));
+
+  /* 397.19 is conditional and stays hidden entirely when no explosives are on
+     the trailer. Showing a greyed-out "not required" item would be its own
+     kind of noise, and the load is the only thing HazPost knows that the
+     inspector's list does not. */
+  if(tier1){
+    h += item(`Documents the carrier must have given you<span class="cond-tag">1.1 / 1.2 / 1.3</span>`,
+      `<p>Only for Division 1.1, 1.2 or 1.3, which is what you have on. The carrier furnishes a copy of the Part 397 rules and a document of <b>instructions for an accident or delay</b> — who to call, what the explosives are, what to do about fire, accident or leakage. <b>You sign a receipt for them.</b></p>
+       <p>Then (c) requires you to be in possession of, familiar with, and in compliance with those documents, the shipping papers, and the <b>written route plan</b>. Routing is Subpart D and HazPost does not implement it — the route plan comes from your carrier. <a href="#" style="color:var(--brand)" onclick="view='ops';opsTab='where';render();window.scrollTo(0,0);return false">On the Road</a> covers the rest of Part 397.</p>`,
+      "397.19(a), (b), (c)",
+      carFolds("§ 397.19 — full text", [
+        ["397.19(a)", carText("397.19","(a)")],
+        ["397.19(a)(1)", carText("397.19","(a)(1)")],
+        ["397.19(a)(3)", carText("397.19","(a)(3)")],
+        ["397.19(b)", carText("397.19","(b)")],
+        ["397.19(c)", carText("397.19","(c)")],
+        ["397.19(c)(1)", carText("397.19","(c)(1)")],
+        ["397.19(c)(2)", carText("397.19","(c)(2)")],
+        ["397.19(c)(3)", carText("397.19","(c)(3)")],
+      ]), {dot:"cond"});
+  }
+
+  h += `<div class="hint">${tier1
+    ? `The explosives item above is showing because Division 1.1, 1.2 or 1.3 is on the load you built.`
+    : `One more item appears here when Division 1.1, 1.2 or 1.3 is on the load. HazPost reads that from <a href="#" style="color:var(--brand)" onclick="view='placards';plcTab='builder';render();window.scrollTo(0,0);return false">Placarding → Load Builder</a>${load.length ? `, and nothing on the ${load.length} line${load.length===1?"":"s"} you built is in those divisions.` : `, which is empty right now.`}`}</div>
+    </div>`;
+
+  h += `<div class="card"><h4>What you do not carry</h4>
+    <div class="not"><b>Your hazmat training record</b>
+      <p>This one surprises people. The training record is created and kept by the <b>employer</b>, not by you, and the employer is the one who produces it on request to an authorised DOT official. There is no training certificate you are expected to have in the truck at a roadside inspection.</p>
+      <p>Worth knowing anyway, because <b>172.704(c)(4) puts compliance on the employer regardless of whether the training was ever completed</b>. A gap in your training is the carrier's violation. It is not something you can resolve at the scale house, and it is not something to try to talk your way through.</p>
+      <span class="cite">49 CFR 172.704(d), 172.704(c)(4)</span>
+      ${carFolds("§ 172.704(d) and (c)(4) — full text", [
+        ["172.704(d)", carText("172.704","(d)")],
+        ["172.704(c)(4)", carText("172.704","(c)(4)")],
+      ])}</div></div>`;
+
+  return h;
+}
+
+/* ---- TAB 2: WHAT EXPIRES ---- */
+function carExpView(){
+  const today = todayISO();
+  const anySet = DATE_KEYS.some(k=>dates[k]);
+
+  const NOTES = {
+    hme: `<p><b>At least every five years</b> — the State must set the renewal cycle so you go through a TSA security threat assessment at least that often, and it may not issue or renew without a <b>Determination of No Security Threat</b>. Holding a valid <b>TWIC</b> is the alternative route.</p>
+      <p><b>Two deadlines, and they are not the same one.</b> The State must tell you 60 days out; FMCSA says file the renewal application <b>no later than 30 days</b> before expiry, TSA says you may start the assessment <b>no later than 60 days</b> before. Neither is a grace period. Start it early — the assessment is the slow part, and if TSA has not answered in time your State may extend the endorsement by <b>90 days</b>, which is a rescue, not a plan.</p>
+      <p>Where the CDL expires first, many States pull the endorsement date back to match, so your real date can be earlier than five years. And on a transfer between States the second State does not re-run the assessment until the first State's cycle runs out, up to five years.</p>`,
+    med: `<p>Certification runs on a <b>24-month</b> cycle, and on <b>12 months</b> for an exempt intracity zone, an insulin-treated diabetes certificate under § 391.46, or a vision exemption under § 391.44. An examiner can also certify you for a shorter period than the maximum, so <b>use the date the examiner wrote, not a calculation.</b></p>
+      <p>Since 23 June 2025 a CDL holder no longer carries the certificate, but the certification still has to be current on the record. Let it lapse and the State downgrades the CDL — which takes the endorsement with it.</p>`,
+    cdl: `<p>State-set, and not a federal interval. It is here because it can cut the endorsement short: many States align a hazmat endorsement to the licence expiry rather than running it a full five years.</p>`,
+    train: `<p>Type the date of your <b>last</b> hazmat training; recurrent training is due at least every three years, so HazPost adds three years to get the date above. Nothing about the number is stored — it is recomputed from the date you typed, every time.</p>
+      <p><b>This is the carrier's obligation and the carrier's record.</b> You cannot fix it yourself and you are not the one who keeps it. It is tracked here for one reason: so you can prompt them before it lapses, and so you know which question to ask.</p>`,
+  };
+
+  let h = `<div class="card"><h4>Your dates</h4>
+    <p style="font-size:12.5px;color:var(--dim);line-height:1.55;margin-bottom:12px">All four are optional. They are stored <b style="color:var(--ink)">on this phone only</b> — HazPost has no account, no server and nothing to sync to, so nothing here leaves the device.</p>`;
+
+  EXP_FIELDS.forEach(f=>{
+    const r = expRow(f, dates, today);
+    h += `<div class="exp"><div class="top"><b>${esc(f.lbl)}</b>
+        <input type="date" id="date-${f.k}" value="${esc(r.typed)}" onchange="setDate('${f.k}', this.value)" aria-label="${esc(f.lbl)}"></div>
+      <span class="days ${r.status.cls}">${esc(r.status.txt)}</span>${
+        f.addYears && r.due ? `<span class="due">due ${esc(r.due)}</span>` : ""}
+      <div class="note">${NOTES[f.k]}</div>
+      <span class="cite">${esc(f.cite)}</span></div>`;
+  });
+
+  h += `<button class="btn ghost" style="margin-top:4px${anySet?"":";opacity:.45"}" onclick="clearDates()"${anySet?"":" disabled"}>Clear all dates</button>
+
+    <div class="limitbox"><p><b>A reminder, not a record.</b> HazPost cannot verify any of these dates and does not try. Whatever your State and your carrier hold beats what is typed here — if the two disagree, they are right and this is wrong.</p></div>
+
+    <div class="limitbox"><p><b>No reminders, and that is deliberate.</b> There are no notifications, no alerts and nothing scheduled. A static site with no backend cannot reliably fire one, and a reminder that silently fails to arrive is worse than no reminder at all. This screen tells you where you stand when you open it.</p></div>
+
+    <div class="limitbox"><p><b>Dates only. No photographs of anything, ever.</b> No pictures of a licence, a medical card or an endorsement, no scanning and no uploads. If this phone is lost, four dates are a small problem; images of your licence and medical card are not, and HazPost has no account, no encryption at rest and no way to revoke anything. That is not a feature waiting to be added.</p></div></div>`;
+
+  h += `<div class="card"><h4>The mechanics are your State's</h4>
+    <div class="rule a"><b>The five-year ceiling is federal. Almost nothing else is.</b>
+      <p>Whether a transfer between States needs a fresh knowledge test, how a temporary endorsement is handled, what the fee is, how early you can file — all of that is set where your licence is issued and it varies. HazPost does not carry state rules and will not guess at them.</p>
+      <p><b>Ask your own licensing agency.</b> They are the only ones who can tell you what your renewal actually involves.</p>
+      <span class="cite">49 CFR 383.141(d), 1572.13(e)</span>
+      ${carFolds("§ 383.141 and § 1572.13 — the federal frame", [
+        ["383.141(b)", carText("383.141","(b)")],
+        ["383.141(b)(1)", carText("383.141","(b)(1)")],
+        ["383.141(b)(2)", carText("383.141","(b)(2)")],
+        ["383.141(c)", carText("383.141","(c)")],
+        ["383.141(d)", carText("383.141","(d)")],
+        ["1572.13(a)", carText("1572.13","(a)")],
+        ["1572.13(b)", carText("1572.13","(b)")],
+        ["1572.13(c)", carText("1572.13","(c)")],
+        ["1572.13(e)", carText("1572.13","(e)")],
+      ])}</div></div>`;
+
+  return h;
+}
+
+/* ---- TAB 3: TRAINING RULES ---- */
+function carTrainView(){
+  const r = (title, body, cite, verb) =>
+    `<div class="rule a"><b>${esc(title)}</b>${body}<span class="cite">49 CFR ${esc(cite)}</span>${verb||""}</div>`;
+
+  let h = `<div class="limitbox" style="margin:0 0 12px"><p><b>None of this is yours to do.</b> 172.704 is an employer obligation from end to end — the hazmat employer trains, tests, certifies and keeps the record. It is here so you know what your carrier owes you and what to ask for, not because there is a box for you to tick.</p></div>`;
+
+  h += `<div class="card"><h4>Whose job it is</h4>` +
+    r("The employer's, throughout",
+      `<p>The hazmat employer trains, tests, certifies and holds the record. And the rule goes further than that: the employer is responsible for compliance <b>whether or not the training was ever completed</b>. A training gap is the carrier's violation, not yours.</p>`,
+      "172.704(c)(4), (d)",
+      carFolds("§ 172.704(c)(4) — full text", [["172.704(c)(4)", carText("172.704","(c)(4)")]])) +
+
+    r("What the training has to cover",
+      `<ul><li><b>General awareness and familiarization</b> — recognising and identifying hazardous materials</li>
+       <li><b>Function-specific</b> — the parts of the subchapter that apply to what you actually do</li>
+       <li><b>Safety</b> — emergency response information, protecting yourself from exposure, avoiding accidents</li>
+       <li><b>Security awareness</b> — recognising and responding to security threats. New hazmat employees get this within 90 days of employment.</li>
+       <li><b>In-depth security</b> — only where a security plan is required under Subpart I, for employees the plan covers</li></ul>`,
+      "172.704(a)(1)–(a)(5)",
+      carFolds("§ 172.704(a) — full text", [
+        ["172.704(a)(1)", carText("172.704","(a)(1)")],
+        ["172.704(a)(2)(i)", carText("172.704","(a)(2)(i)")],
+        ["172.704(a)(3)", carText("172.704","(a)(3)")],
+        ["172.704(a)(4)", carText("172.704","(a)(4)")],
+        ["172.704(a)(5)", carText("172.704","(a)(5)")],
+      ])) +
+
+    r("Two clocks",
+      `<p><b>New hire, or a change of job function — 90 days.</b> You may perform the function before training is complete, but only under the <b>direct supervision of a properly trained and knowledgeable hazmat employee</b>, and the training has to be done within 90 days. Both halves, not either.</p>
+       <p><b>Then at least once every three years.</b> In-depth security training has a wrinkle: if the security plan is revised mid-cycle, retraining is due within 90 days of the revision rather than waiting for the three years.</p>`,
+      "172.704(c)(1), (c)(2)",
+      carFolds("§ 172.704(c)(1) and (c)(2) — full text", [
+        ["172.704(c)(1)", carText("172.704","(c)(1)")],
+        ["172.704(c)(1)(i)", carText("172.704","(c)(1)(i)")],
+        ["172.704(c)(1)(ii)", carText("172.704","(c)(1)(ii)")],
+        ["172.704(c)(2)", carText("172.704","(c)(2)")],
+      ])) +
+    `</div>`;
+
+  h += `<div class="card"><h4>The one part you can act on</h4>
+    <div class="rule care"><b>Changing carriers — get your record on the way out</b>
+      <p>Training you already have can count toward a new employer's obligation, <b>but only if a current record of it is obtained from the previous employer</b>. No record, no credit — and then you are retraining from scratch on somebody else's schedule.</p>
+      <p>The record has to carry your name, the most recent completion date, a description or location of the materials used, the name and address of whoever did the training, and the certification that you were trained and tested. That is the thing to ask for, and the time to ask is before you leave.</p>
+      <span class="cite">49 CFR 172.704(c)(3), (d)(1)–(d)(5)</span>
+      ${carFolds("§ 172.704(c)(3) and what the record contains — full text", [
+        ["172.704(c)(3)", carText("172.704","(c)(3)")],
+        ["172.704(d)", carText("172.704","(d)")],
+        ["172.704(d)(1)", carText("172.704","(d)(1)")],
+        ["172.704(d)(2)", carText("172.704","(d)(2)")],
+        ["172.704(d)(3)", carText("172.704","(d)(3)")],
+        ["172.704(d)(4)", carText("172.704","(d)(4)")],
+        ["172.704(d)(5)", carText("172.704","(d)(5)")],
+      ])}</div></div>`;
+
+  h += `<div class="card"><h4>How long the record lives</h4>` +
+    r("Employment, plus 90 days",
+      `<p>The employer keeps a current record covering the <b>preceding three years</b>, for as long as you are employed there as a hazmat employee and for 90 days after you leave. After that window it can be gone — which is the practical reason (c)(3) above has a deadline attached to it in real life even though the rule does not state one.</p>`,
+      "172.704(d)",
+      carFolds("§ 172.704(d) — full text", [["172.704(d)", carText("172.704","(d)")]])) +
+    `</div>`;
+
+  h += `<div class="card"><h4>Source</h4>
+    <div class="hint" style="margin-top:0">${esc(CAR.source)}, current as of ${esc(CAR.cfrDate)} (text v${esc(CAR.version)}). Ten sections from three agencies — PHMSA, FMCSA and TSA. Every plain-language line in this module is ours; the CFR paragraph it was written from sits under it.</div>` +
+    CAR.sections.map(s=>
+      `<details class="verbfold" style="margin-top:8px"><summary>§ ${esc(s.n)} — ${esc(s.agency)} — full text</summary>` +
+      s.paras.map(p=>carVerb(s.n+(p.id||""), p.text)).join("") + `</details>`).join("") +
+    `</div>`;
 
   return h;
 }

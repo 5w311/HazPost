@@ -6,6 +6,9 @@ Hazmat tools built for the driver's seat. Companion app to [MilesPost](https://5
 
 ## What it does
 
+All six modules are live; the build order laid out at the start of the project
+is complete.
+
 HazPost is a verification aid for hazmat drivers. It does not classify materials — the shipper owns classification and supplies placards. HazPost tells you what should be hanging on the trailer so you can check it against your shipping papers, with the CFR cite for every conclusion.
 
 ## Modules
@@ -17,7 +20,7 @@ HazPost is a verification aid for hazmat drivers. It does not classify materials
 | On the Road (attendance, parking, always-on rules) | Part 397 Subpart A | Live |
 | Shipping Papers (basic description check + placement) | 172 Subpart C, 177.817 | Live |
 | Incident Response (who to call, notice, written report) | 171.15, 171.16 | Live |
-| Credentials | 172.704 | Planned |
+| What You Carry (at a stop, what expires, training rules) | 383.93, 383.141, 172.704 | Live |
 
 ## Architecture
 
@@ -28,6 +31,7 @@ HazPost is a verification aid for hazmat drivers. It does not classify materials
 - `ops.json` — 49 CFR Part 397 Subpart A, verbatim
 - `papers.json` — 172 Subparts C and G, and 177.817, verbatim
 - `incident.json` — 171.15 and 171.16, verbatim
+- `carry.json` — 172.602, 172.704, 383.93, 383.141, 383.153, 391.41, 391.43, 391.45, 397.19 and 1572.13, verbatim
 - `sw.js` — service worker: offline cache for the whole app
 - `manifest.json` + `icons/` — installable to the phone home screen
 - `tools/build-hazmat.mjs` — regenerates `hazmat.json` from the eCFR API
@@ -35,9 +39,10 @@ HazPost is a verification aid for hazmat drivers. It does not classify materials
 - `tools/build-ops.mjs` — regenerates `ops.json` from the eCFR API
 - `tools/build-papers.mjs` — regenerates `papers.json` from the eCFR API
 - `tools/build-incident.mjs` — regenerates `incident.json` from the eCFR API
+- `tools/build-carry.mjs` — regenerates `carry.json` from the eCFR API
 - `tools/build-icons.mjs` — regenerates `icons/`
 - `tools/test.mjs` — the test suite; runs every `tools/test-*.mjs`
-- `tools/GENERATION-REPORT.md`, `tools/SEGREGATION-REPORT.md`, `tools/OPS-REPORT.md`, `tools/PAPERS-REPORT.md`, `tools/INCIDENT-REPORT.md` — what each generation run decided, and why
+- `tools/GENERATION-REPORT.md`, `tools/SEGREGATION-REPORT.md`, `tools/OPS-REPORT.md`, `tools/PAPERS-REPORT.md`, `tools/INCIDENT-REPORT.md`, `tools/CARRY-REPORT.md` — what each generation run decided, and why
 - Deployed via GitHub Pages
 - Mobile-first, offline-first
 
@@ -49,7 +54,8 @@ file, the icons and the web fonts, and serves every request cache-first while
 refreshing in the background. Once the app has been opened online a single
 time, it works with the radio off — module grid, load builder, computed
 placard set, UN lookup, the segregation check, the Part 397 decision, the
-shipping paper comparison and the incident reporting rules.
+shipping paper comparison, the incident reporting rules and the credential
+reference.
 
 **Every new data file must be added to `SHELL` in `sw.js`**, or it is fetched
 from the network on every launch and simply is not there offline.
@@ -91,6 +97,7 @@ and must not be collapsed into one.
 | `ops.json` | `version` / `cfrDate` | which CFR edition the Part 397 text came from |
 | `papers.json` | `version` / `cfrDate` | which CFR edition the shipping-paper text came from |
 | `incident.json` | `version` / `cfrDate` | which CFR edition the reporting text came from |
+| `carry.json` | `version` / `cfrDate` | which CFR edition the credential text came from |
 
 The first and third are on screen: `APP_VERSION` in the home footer,
 the data edition in the disclaimer line above it. The cache generation is
@@ -104,8 +111,8 @@ sees no change and serves the old build forever. A deploy that bumps only
 which build they are on is told the wrong thing. Either way the failure is
 silent, which is the exact failure the version footer exists to prevent.
 
-The two data files' `version` fields move on their own schedule, whenever the
-generator that writes them changes the record shape or the mapping rules.
+Each data file's `version` field moves on its own schedule, whenever the
+generator that writes it changes the record shape or the mapping rules.
 
 ### How an update reaches a driver
 
@@ -501,9 +508,117 @@ No framework and nothing to install — the app has no dependencies and neither
 does its suite. `tools/test.mjs` runs every `tools/test-*.mjs` and fails if any
 of them does.
 
+- `test-incident.mjs` — the three Incident Response invariants, including the
+  no-all-clear rule over every subset of the checklist.
+- `test-carry.mjs` — What You Carry: date arithmetic across month, year and leap
+  boundaries; the 397.19 conditional against real 172.101 entries; and the
+  absence of any image capture.
+
 The tests extract the `<script>` from `index.html` and evaluate it in a `vm`
 context against stub globals, so the functions under test are the ones that
 ship rather than copies. Note that top-level `let` and `const` bindings are
 lexical and never become properties of a `vm` context — only function
 declarations do. That is why the tests read constants out of the source text
 and populate state by calling the app's own loaders through a stub `fetch`.
+
+## What You Carry — 383.93, 383.141, 172.704, 391.41, 1572.13
+
+This tile was called **Credentials** and cited to 172.704, and that framing was
+wrong from end to end. 172.704 is an employer obligation throughout: the hazmat
+employer trains, tests, certifies and keeps the record, and (c)(4) puts
+compliance on the employer regardless of whether the training was ever done. A
+driver carries no training certificate and cannot act on the three-year clock
+except by asking their carrier. A module built around that clock answers a
+question the driver does not have.
+
+What the driver does have is a wallet of things that expire and an inspector
+asking for them. That is what the module is.
+
+```sh
+node tools/build-carry.mjs [--date YYYY-MM-DD]
+```
+
+Ten sections across three agencies — PHMSA (172), FMCSA (383, 391, 397) and TSA
+(1572). The eCFR versioner API is scoped by title rather than by chapter, so
+§ 1572.13 comes back from the same endpoint as the rest with only the part
+number changed; TSA needed no special handling.
+
+### The medical certificate is no longer carried
+
+The finding that shaped tab one. **391.41(a)(2)(i)(B)**: on or after 23 June
+2025, a driver required to hold a CDL or CLP *"no longer needs to carry on his
+or her person the medical examiner's certificate."* 391.43(g)(2)(ii) matches it
+from the other side — the examiner now completes the paper certificate only for
+a person who will not be driving a vehicle that requires a CDL.
+
+So the module says the certification lives on the driving record, not in the
+wallet, and that **391.41(a)(2)(iv)** makes the electronic record control if a
+paper copy disagrees with it. What is still carried is a **medical variance** —
+an FMCSA exemption letter or SPE certificate — under (a)(1)(ii) and (a)(2)(iii).
+Certification still belongs on the expiry tracker, because a lapse downgrades
+the CDL, but the thing that expires is a record, not a card.
+
+### What expires
+
+Four optional dates in `localStorage` under `hazpost.dates.v1`, on their own key
+so clearing the load cannot take them. Nothing leaves the device and the module
+says so on screen.
+
+The arithmetic is pure and separated from the view — `parseISODate`,
+`daysUntil`, `addYears`, `expStatus`, `expRow` — because it is the only
+computation in the module and it is the kind that looks right and is wrong at a
+month end, a year end or a leap day. All of it runs on UTC midnights: the
+phone's own calendar date goes in, is reinterpreted as a UTC midnight, and the
+difference is exact whole days, so no DST hour can round a boundary the wrong
+way. `tools/test-carry.mjs` tests it against a fixed "today" rather than the
+clock, so the suite answers the same in December as in June.
+
+Unset, malformed and impossible dates all resolve to the same "not set" state —
+there is no error state, because `2026-02-30` in storage is not worth a red box.
+`addYears` clamps 29 February back to the 28th rather than rolling into March,
+so a due date never lands in the following month.
+
+The last-training field is the one that is not an expiry: the driver types when
+they were last trained and the rule adds three years. Nothing derived is stored,
+so a saved value can never disagree with the rule it came from.
+
+### Three things it deliberately does not do
+
+- **No images of any credential.** No photographs of a licence, medical card or
+  endorsement, no scanning, no uploads. Four dates are a small problem if the
+  phone is lost; images of a licence and a medical card are not, and HazPost has
+  no account, no encryption at rest and no way to revoke anything. The test
+  asserts the absence mechanically — no file input, no `capture`, no
+  `getUserMedia`, no canvas, no `FileReader`, and every `<input>` in the module
+  is `type="date"`.
+- **No notifications or scheduled reminders.** A static site with no backend
+  cannot reliably fire one, and a reminder that silently fails to arrive is
+  worse than none.
+- **No state-specific logic or lookup tables.** The five-year ceiling is
+  federal; transfer rules, knowledge tests, temporary endorsements and fees are
+  not. The module says so once and points at the driver's own licensing agency.
+
+### 397.19 is conditional on the load
+
+The document set the carrier must furnish applies only to Division 1.1, 1.2 or
+1.3. The module derives that through `hasTier1(load)` — the same function the On
+the Road module uses for its operational tier, so the two cannot drift — and
+hides the item entirely otherwise, with a line saying where the answer came
+from. Routing is Subpart D and stays unimplemented; the route plan comes from
+the carrier.
+
+### Cross-file agreement
+
+`carry.json` carries its own copy of 172.602 (also in `papers.json`) and 397.19
+(also in `ops.json`) rather than reaching across at runtime and making one
+module depend on another's fetch. The build asserts the copies agree character
+for character and names both `cfrDate`s if they do not, so a regeneration that
+updates one file and not the other stops at the generator instead of putting two
+versions of the same paragraph in front of a driver.
+
+### Claims are pinned to paragraphs
+
+Every plain-language sentence in the module is registered in `CLAIMS` against
+the paragraph and the phrase it was written from — 25 of them. An amendment that
+changes what a rule says fails the build rather than leaving the module
+confidently repeating last year's version.
