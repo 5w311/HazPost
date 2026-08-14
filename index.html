@@ -204,6 +204,48 @@ input.mono{font:500 15px 'Roboto Mono'}
 .verbfold[open]>summary::before{content:"▾ "}
 .refp p{font-size:13px;line-height:1.55;color:#C6CED8}
 
+/* incident response module — the call blocks are never gated behind a question */
+.call{display:flex;align-items:center;gap:13px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:9px;text-decoration:none;color:inherit}
+.call.urgent{background:#2A1618;border-color:#8B2E34}
+.call .n{font:800 21px 'Barlow Condensed';letter-spacing:.5px;flex:none;width:74px;color:var(--brand);line-height:1.05}
+.call.urgent .n{color:#FF7A80;font-size:30px}
+.call .t b{display:block;font:700 15px 'Barlow'}
+.call .t span{font-size:12.5px;color:var(--dim);line-height:1.4;display:block;margin-top:2px}
+.call .t span.num{font:600 13px 'Roboto Mono';color:#C6CED8}
+.paper{border:2px dashed #6B5520;background:#2A2015;border-radius:12px;padding:14px;margin-bottom:9px}
+.paper b{display:block;font:700 15px 'Barlow';color:#FFD98A;margin-bottom:3px}
+.paper p{font-size:13px;color:#E0CFA8;line-height:1.5}
+.paper .cite,.myth .cite{display:inline-block;font:500 11px 'Roboto Mono';color:var(--faint);margin-top:6px}
+.myth{background:#1B2430;border:1px solid #31465E;border-radius:12px;padding:14px;margin-bottom:12px}
+.myth b{display:block;font:700 15px 'Barlow';color:#9FD0F0;margin-bottom:5px}
+.myth p{font-size:13.5px;line-height:1.55;color:#C6D6E4}
+.myth p+p{margin-top:7px}
+.carbox{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:9px}
+.carbox b{display:block;font:700 15px 'Barlow';margin-bottom:3px}
+.carbox p{font-size:12.5px;color:var(--dim);line-height:1.45}
+.carrow{display:flex;gap:8px;margin-top:10px}
+.carrow .btn{width:auto;flex:none;padding:11px 15px}
+.linkbtn{background:none;border:none;color:var(--brand);font:600 12px 'Barlow';padding:4px 0;cursor:pointer;text-decoration:underline}
+
+/* the trigger checklist */
+.trig{display:flex;gap:11px;align-items:flex-start;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:8px;cursor:pointer}
+.trig.on{border-color:var(--bad);background:#2A1618}
+.trig.judg{border-style:dashed}
+.trig.judg.on{border-color:var(--brand);background:#2A2015}
+.trig .box{width:21px;height:21px;border-radius:5px;border:2px solid var(--faint);flex:none;margin-top:1px;display:flex;align-items:center;justify-content:center;font:800 13px 'Barlow';color:transparent}
+.trig.on .box{background:var(--bad);border-color:var(--bad);color:#fff}
+.trig.judg.on .box{background:var(--brand);border-color:var(--brand);color:#111}
+.trig p{font-size:13.5px;line-height:1.45}
+.trig .cite{display:block;font:500 10.5px 'Roboto Mono';color:var(--faint);margin-top:3px}
+.verdict{border-radius:12px;padding:15px;margin:12px 0;border:1px solid}
+.verdict.yes{background:#2A1618;border-color:#8B2E34}
+.verdict.judg{background:#2A2015;border-color:#6B5520}
+.verdict b.hd{display:block;font:800 16px 'Barlow';margin-bottom:6px}
+.verdict.yes b.hd{color:#FF9CA1} .verdict.judg b.hd{color:#FFD98A}
+.verdict p{font-size:13.5px;line-height:1.55;color:#DCE2EA;margin-bottom:7px}
+.verdict .cite{display:inline-block;font:500 11px 'Roboto Mono';color:var(--faint)}
+.verdict .call{margin:2px 0 10px}
+
 /* segregation module */
 .segchip{font:700 9.5px 'Barlow Condensed';letter-spacing:.8px;padding:2px 6px;border-radius:4px;text-transform:uppercase;flex:none}
 .segchip.sub{background:#3A2E4A;color:#C9A7E8}
@@ -289,13 +331,14 @@ table.mat td.b{background:var(--panel)}
 <script>
 /* The build a driver is running, shown in the home footer.
    Bump this and VERSION in sw.js together on every deploy — see README. */
-const APP_VERSION = "0.6.0";
+const APP_VERSION = "0.7.0";
 
 /* ---------------- DATA: the 172.101 table, fetched from hazmat.json ---------------- */
 const DATA_URL = "hazmat.json";
 const SEG_URL = "segregation.json";
 const OPS_URL = "ops.json";
 const PAPERS_URL = "papers.json";
+const INCIDENT_URL = "incident.json";
 let HM = [];           /* material records */
 let HMMETA = null;     /* provenance: source, cfrDate, generated */
 let SEG = null;        /* 177.848 tables; null if segregation.json didn't load */
@@ -304,11 +347,18 @@ let OPS = null;        /* Part 397 Subpart A; null if ops.json didn't load */
 let opsError = "";
 let PAPERS = null;     /* 172 subparts C and G + 177.817 */
 let papersError = "";
+let INC = null;        /* 171.15 and 171.16 */
+let incError = "";
 let dataState = "loading";   /* loading | ready | error */
 let dataError = "";
 
 async function loadData(){
   dataState="loading"; dataError=""; render();
+  /* Incident Response loads first and outside the chain below. Everything
+     else in HazPost is an aid a driver can do without for a day; the phone
+     numbers are not, and a failure to load the 172.101 table must not be
+     able to shut the door on them. */
+  await loadIncident();
   try{
     const res = await fetch(DATA_URL, {cache:"no-cache"});
     if(!res.ok) throw new Error(`the server answered ${res.status} ${res.statusText||""}`.trim());
@@ -378,6 +428,25 @@ async function loadPapers(){
   }catch(e){
     PAPERS = null;
     papersError = (e && e.message) ? e.message : String(e);
+  }
+}
+
+async function loadIncident(){
+  incError = "";
+  try{
+    const res = await fetch(INCIDENT_URL, {cache:"no-cache"});
+    if(!res.ok) throw new Error(`the server answered ${res.status} ${res.statusText||""}`.trim());
+    const doc = await res.json();
+    if(!Array.isArray(doc.sections) || doc.sections.length!==2) throw new Error("expected § 171.15 and § 171.16");
+    /* The checklist is built from 171.15(b). If the trigger list did not
+       arrive there is nothing to build it from, and a checklist rendered
+       short would read as a shorter list of reportable incidents. */
+    const trig = (doc.sections.find(s=>s.n==="171.15")||{paras:[]}).paras.filter(p=>p.id.startsWith("(b)"));
+    if(trig.length!==12) throw new Error("171.15(b) did not arrive with its 12 paragraphs");
+    INC = doc;
+  }catch(e){
+    INC = null;
+    incError = (e && e.message) ? e.message : String(e);
   }
 }
 
@@ -728,6 +797,53 @@ function restoreLoad(){
      of them rather than resuming wherever they happened to stop. */
 }
 
+/* ---------------- CARRIER SAFETY DESK NUMBER ----------------
+   Stored on its own key, not with the load: it belongs to the driver, not to
+   whatever is on the trailer this week, and clearing the load must not wipe
+   the number somebody needs at three in the morning. */
+const LS_CARRIER = "hazpost.carrier.v1";
+
+function readCarrier(){
+  try{
+    const raw = localStorage.getItem(LS_CARRIER);
+    if(!raw) return null;
+    const doc = JSON.parse(raw);
+    return (doc && typeof doc.tel === "string" && doc.tel) ? {tel:doc.tel, name:String(doc.name||"")} : null;
+  }catch(e){ return null; }
+}
+let carrier = readCarrier();
+
+/** What survives into a tel: href. Digits, a leading +, and the pause and
+    wait characters a phone tree needs — nothing else. */
+function telSafe(s){
+  const t = String(s||"").replace(/[^\d+,;*#]/g, "");
+  return /\d/.test(t) ? t.slice(0,24) : "";
+}
+
+function saveCarrier(){
+  const tel = telSafe((document.getElementById("carTel")||{}).value);
+  const name = String(((document.getElementById("carName")||{}).value)||"").trim().slice(0,40);
+  if(!tel){
+    carrier = null;
+    try{ localStorage.removeItem(LS_CARRIER); }catch(e){}
+  } else {
+    carrier = {tel, name};
+    try{ localStorage.setItem(LS_CARRIER, JSON.stringify(carrier)); }catch(e){ /* private mode — it just won't stick */ }
+  }
+  carDraft = null;
+  render();
+}
+
+/* "Change" drops back to the form with what was there already in it — a
+   driver correcting a digit should not have to retype the rest. */
+let carDraft = null;
+function clearCarrier(){
+  carDraft = carrier;
+  carrier = null;
+  try{ localStorage.removeItem(LS_CARRIER); }catch(e){}
+  render();
+}
+
 /* every mutation of the load goes through here, so nothing can change on
    screen without also being written down */
 function commit(){ saveLoad(); render(); }
@@ -738,7 +854,8 @@ function clearLoad(){
   if(!confirm(`Clear all ${n} line${n===1?"":"s"}?\n\nThis also erases the load saved on this phone — it will not come back when you reopen HazPost.`)) return;
   load = []; restoreNote = ""; opsPlace = null; commit();
 }
-let view = "home", plcTab = "builder", segTab = "load", opsTab = "where", papTab = "check";
+let view = "home", plcTab = "builder", segTab = "load", opsTab = "where", papTab = "check", incTab = "now";
+let incPicked = {};    /* trigger checklist, this session only */
 let opsPlace = null;   /* where the truck is stopping — rides with the load */
 
 /* ---------------- ROUTER ---------------- */
@@ -747,11 +864,10 @@ const MODULES = [
  {id:"seg", tc:"var(--flam)", t:"Segregation", d:"What can and can't ride together", cfr:"49 CFR 177.848", live:true},
  {id:"ops", tc:"var(--wet)", t:"On the Road", d:"Attendance, parking, fueling, tire checks", cfr:"49 CFR Part 397", live:true},
  {id:"papers", tc:"var(--gas)", t:"Shipping Papers", d:"What must be on them, where they must sit", cfr:"49 CFR 177.817", live:true},
- {id:"incident", tc:"var(--expl)", t:"Incident Response", d:"When and who you must call, immediately", cfr:"49 CFR 171.15"},
+ {id:"incident", tc:"var(--expl)", t:"Incident Response", d:"When and who you must call, immediately", cfr:"49 CFR 171.15", live:true},
  {id:"creds", tc:"var(--faint)", t:"Credentials", d:"HME, training clock, what you carry", cfr:"49 CFR 172.704"},
 ];
 const STUBTXT = {
- incident:["Incident Response","The immediate-notice triggers, the National Response Center number, and the written report clock."],
  creds:["Credentials","Hazmat endorsement, the 3-year recurrent training cycle, and what has to be on you at a stop."],
 };
 
@@ -763,8 +879,11 @@ function render(){
   back.style.display = view==="home" ? "none":"flex";
   logo.style.display = view==="home" ? "block":"none";
 
-  /* the whole app is data-driven — nothing renders until hazmat.json is in hand */
-  if(dataState!=="ready"){
+  /* The rest of the app is data-driven and nothing renders until hazmat.json
+     is in hand. Incident Response is the exception: it needs no material
+     table, and a driver reaching for a phone number does not care that the
+     172.101 fetch failed. */
+  if(dataState!=="ready" && view!=="incident"){
     back.style.display="none"; logo.style.display="block";
     if(dataState==="loading"){
       sub.textContent="Loading the 172.101 table…";
@@ -778,6 +897,7 @@ function render(){
         <p>HazPost can't tell you what to hang on the trailer without the 172.101 table, so it won't guess. Check your connection and try again.</p>
         <div class="msg">${esc(DATA_URL)} — ${esc(dataError)}</div>
         <button class="btn" onclick="loadData()">Try again</button>
+        <button class="btn ghost" style="margin-top:9px" onclick="go('incident')">Incident Response — who to call</button>
         <p style="margin-top:16px;font-size:12.5px">If you opened this file straight off the disk, your browser blocks the fetch. Serve the folder over HTTP instead.</p></div>`;
     }
     return;
@@ -801,6 +921,20 @@ function render(){
       </div>
       <div id="tabBody"></div>`;
     if(plcTab==='builder') renderBuilder(); else renderLookup();
+  } else if(view==="incident"){
+    sub.textContent="49 CFR 171.15 · 171.16";
+    m.innerHTML = `
+      <div class="tabs">
+        <!-- render(), not commit(): this module never touches the load, and
+             it is reachable while hazmat.json is still failing to load —
+             saving an empty load from here would erase a real one. -->
+        <button class="${incTab==='now'?'on':''}" onclick="incTab='now';render()">Right now</button>
+        <button class="${incTab==='notice'?'on':''}" onclick="incTab='notice';render()">Do I report?</button>
+        <button class="${incTab==='written'?'on':''}" onclick="incTab='written';render()">Written report</button>
+      </div>
+      <div id="incBody"></div>`;
+    document.getElementById('incBody').innerHTML =
+      !INC ? incUnavailable() : (incTab==='now' ? incNowView() : incTab==='notice' ? incNoticeView() : incWrittenView());
   } else if(view==="papers"){
     sub.textContent="49 CFR 172 Subpart C · 177.817";
     m.innerHTML = `
@@ -2059,6 +2193,258 @@ function opsRefView(){
     OPS.otherSubparts.map(s=>`<div class="rule"><b>Subpart ${esc(s.id)}</b><p>${esc(s.head.replace(/^Subpart\s+\w+\s*—?\s*/,"")||"[Reserved]")}</p></div>`).join("") +
     `<div class="hint">Subparts C and D are routing and the national route registry; Subpart E is preemption procedure. HazPost implements none of them, and does not do routing at all.</div>
     <div class="hint">${esc(OPS.source)}, current as of ${esc(OPS.cfrDate)} (text v${esc(OPS.version)}).</div></div>`;
+  return h;
+}
+
+/* ================= INCIDENT RESPONSE — 49 CFR 171.15, 171.16 =================
+
+   Somebody may open this module in the worst hour of their working life. Three
+   things hold above layout, elegance and consistency with the rest of the app:
+
+   1. The landing view is who to call. No question, no load check, no decision
+      tree, nothing to dismiss. 911 is the first element and it is a tel: link.
+   2. No code path may produce text meaning no report is required. 171.15(b)(5)
+      makes the last word a judgment about the scene, and HazPost cannot see
+      the scene. tools/test-incident.mjs asserts this over every subset of the
+      checklist and is part of the test suite.
+   3. The NRC is a regulatory notification, not a call for help. Nobody is
+      dispatched because you called it. The landing view says so.
+
+   Not a response guide. No isolation distances, no protective actions, no
+   product handling, no ERG guide content — that is the ERG and the emergency
+   number on the shipping paper.                                             */
+
+const incSec  = n => ((INC && INC.sections.find(s=>s.n===n)) || {paras:[]});
+const incText = (n,id) => { const p = incSec(n).paras.find(x=>x.id===id); return p ? p.text : ""; };
+const incNote = () => { const p = incSec("171.15").paras.find(x=>x.note); return p ? p.text : ""; };
+const NRC_TEL = () => (INC && INC.nrc && INC.nrc.tollFree) || "800-424-8802";
+
+function incVerb(cite, txt){
+  return txt ? `<div class="verb"><b>49 CFR ${esc(cite)}</b><p>${esc(txt)}</p></div>` : "";
+}
+
+/* Folded, not dropped. The written-report tab is a dozen rules deep and the
+   verbatim under each one runs long; left open it buries our own wording in
+   grey italics. One tap, attached to the rule it belongs to. */
+function incFold(cite, txt){
+  return txt ? `<details class="verbfold"><summary>§ ${esc(cite)} — full text</summary>${incVerb(cite, txt)}</details>` : "";
+}
+
+/**
+ * The 171.15(b) checklist, in the order the rule lists it.
+ *
+ * The wording is ours; the paragraph it was written from sits under the card
+ * verbatim. (b)(6) is not here: it is expressly "during transportation by
+ * aircraft", so it cannot fire on a highway load. It is called out in the
+ * reference card so the list does not look as if it is missing one.
+ */
+const INC_TRIGGERS = [
+ {k:"kill",   c:"171.15(b)(1)(i)",   t:"As a direct result of the hazardous material, <b>a person was killed</b>."},
+ {k:"hosp",   c:"171.15(b)(1)(ii)",  t:"A person received <b>an injury requiring admittance to a hospital</b>, as a direct result of the hazardous material."},
+ {k:"evac",   c:"171.15(b)(1)(iii)", t:"The general public was <b>evacuated for one hour or more</b>."},
+ {k:"artery", c:"171.15(b)(1)(iv)",  t:"A <b>major transportation artery or facility was closed or shut down for one hour or more</b>."},
+ {k:"flight", c:"171.15(b)(1)(v)",   t:"The <b>operational flight pattern or routine of an aircraft was altered</b> — rare off an airport, but it is on the list."},
+ {k:"rad",    c:"171.15(b)(2)",      t:"Fire, breakage, spillage, or <b>suspected radioactive contamination</b> involving a radioactive material."},
+ {k:"inf",    c:"171.15(b)(3)",      t:"Fire, breakage, spillage, or suspected contamination involving an <b>infectious substance</b>, other than a regulated medical waste."},
+ {k:"marine", c:"171.15(b)(4)",      t:"A release of a <b>marine pollutant</b> over 450 L (119 gallons) liquid, or 400 kg (882 pounds) solid."},
+ {k:"judg",   c:"171.15(b)(5)",      judgment:true,
+  t:"In <b>your judgment</b> as the person in possession of the material, this should be reported — the example the rule gives is a <b>continuing danger to life</b> at the scene."},
+];
+
+/**
+ * The verdict, as a pure function of the checklist. Called by the view and
+ * directly by tools/test-incident.mjs.
+ *
+ * It is total on purpose: every one of the 2^9 inputs returns a verdict whose
+ * action is a phone call. There is no "not reportable" branch, because
+ * (b)(5) means an empty checklist is not an answer — it is an unanswered
+ * question that belongs to a human at the scene, and then to the carrier.
+ */
+function incidentVerdict(picked){
+  const p = picked || {};
+  const hit = INC_TRIGGERS.filter(t=>p[t.k]);
+  const listed = hit.filter(t=>!t.judgment);
+  if(listed.length){
+    return {kind:"required", basis:"listed", hit:listed,
+      action:`Telephone notice to the NRC on ${NRC_TEL()}, as soon as practical and no later than 12 hours.`};
+  }
+  if(hit.length){
+    return {kind:"required", basis:"judgment", hit,
+      action:`Telephone notice to the NRC on ${NRC_TEL()}, as soon as practical and no later than 12 hours.`};
+  }
+  return {kind:"unsettled", basis:"none", hit:[],
+    action:"Call your carrier's safety desk and describe what happened. The judgment in 171.15(b)(5) is theirs and yours to make, not HazPost's."};
+}
+
+/** The verdict block. Pure in `picked`, so the test can render every subset. */
+function incVerdictHTML(picked){
+  const v = incidentVerdict(picked);
+  const nrc = NRC_TEL();
+  const carrierLine = carrier
+    ? `<a class="call" href="tel:${esc(telSafe(carrier.tel))}"><span class="n">Carrier</span>
+        <div class="t"><b>${esc(carrier.name||"Your safety desk")}</b><span class="num">${esc(carrier.tel)}</span></div></a>`
+    : `<p>Your carrier's safety desk normally makes this call. Store their number on the <b>Right now</b> tab and it will be one tap from here.</p>`;
+
+  if(v.kind==="required"){
+    return `<div class="verdict yes"><b class="hd">Immediate telephone notice to the NRC is required</b>
+      <p>Call <b>${esc(nrc)}</b> as soon as practical, and no later than <b>12 hours</b> after it happened. Tell your carrier now as well — do not assume they already know, and do not assume they have called.</p>
+      ${v.basis==="judgment"
+        ? `<p>You answered that this should be reported in your judgment. That is a trigger in its own right, and it stands whether or not any of the listed circumstances applies.</p>`
+        : `<p>Triggered by: ${v.hit.map(t=>`<b>${esc(t.c.replace("171.15",""))}</b>`).join(", ")}.</p>`}
+      <p>A written report on Form 5800.1 also becomes due — see the <b>Written report</b> tab.</p>
+      <a class="call urgent" href="tel:${esc(nrc.replace(/[^\d+]/g,""))}"><span class="n" style="font-size:19px">NRC</span>
+        <div class="t"><b>National Response Center</b><span class="num">${esc(nrc)}</span></div></a>
+      ${carrierLine}
+      <span class="cite">49 CFR 171.15(a), (b), (c)</span></div>`;
+  }
+
+  /* Nothing ticked. This is the branch the invariant is about. */
+  return `<div class="verdict judg"><b class="hd">Nothing ticked. That does not settle it.</b>
+    <p>The rule carries a judgment trigger of its own. If a situation exists of such a nature that, in your judgment as the person in physical possession of the material, it should be reported — a continuing danger to life at the scene is the example the rule itself gives — then telephone notice is required even though none of the listed circumstances above applies.</p>
+    <p><b>HazPost cannot make that judgment.</b> It cannot see the scene, it does not know what leaked or how much, and it will not tell you the matter is closed. If anything happened at all, call your carrier's safety desk and describe it.</p>
+    <p>The <b>Written report</b> tab matters here too: Form 5800.1 catches incidents the telephone notice never reaches.</p>
+    ${carrierLine}
+    ${incVerb("171.15(b)(5)", incText("171.15","(b)(5)"))}
+    <span class="cite">49 CFR 171.15(b)(5)</span></div>`;
+}
+
+function incUnavailable(){
+  /* Even here the phone numbers come first — 911 does not depend on a fetch. */
+  return `<a class="call urgent" href="tel:911"><span class="n">911</span>
+      <div class="t"><b>Injury, fire, or a spill that is still moving</b>
+        <span>First call, every time. Responders come from here.</span></div></a>
+    ${incCarrierBlock()}
+    <div class="paper"><b>The number on your shipping paper</b>
+      <p>The emergency response telephone number on the paper in your door holder is monitored the whole time the load is rolling, by somebody who knows this product. HazPost does not have it and never will.</p>
+      <span class="cite">49 CFR 172.604</span></div>
+    <div class="card"><h4>Reporting text unavailable</h4>
+      <p style="font-size:14px;line-height:1.5;color:var(--dim)">The reporting rules did not load, so HazPost will not paraphrase them from memory. The numbers above do not depend on it.</p>
+      <div style="font:500 12.5px 'Roboto Mono';color:var(--bad);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:12px;word-break:break-word">${esc(INCIDENT_URL)} — ${esc(incError||"not loaded")}</div>
+      <button class="btn" style="margin-top:12px" onclick="loadIncident().then(render)">Try again</button>
+      <div class="hint">Notice to the National Response Center is due as soon as practical and no later than 12 hours after a reportable incident, and a written report follows. Read 49 CFR 171.15 and 171.16 in full before deciding anything.</div></div>`;
+}
+
+/** The carrier block: a tel link once stored, a two-field form until then. */
+function incCarrierBlock(){
+  if(carrier){
+    return `<a class="call" href="tel:${esc(telSafe(carrier.tel))}"><span class="n">Carrier</span>
+        <div class="t"><b>${esc(carrier.name||"Your safety desk")}</b>
+          <span class="num">${esc(carrier.tel)}</span>
+          <span>They own the notification process. Tell them what happened, and do not wait to be asked.</span></div></a>
+      <div style="text-align:right;margin:-4px 2px 9px"><button class="linkbtn" onclick="clearCarrier()">Change this number</button></div>`;
+  }
+  const d = carDraft || {tel:"", name:""};
+  return `<div class="carbox"><b>Your carrier's safety desk</b>
+    <p>Store it once and it is one tap from here, offline, forever. It stays on this phone — HazPost has no server to send it to.</p>
+    <div class="carrow"><input id="carName" placeholder="Who (optional)" maxlength="40" value="${esc(d.name)}"></div>
+    <div class="carrow"><input id="carTel" class="mono" type="tel" inputmode="tel" placeholder="Phone number" value="${esc(d.tel)}">
+      <button class="btn" onclick="saveCarrier()">Save</button></div></div>`;
+}
+
+/* ---- TAB 1: RIGHT NOW. The default. Phone numbers, nothing to answer. ---- */
+function incNowView(){
+  return `<a class="call urgent" href="tel:911"><span class="n">911</span>
+      <div class="t"><b>Injury, fire, or a spill that is still moving</b>
+        <span>First call, every time. Responders come from here.</span></div></a>
+
+    <div class="paper"><b>The number on your shipping paper</b>
+      <p>Every hazmat shipping paper carries an emergency response telephone number, and it must be monitored the whole time the load is rolling by someone who knows the material or has immediate access to someone who does. That is the number that tells a responder how to handle <i>your</i> product. HazPost does not have it — it is on the paper in your door holder.</p>
+      <span class="cite">49 CFR 172.604(a)</span></div>
+
+    ${incCarrierBlock()}
+
+    <div class="myth"><b>The NRC is not an emergency number</b>
+      <p>The National Response Center line, <b>${esc(NRC_TEL())}</b>, is a <b>regulatory notification</b>. It is not a call for help, and <b>nobody is dispatched because you called it</b>. The rule gives you as soon as practical but <b>no later than 12 hours</b> to make it.</p>
+      <p>So do not stand at a spill working out whether the NRC needs calling. Get safe, call 911, call your carrier. The notice question keeps — that is what the next tab is for.</p>
+      ${incVerb("171.15(a)", incText("171.15","(a)"))}
+      <span class="cite">49 CFR 171.15(a)</span></div>
+
+    <div class="limitbox"><p><b>What HazPost is not.</b> Not a response guide. It will not give you isolation distances, protective action distances, or how to handle a product — that is the emergency number on your paper and the <a href="https://www.phmsa.dot.gov/training/hazmat/erg/emergency-response-guidebook-erg" target="_blank" rel="noopener" style="color:var(--brand)">official PHMSA Emergency Response Guidebook</a>, in the book on your seat or PHMSA's own ERG app. This module covers who to call, and what has to be reported afterward.</p></div>`;
+}
+
+/* ---- TAB 2: DO I REPORT? The checklist, and a verdict that always calls. ---- */
+function incNoticeView(){
+  let h = `<div class="card"><h4>Did any of these happen?</h4>
+    <p style="font-size:13px;color:var(--dim);line-height:1.5;margin-bottom:11px">During transportation in commerce — which includes <b>loading, unloading and temporary storage</b>. Tick what applies; nothing is stored and nothing is sent.</p>`;
+
+  h += INC_TRIGGERS.map(t=>
+    `<div class="trig ${t.judgment?"judg ":""}${incPicked[t.k]?"on":""}" onclick="incPicked['${t.k}']=!incPicked['${t.k}'];render()">
+      <div class="box">✓</div><div><p>${t.t}</p><span class="cite">49 CFR ${esc(t.c)}</span></div></div>`).join("");
+
+  h += `<details class="verbfold"><summary>§ 171.15(b) — full text of the list above</summary>
+      ${incSec("171.15").paras.filter(p=>p.id.startsWith("(b)")).map(p=>incVerb("171.15"+p.id, p.text)).join("")}</details></div>`;
+
+  h += incVerdictHTML(incPicked);
+
+  h += `<div class="card"><h4>Also worth knowing</h4>
+    <div class="rule a"><b>A hazardous substance released over its reportable quantity</b>
+      <p>EPA separately requires a release at or above the material's reportable quantity to be reported to the same NRC number, as soon as the person in charge knows about it. Different rule, different trigger — and it can bite where 171.15 does not.</p>
+      <span class="cite">40 CFR 302.6, note to 49 CFR 171.15</span>
+      ${incVerb("Note to 171.15", incNote())}</div>
+
+    <div class="rule"><b>What the NRC will ask for</b>
+      <p>Your name; who you represent and their address; a phone number where you can be reached; the date, time and location; the extent of any injuries; the class, proper shipping name and quantity if you have it; and whether a continuing danger to life exists at the scene.</p>
+      <span class="cite">49 CFR 171.15(a)(1)–(7)</span>
+      <details class="verbfold"><summary>§ 171.15(a) — what the notice must include</summary>
+        ${incSec("171.15").paras.filter(p=>/^\(a\)\(\d+\)$/.test(p.id)).map(p=>incVerb("171.15"+p.id, p.text)).join("")}</details></div>
+
+    <div class="rule"><b>The phone call does not end it</b>
+      <p>Everyone who makes this report must also make the written report in § 171.16. That one has a wider net — next tab.</p>
+      <span class="cite">49 CFR 171.15(c)</span>
+      ${incVerb("171.15(c)", incText("171.15","(c)"))}</div>
+
+    <div class="rule"><b>Not on the checklist: aircraft</b>
+      <p>171.15(b)(6) covers a battery fire, violent rupture, explosion or dangerous evolution of heat <i>during transportation by aircraft</i>. It cannot fire on a highway load, so it is not in the list above — listed here so you know the list is not short one.</p>
+      <span class="cite">49 CFR 171.15(b)(6)</span></div>
+  </div>`;
+
+  return h;
+}
+
+/* ---- TAB 3: WRITTEN REPORT. Wider net than the phone call. ---- */
+function incWrittenView(){
+  const r = (id, title, body) =>
+    `<div class="rule a"><b>${esc(title)}</b>${body}<span class="cite">49 CFR 171.16${esc(id)}</span>${incFold("171.16"+id, incText("171.16",id))}</div>`;
+
+  let h = `<div class="card"><h4>Form 5800.1 — the written report</h4>
+    <div class="rule a"><b>Within 30 days of discovery</b>
+      <p>Each person in physical possession of the hazardous material when the incident occurred must submit a Hazardous Materials Incident Report on DOT Form F 5800.1. In practice the carrier's office submits it; what the driver owes is an accurate account written down while it is fresh — what leaked, roughly how much, what the packaging looked like, and when.</p>
+      <span class="cite">49 CFR 171.16(a)</span>
+      ${incFold("171.16(a)", incText("171.16","(a)"))}</div>
+    <div class="hint">Nothing about the telephone call settles this one. The written report has a wider net, and a spill with nobody hurt and no road closed still generates paperwork.</div></div>`;
+
+  h += `<div class="card"><h4>What puts a 5800.1 in play</h4>` +
+    r("(a)(1)", "Anything on the telephone list", `<p>Every circumstance in 171.15(b) — the checklist on the previous tab — brings the written report with it.</p>`) +
+    r("(a)(2)", "An unintentional release, or any discharge of hazardous waste", `<p>This is the one drivers are surprised by. There is no injury threshold, no road closure, no minimum quantity here — the exceptions in paragraph (d) are further down and they are narrow.</p>`) +
+    r("(a)(3)", "A big cargo tank damaged, even with nothing released", `<p>A specification cargo tank of 1,000 gallons or more, containing any hazardous material, that suffers structural damage to the lading retention system — or damage requiring repair to a system meant to protect it.</p>`) +
+    r("(a)(4)", "Undeclared hazmat is discovered", `<p>Found in transportation, whether or not anything happened to it.</p>`) +
+    r("(a)(5)", "A battery fire, rupture, explosion or dangerous heat", `<p>Charring, melting or scorching of the packaging counts as evidence. Unlike the aircraft-only telephone trigger, this one is not limited by mode.</p>`) +
+    `</div>`;
+
+  h += `<div class="card"><h4>The exceptions — read them, do not assume them</h4>
+    <p style="font-size:13.5px;line-height:1.55;color:#C6CED8">171.16(d) takes some small releases out of the written report. <b>HazPost does not apply them and cannot.</b> They turn on the capacity of the package, the amount that actually came out, and the packing group of the material as shipped — three things the app does not know and must not guess. They are printed here in full so you can hold them against what happened.</p>
+    <p style="font-size:13.5px;line-height:1.55;color:#C6CED8;margin-top:8px">Note the opening clause. The exceptions do not apply at all if a telephone report was required under 171.15.</p>
+    <div class="rule care"><b>Verbatim, § 171.16(d)</b>
+      ${incSec("171.16").paras.filter(p=>p.id.startsWith("(d)")).map(p=>incVerb("171.16"+p.id, p.text)).join("")}
+      <span class="cite">49 CFR 171.16(d)</span></div></div>`;
+
+  h += `<div class="card"><h4>After it is filed</h4>
+    ${r("(c)", "Update it within a year if the facts move", `<p>A death resulting from an injury caused by the material, a misidentification on the earlier report, damage or cost that was not known at the time, or a cost estimate that moves by $25,000 or 10% — whichever is greater.</p>`)}
+    ${r("(b)(3)", "The copy is kept for two years", `<p>At the reporting person's principal place of business, or produced there within 24 hours of a request from an authorized DOT representative or special agent.</p>`)}
+    <div class="rule"><b>Where it goes</b>
+      <p>To PHMSA's Information Systems Manager, on paper or electronically. The carrier's office handles the submission.</p>
+      <span class="cite">49 CFR 171.16(b)(1)</span>
+      ${incFold("171.16(b)(1)", incText("171.16","(b)(1)"))}</div></div>`;
+
+  h += `<div class="limitbox"><p><b>HazPost neither prefills nor reproduces Form 5800.1</b>, and produces nothing that could be mistaken for a submitted report. The form comes from PHMSA and the carrier's office submits it.</p></div>`;
+
+  h += `<div class="card"><h4>Source</h4>
+    <div class="hint" style="margin-top:0">${esc(INC.source)}, current as of ${esc(INC.cfrDate)} (text v${esc(INC.version)}). Every plain-language line in this module is ours; the CFR paragraph it was written from sits under it.</div>
+    <details class="verbfold" style="margin-top:10px"><summary>§ 171.15 — full text</summary>
+      ${incSec("171.15").paras.map(p=>incVerb("171.15"+(p.id||" — note"), p.text)).join("")}</details>
+    <details class="verbfold"><summary>§ 171.16 — full text</summary>
+      ${incSec("171.16").paras.map(p=>incVerb("171.16"+(p.id||""), p.text)).join("")}</details></div>`;
+
   return h;
 }
 

@@ -16,7 +16,7 @@ HazPost is a verification aid for hazmat drivers. It does not classify materials
 | Segregation (load check, Class 1 compatibility, reference tables) | 177.848 | Live |
 | On the Road (attendance, parking, always-on rules) | Part 397 Subpart A | Live |
 | Shipping Papers (basic description check + placement) | 172 Subpart C, 177.817 | Live |
-| Incident Response | 171.15 | Planned |
+| Incident Response (who to call, notice, written report) | 171.15, 171.16 | Live |
 | Credentials | 172.704 | Planned |
 
 ## Architecture
@@ -27,26 +27,32 @@ HazPost is a verification aid for hazmat drivers. It does not classify materials
 - `segregation.json` — the 177.848 segregation and Class 1 compatibility tables
 - `ops.json` — 49 CFR Part 397 Subpart A, verbatim
 - `papers.json` — 172 Subparts C and G, and 177.817, verbatim
+- `incident.json` — 171.15 and 171.16, verbatim
 - `sw.js` — service worker: offline cache for the whole app
 - `manifest.json` + `icons/` — installable to the phone home screen
 - `tools/build-hazmat.mjs` — regenerates `hazmat.json` from the eCFR API
 - `tools/build-segregation.mjs` — regenerates `segregation.json` from the eCFR API
 - `tools/build-ops.mjs` — regenerates `ops.json` from the eCFR API
 - `tools/build-papers.mjs` — regenerates `papers.json` from the eCFR API
+- `tools/build-incident.mjs` — regenerates `incident.json` from the eCFR API
 - `tools/build-icons.mjs` — regenerates `icons/`
-- `tools/GENERATION-REPORT.md`, `tools/SEGREGATION-REPORT.md`, `tools/OPS-REPORT.md`, `tools/PAPERS-REPORT.md` — what each generation run decided, and why
+- `tools/test.mjs` — the test suite; runs every `tools/test-*.mjs`
+- `tools/GENERATION-REPORT.md`, `tools/SEGREGATION-REPORT.md`, `tools/OPS-REPORT.md`, `tools/PAPERS-REPORT.md`, `tools/INCIDENT-REPORT.md` — what each generation run decided, and why
 - Deployed via GitHub Pages
 - Mobile-first, offline-first
 
 ## Offline
 
 Placarding calls happen at docks and in yards with no signal, so the app is
-built to answer with none. The service worker caches the shell, both data
-files, the icons and the web fonts, and serves every request cache-first while
+built to answer with none. The service worker caches the shell, every data
+file, the icons and the web fonts, and serves every request cache-first while
 refreshing in the background. Once the app has been opened online a single
 time, it works with the radio off — module grid, load builder, computed
-placard set, UN lookup, the segregation check, the Part 397 decision and the
-shipping paper comparison.
+placard set, UN lookup, the segregation check, the Part 397 decision, the
+shipping paper comparison and the incident reporting rules.
+
+**Every new data file must be added to `SHELL` in `sw.js`**, or it is fetched
+from the network on every launch and simply is not there offline.
 
 The current load is written to `localStorage` on every change and restored on
 start, so a load built at the dock survives the phone going in a pocket. The
@@ -84,6 +90,7 @@ and must not be collapsed into one.
 | `segregation.json` | `version` / `cfrDate` | which CFR edition the segregation tables came from |
 | `ops.json` | `version` / `cfrDate` | which CFR edition the Part 397 text came from |
 | `papers.json` | `version` / `cfrDate` | which CFR edition the shipping-paper text came from |
+| `incident.json` | `version` / `cfrDate` | which CFR edition the reporting text came from |
 
 The first and third are on screen: `APP_VERSION` in the home footer,
 the data edition in the disclaimer line above it. The cache generation is
@@ -418,3 +425,85 @@ citation, and this rule is enforced on its own. At the controls it is two
 conditions joined by "and", the second of which is itself an either/or — the
 module makes that structure explicit. Away from the controls there are exactly
 two permitted places.
+
+## Incident Response — 171.15, 171.16
+
+Somebody may open this module in the worst hour of their working life, possibly
+hurt, possibly with a product still leaking. It is built around three
+invariants that outrank layout, elegance and consistency with the rest of the
+app. All three are asserted mechanically by `tools/test-incident.mjs`.
+
+```sh
+node tools/build-incident.mjs [--date YYYY-MM-DD]
+node tools/test.mjs
+```
+
+### One — the landing view is who to call
+
+No question, no load check, no decision tree, nothing to dismiss. **911 is the
+first element rendered and it is a `tel:` link.** Under it: the emergency
+response number on the shipping paper, which HazPost does not have and says so
+(172.604); then the driver's own carrier safety desk number, stored on the
+phone under `hazpost.carrier.v1` and one tap from then on.
+
+Two consequences elsewhere in the app fall out of this:
+
+- `incident.json` loads **first and outside the hazmat.json chain**. Everything
+  else in HazPost is an aid a driver can do without for a day; the phone
+  numbers are not, and a failed 172.101 fetch must not shut the door on them.
+- The module renders even while `dataState` is `error`, and the material-data
+  error screen carries a button into it.
+
+### Two — no code path may say a report is unnecessary
+
+171.15(b)(5) makes the last word a judgment about the scene by the person in
+possession of the material. HazPost cannot see the scene. So an empty checklist
+is not an answer, it is an unanswered question, and `incidentVerdict()` is
+total: every one of the 512 checklists returns a verdict whose action is a
+phone call. There is no "not reportable" branch to reach.
+
+The test asserts this the blunt way — a list of forbidden phrasings scanned
+across every view and every subset of the checklist, with no attempt to tell an
+assertion from its denial. If the words are on the screen at all, a driver
+reading in a hurry can come away with them, so the copy is written to avoid the
+shapes rather than to argue with the matcher.
+
+### Three — the NRC is not an emergency number
+
+800-424-8802 is a regulatory notification. Nobody is dispatched because you
+called it, and the rule allows as soon as practical but no later than 12 hours.
+The landing view says all three things, in our words with 171.15(a) verbatim
+beside them, and deliberately does **not** make the NRC number tappable there —
+911 is the only `tel:` link on that view. It becomes tappable on the notice tab,
+where the question is actually being answered.
+
+### What it will not do
+
+- No isolation distances, protective action distances, or product handling.
+  That is the emergency number on the paper and the official PHMSA ERG, which
+  the module links to and does not reproduce.
+- No Form 5800.1. It is not generated, prefilled or reproduced, and nothing the
+  module renders could be mistaken for a submitted report.
+- 171.16(d)'s exceptions are quoted in full and **not applied**. They turn on
+  package capacity, the amount actually released, and the packing group as
+  shipped — three things the app does not know and must not guess.
+- The checklist omits 171.15(b)(6), which is expressly "during transportation by
+  aircraft" and cannot fire on a highway load. It is called out in the reference
+  card so the list does not look short one.
+
+## Tests
+
+```sh
+node tools/test.mjs
+```
+
+No framework and nothing to install — the app has no dependencies and neither
+does its suite. `tools/test.mjs` runs every `tools/test-*.mjs` and fails if any
+of them does.
+
+The tests extract the `<script>` from `index.html` and evaluate it in a `vm`
+context against stub globals, so the functions under test are the ones that
+ship rather than copies. Note that top-level `let` and `const` bindings are
+lexical and never become properties of a `vm` context — only function
+declarations do. That is why the tests read constants out of the source text
+and populate state by calling the app's own loaders through a stub `fetch`.
