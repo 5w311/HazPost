@@ -1,8 +1,8 @@
 {
  "source": "49 CFR 177.848 — Segregation of hazardous materials",
  "version": "1.0.0",
- "cfrDate": "2026-07-22",
- "generated": "2026-08-01",
+ "cfrDate": "2026-08-07",
+ "generated": "2026-08-14",
  "generator": "tools/build-segregation.mjs",
  "count": 18,
  "markers": {"X":"May not be loaded, transported or stored together in the same vehicle. No method of separation makes it legal.","O":"May travel together only if separated so that, if a package leaks under normal transport conditions, the contents could not commingle.","*":"Both are Class 1. Segregation is governed by the compatibility table in 177.848(f), not this one.","":"No restriction."},
