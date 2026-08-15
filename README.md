@@ -47,6 +47,24 @@ HazPost is a verification aid for hazmat drivers. It does not classify materials
 - Deployed via GitHub Pages
 - Mobile-first, offline-first
 
+### The fold rule
+
+Every module pairs a plain-language rule with the verbatim CFR paragraph it
+was written from. The plain language is ours and renders open; the verbatim
+text renders behind a **closed fold** — a `details.verbfold` element whose
+summary reads the section number — uniformly, in every module, with no
+exceptions for blocks that seem short or important. A driver learns once that
+regulatory text lives behind the grey line and never has to wonder which state
+they are looking at: folds are closed on every render and remember nothing.
+
+The CFR cite on every verdict and rule stays visible and unfolded — the cite
+is what lets a driver verify a verdict against a printed table. The
+honest-limit statements stay open too.
+
+One code path produces this: `cfrFold(cite, text)` for a single paragraph,
+`cfrFolds(label, pairs)` for a group, both built on `cfrVerb`, which is never
+called anywhere else. A verbatim block that renders any other way is a bug.
+
 ## Offline
 
 Placarding calls happen at docks and in yards with no signal, so the app is
@@ -351,8 +369,8 @@ whole part off the vehicle having to be marked or placarded.
 ### Verbatim, always
 
 Every plain-language line in the module is ours, and the CFR paragraph it was
-written from sits beside it. This is the module where a loose paraphrase does
-the most damage, so the summary never stands in for the rule. The build
+written from sits behind a fold beside it. This is the module where a loose
+paraphrase does the most damage, so the summary never stands in for the rule. The build
 asserts anchor phrases in every operative section — prose is the dangerous
 case, because a paragraph that lost half its sentence still reads like a
 regulation.
