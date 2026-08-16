@@ -364,7 +364,7 @@ table.mat td.b{background:var(--panel)}
 <script>
 /* The build a driver is running, shown in the home footer.
    Bump this and VERSION in sw.js together on every deploy — see README. */
-const APP_VERSION = "0.8.1";
+const APP_VERSION = "0.9.0";
 
 /* ---------------- DATA: the 172.101 table, fetched from hazmat.json ---------------- */
 const DATA_URL = "hazmat.json";
@@ -506,6 +506,35 @@ function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;
 
 /* the table carries UN, NA and ID numbers — don't print "UN" over an NA number */
 function idLabel(x){ return `${(x&&x.pfx)||"UN"}${x?x.un:""}`; }
+
+/* ---------------- VERBATIM CFR TEXT ----------------
+   One rule, everywhere: the plain-language line is ours and stays open; the
+   verbatim paragraph it was written from sits behind a closed fold, one tap
+   away, under the same grey summary line in every module. A driver learns
+   once that regulatory text lives behind that line and never has to wonder
+   which state they are looking at — so the fold renders closed on every
+   render, remembers nothing, and makes no exceptions for blocks that seem
+   short or important. Nothing is deleted: every word still ships and still
+   renders.
+
+   cfrVerb is the block itself and is only ever called by the two fold
+   builders below — regulatory text has exactly one way onto the screen. */
+
+function cfrVerb(cite, txt){
+  return txt ? `<div class="verb"><b>49 CFR ${esc(cite)}</b><p>${esc(txt)}</p></div>` : "";
+}
+
+/** One cited paragraph behind a closed fold. */
+function cfrFold(cite, txt){
+  return txt ? `<details class="verbfold"><summary>§ ${esc(cite)} — full text</summary>${cfrVerb(cite, txt)}</details>` : "";
+}
+
+/** Several paragraphs behind one fold — a whole section, or the handful of
+    paragraphs a single card rests on. `list` is [cite, text] pairs. */
+function cfrFolds(label, list){
+  const body = list.map(([cite, txt]) => cfrVerb(cite, txt)).filter(Boolean).join("");
+  return body ? `<details class="verbfold"><summary>${esc(label)}</summary>${body}</details>` : "";
+}
 
 /* provenance line for the disclaimer */
 function dataNote(){
@@ -1913,10 +1942,6 @@ function papersUnavailable(){
     <button class="btn" style="margin-top:12px" onclick="loadPapers().then(render)">Try again</button></div>`;
 }
 
-function papVerb(cite, txt){
-  return txt ? `<div class="verb"><b>49 CFR ${esc(cite)}</b><p>${esc(txt)}</p></div>` : "";
-}
-
 function papCheckView(){
   if(!load.length){
     return `<div class="card"><h4>Nothing on the trailer</h4>
@@ -1938,8 +1963,8 @@ function papCheckView(){
         <p>Symbol <b>${esc(m.ex.sym)}</b> — subject to the subchapter only when offered for transport by ${esc(m.ex.mode)}.</p>
         <span class="cite">49 CFR 172.200(b)</span></div>`).join("") +
       `<div class="why warn"><p style="font-size:13px">Three things this does not clear. It does not hold if the material is a <b>hazardous substance, hazardous waste or marine pollutant</b> — those stay in the subpart regardless. It says nothing about placarding or the other modules. And limited-quantity and consumer-commodity exceptions are the shipper's call, not something HazPost can read off the table.</p><span class="cite">49 CFR 172.200(b)</span></div>
-      ${papVerb("172.200(b)", papText("172.200","(b)"))}
-      ${papVerb("177.817(d)", papText("177.817","(d)"))}</div>`;
+      ${cfrFold("172.200(b)", papText("172.200","(b)"))}
+      ${cfrFold("177.817(d)", papText("177.817","(d)"))}</div>`;
     return h;
   }
 
@@ -1953,7 +1978,7 @@ function papCheckView(){
     </div>`;
   });
   h += `<div class="hint">The four elements run in this order with nothing interspersed between them. Quantity, package counts and destination marks go before or after, never inside.</div>
-    ${papVerb("172.202(b)", papText("172.202","(b)"))}</div>`;
+    ${cfrFold("172.202(b)", papText("172.202","(b)"))}</div>`;
 
   /* lines that are on the trailer but out of the subpart */
   const out = marked.filter(m=>m.ex);
@@ -1969,23 +1994,23 @@ function papCheckView(){
     <div class="rule a"><b>Total quantity, and the number and type of packages</b>
       <p>Quantity by mass or volume with its unit, and the packages described — "12 drums". HazPost knows the gross weight you typed for placarding; it does not know how the shipment is packaged, and the two are not the same number.</p>
       <span class="cite">49 CFR 172.202(a)(5), (a)(7)</span>
-      ${papVerb("172.202(a)(7)", papText("172.202","(a)(7)"))}</div>
+      ${cfrFold("172.202(a)(7)", papText("172.202","(a)(7)"))}</div>
 
     <div class="rule a"><b>Emergency response telephone number</b>
       <p><b>Monitored at all times</b> the load is in transportation, by a person who knows the material or has immediate access to one. A number that rings out, or reaches an answering service or a beeper, does not satisfy this — that is a violation, not a technicality. Worth actually dialling it.</p>
       <span class="cite">49 CFR 172.604(a)</span>
-      ${papVerb("172.604(a)(1)", papText("172.604","(a)(1)"))}
-      ${papVerb("172.604(a)(2)", papText("172.604","(a)(2)"))}</div>
+      ${cfrFold("172.604(a)(1)", papText("172.604","(a)(1)"))}
+      ${cfrFold("172.604(a)(2)", papText("172.604","(a)(2)"))}</div>
 
     <div class="rule a"><b>Shipper's certification</b>
       <p>Except for hazardous waste, which always needs it, no certification is required for a shipment moving entirely by private carriage, or for a bulk shipment in a cargo tank the carrier supplied. A subsequent carrier does not need 172.204 at all.</p>
       <span class="cite">49 CFR 172.204(b), 177.817(a), (b)</span>
-      ${papVerb("177.817(b)", papText("177.817","(b)"))}</div>
+      ${cfrFold("177.817(b)", papText("177.817","(b)"))}</div>
 
     <div class="rule a"><b>Emergency response information</b>
       <p>Immediately available, in English, and usable <b>away from the package</b> — so not sealed inside it. The ERG satisfies this. HazPost does not reproduce guide content; carry the official PHMSA ERG.</p>
       <span class="cite">49 CFR 172.602(a), (b)</span>
-      ${papVerb("172.602(b)", papText("172.602","(b)"))}</div>
+      ${cfrFold("172.602(b)", papText("172.602","(b)"))}</div>
   </div>`;
 
   return h;
@@ -2000,28 +2025,27 @@ function papWhereView(){
   h += `<div class="card"><h4>177.817(e) — where the paper sits</h4>` +
     rule("Tab it, or put it first",
       `<p>If it rides with other paperwork of any kind it must be <b>distinctly tabbed</b>, or appear first in the stack. A compliant paper buried mid-pile fails this.</p>`,
-      "177.817(e)(1)", papVerb("177.817(e)(1)", papText("177.817","(e)(1)"))) +
+      "177.817(e)(1)", cfrFold("177.817(e)(1)", papText("177.817","(e)(1)"))) +
     rule("At the controls — both, not either",
       `<p>The rule joins two conditions with "and":</p>
        <ul><li>Within immediate reach while restrained by the <b>lap belt</b>; <b>and</b></li>
        <li>either readily visible to a person entering the driver's compartment, <b>or</b> in a holder mounted inside the driver's door.</li></ul>
        <p style="margin-top:6px">The second is an either/or. The first is not optional.</p>`,
-      "177.817(e)(2)(i)", papVerb("177.817(e)(2)(i)", papText("177.817","(e)(2)(i)"))) +
+      "177.817(e)(2)(i)", cfrFold("177.817(e)(2)(i)", papText("177.817","(e)(2)(i)"))) +
     rule("Away from the controls — two places only",
       `<p>In the holder mounted inside the driver's door, or on the driver's seat. That is the whole list. Not the sleeper, not the dash, not a door pocket on the other side.</p>`,
-      "177.817(e)(2)(ii)", papVerb("177.817(e)(2)(ii)", papText("177.817","(e)(2)(ii)"))) +
+      "177.817(e)(2)(ii)", cfrFold("177.817(e)(2)(ii)", papText("177.817","(e)(2)(ii)"))) +
     `</div>`;
 
   h += `<div class="card"><h4>Retention — the office's job</h4>
     <div class="rule"><b>One year, or three for hazardous waste</b>
       <p>Held by the person who received the paper, accessible at or through the principal place of business, with the date of acceptance on the copy. This is the carrier's obligation, not something a driver carries.</p>
       <span class="cite">49 CFR 177.817(f)</span>
-      ${papVerb("177.817(f)", papText("177.817","(f)"))}</div></div>`;
+      ${cfrFold("177.817(f)", papText("177.817","(f)"))}</div></div>`;
 
   h += `<div class="card"><h4>Source</h4>
     <div class="hint" style="margin-top:0">${esc(PAPERS.source)}, current as of ${esc(PAPERS.cfrDate)} (text v${esc(PAPERS.version)}). Every plain-language line in this module is ours; the CFR paragraph it was written from sits under it.</div>
-    <details class="verbfold" style="margin-top:10px"><summary>§ 177.817 — full text</summary>
-      ${papSec("177.817").paras.map(p=>papVerb("177.817"+(p.id||""), p.text)).join("")}</details></div>`;
+    ${cfrFolds("§ 177.817 — full text", papSec("177.817").paras.map(p=>["177.817"+(p.id||""), p.text]))}</div>`;
   return h;
 }
 
@@ -2179,10 +2203,6 @@ function opsUnavailable(){
     <button class="btn" style="margin-top:12px" onclick="loadOps().then(render)">Try again</button></div>`;
 }
 
-function opsVerb(cite, txt){
-  return txt ? `<div class="verb"><b>49 CFR ${esc(cite)}</b><p>${esc(txt)}</p></div>` : "";
-}
-
 function opsWhereView(){
   if(!load.length){
     return `<div class="card"><h4>Nothing on the trailer</h4>
@@ -2197,10 +2217,10 @@ function opsWhereView(){
       <div class="segv clear"><div class="hd"><span class="mark c">✓</span>Most of Part 397 does not apply</div>
         <p>Placarding shows <b>no placards required</b> for this load, and Part 397 hangs off the vehicle having to be marked or placarded. The driving and parking rules in Subpart A are not reaching you.</p>
         <span class="cite">49 CFR 397.1(a)</span></div>
-      ${opsVerb("397.1(a)", opsText("397.1","(a)"))}
+      ${cfrFold("397.1(a)", opsText("397.1","(a)"))}
       <div class="hint">Two things this does not say. Add one more line and the aggregate can cross 1,001 lb, at which point it does apply. And 397.1 reads "marked <b>or</b> placarded" — HazPost computes placards, not markings, so a marking requirement is yours to check.</div>
       <div class="hint">§ 397.3 applies regardless: state and local law on driving and parking still binds you.</div>
-      ${opsVerb("397.3", opsText("397.3",""))}
+      ${cfrFold("397.3", opsText("397.3",""))}
     </div>`;
   }
 
@@ -2231,18 +2251,18 @@ function opsWhereView(){
 
   h += `<div class="card"><h4>What applies right now</h4>` +
     rules.map(x=>`<div class="rule ${x.tone}"><b>${esc(x.title)}</b><p>${x.body}</p>
-      <span class="cite">49 CFR ${esc(x.cite)}</span>${opsVerb(x.cite, x.verb)}</div>`).join("");
+      <span class="cite">49 CFR ${esc(x.cite)}</span>${cfrFold(x.cite, x.verb)}</div>`).join("");
 
   /* what "attended" means, wherever attendance is live */
   if(st.tier1 || st.place==="road"){
     h += `<div class="eyebox"><b>What "attended" actually means</b>
       <p>On the vehicle, awake, and <b>not in a sleeper berth</b> — or within 100 feet of it with the vehicle in an unobstructed field of view. A locked truck out of sight is not attended.</p>
-      ${opsVerb("397.5(d)(1)", opsText("397.5","(d)(1)"))}</div>`;
+      ${cfrFold("397.5(d)(1)", opsText("397.5","(d)(1)"))}</div>`;
   }
   if(st.tier1){
     h += `<div class="eyebox"><b>What a safe haven is</b>
       <p>An area <b>specifically approved in writing</b> by local, State or Federal authority for parking unattended explosives. A fenced yard is not automatically a safe haven, and that assumption turns up in enforcement cases.</p>
-      ${opsVerb("397.5(d)(3)", opsText("397.5","(d)(3)"))}</div>`;
+      ${cfrFold("397.5(d)(3)", opsText("397.5","(d)(3)"))}</div>`;
   }
 
   h += `<div class="limitbox"><p><b>What this cannot tell you.</b> HazPost has no map and does not know what is around your truck. It cannot measure 300 feet to a dwelling, cannot recognise a place where people assemble, and cannot tell you whether the lot you are in is an approved safe haven. It tells you which rules apply and what to look for. The looking is yours.</p></div>`;
@@ -2261,8 +2281,7 @@ function opsAlwaysOn(st){
      summary standing in for the rule, and the Reference tab has it all open. */
   const card = (n, title, body, extra) =>
     `<div class="rule"><b>${esc(title)}</b>${body?`<p>${body}</p>`:""}${extra||""}
-      <details class="verbfold"><summary>§ ${esc(n)} — full text</summary>
-        ${opsSec(n).paras.map(p=>opsVerb(n+(p.id||""), p.text)).join("")}</details></div>`;
+      ${cfrFolds(`§ ${n} — full text`, opsSec(n).paras.map(p=>[n+(p.id||""), p.text]))}</div>`;
 
   h += card("397.11", "Fires", `Not operated near an open fire without first checking the vehicle can pass safely without stopping, and not parked within 300 feet of one.`);
 
@@ -2327,17 +2346,6 @@ const incSec  = n => ((INC && INC.sections.find(s=>s.n===n)) || {paras:[]});
 const incText = (n,id) => { const p = incSec(n).paras.find(x=>x.id===id); return p ? p.text : ""; };
 const incNote = () => { const p = incSec("171.15").paras.find(x=>x.note); return p ? p.text : ""; };
 const NRC_TEL = () => (INC && INC.nrc && INC.nrc.tollFree) || "800-424-8802";
-
-function incVerb(cite, txt){
-  return txt ? `<div class="verb"><b>49 CFR ${esc(cite)}</b><p>${esc(txt)}</p></div>` : "";
-}
-
-/* Folded, not dropped. The written-report tab is a dozen rules deep and the
-   verbatim under each one runs long; left open it buries our own wording in
-   grey italics. One tap, attached to the rule it belongs to. */
-function incFold(cite, txt){
-  return txt ? `<details class="verbfold"><summary>§ ${esc(cite)} — full text</summary>${incVerb(cite, txt)}</details>` : "";
-}
 
 /**
  * The 171.15(b) checklist, in the order the rule lists it.
@@ -2413,7 +2421,7 @@ function incVerdictHTML(picked){
     <p><b>HazPost cannot make that judgment.</b> It cannot see the scene, it does not know what leaked or how much, and it will not tell you the matter is closed. If anything happened at all, call your carrier's safety desk and describe it.</p>
     <p>The <b>Written report</b> tab matters here too: Form 5800.1 catches incidents the telephone notice never reaches.</p>
     ${carrierLine}
-    ${incVerb("171.15(b)(5)", incText("171.15","(b)(5)"))}
+    ${cfrFold("171.15(b)(5)", incText("171.15","(b)(5)"))}
     <span class="cite">49 CFR 171.15(b)(5)</span></div>`;
 }
 
@@ -2465,7 +2473,7 @@ function incNowView(){
     <div class="myth"><b>The NRC is not an emergency number</b>
       <p>The National Response Center line, <b>${esc(NRC_TEL())}</b>, is a <b>regulatory notification</b>. It is not a call for help, and <b>nobody is dispatched because you called it</b>. The rule gives you as soon as practical but <b>no later than 12 hours</b> to make it.</p>
       <p>So do not stand at a spill working out whether the NRC needs calling. Get safe, call 911, call your carrier. The notice question keeps — that is what the next tab is for.</p>
-      ${incVerb("171.15(a)", incText("171.15","(a)"))}
+      ${cfrFold("171.15(a)", incText("171.15","(a)"))}
       <span class="cite">49 CFR 171.15(a)</span></div>
 
     <div class="limitbox"><p><b>What HazPost is not.</b> Not a response guide. It will not give you isolation distances, protective action distances, or how to handle a product — that is the emergency number on your paper and the <a href="https://www.phmsa.dot.gov/training/hazmat/erg/emergency-response-guidebook-erg" target="_blank" rel="noopener" style="color:var(--brand)">official PHMSA Emergency Response Guidebook</a>, in the book on your seat or PHMSA's own ERG app. This module covers who to call, and what has to be reported afterward.</p></div>`;
@@ -2480,8 +2488,8 @@ function incNoticeView(){
     `<div class="trig ${t.judgment?"judg ":""}${incPicked[t.k]?"on":""}" onclick="incPicked['${t.k}']=!incPicked['${t.k}'];render()">
       <div class="box">✓</div><div><p>${t.t}</p><span class="cite">49 CFR ${esc(t.c)}</span></div></div>`).join("");
 
-  h += `<details class="verbfold"><summary>§ 171.15(b) — full text of the list above</summary>
-      ${incSec("171.15").paras.filter(p=>p.id.startsWith("(b)")).map(p=>incVerb("171.15"+p.id, p.text)).join("")}</details></div>`;
+  h += `${cfrFolds("§ 171.15(b) — full text of the list above",
+      incSec("171.15").paras.filter(p=>p.id.startsWith("(b)")).map(p=>["171.15"+p.id, p.text]))}</div>`;
 
   h += incVerdictHTML(incPicked);
 
@@ -2489,18 +2497,18 @@ function incNoticeView(){
     <div class="rule a"><b>A hazardous substance released over its reportable quantity</b>
       <p>EPA separately requires a release at or above the material's reportable quantity to be reported to the same NRC number, as soon as the person in charge knows about it. Different rule, different trigger — and it can bite where 171.15 does not.</p>
       <span class="cite">40 CFR 302.6, note to 49 CFR 171.15</span>
-      ${incVerb("Note to 171.15", incNote())}</div>
+      ${cfrFold("Note to 171.15", incNote())}</div>
 
     <div class="rule"><b>What the NRC will ask for</b>
       <p>Your name; who you represent and their address; a phone number where you can be reached; the date, time and location; the extent of any injuries; the class, proper shipping name and quantity if you have it; and whether a continuing danger to life exists at the scene.</p>
       <span class="cite">49 CFR 171.15(a)(1)–(7)</span>
-      <details class="verbfold"><summary>§ 171.15(a) — what the notice must include</summary>
-        ${incSec("171.15").paras.filter(p=>/^\(a\)\(\d+\)$/.test(p.id)).map(p=>incVerb("171.15"+p.id, p.text)).join("")}</details></div>
+      ${cfrFolds("§ 171.15(a) — what the notice must include",
+        incSec("171.15").paras.filter(p=>/^\(a\)\(\d+\)$/.test(p.id)).map(p=>["171.15"+p.id, p.text]))}</div>
 
     <div class="rule"><b>The phone call does not end it</b>
       <p>Everyone who makes this report must also make the written report in § 171.16. That one has a wider net — next tab.</p>
       <span class="cite">49 CFR 171.15(c)</span>
-      ${incVerb("171.15(c)", incText("171.15","(c)"))}</div>
+      ${cfrFold("171.15(c)", incText("171.15","(c)"))}</div>
 
     <div class="rule"><b>Not on the checklist: aircraft</b>
       <p>171.15(b)(6) covers a battery fire, violent rupture, explosion or dangerous evolution of heat <i>during transportation by aircraft</i>. It cannot fire on a highway load, so it is not in the list above — listed here so you know the list is not short one.</p>
@@ -2513,13 +2521,13 @@ function incNoticeView(){
 /* ---- TAB 3: WRITTEN REPORT. Wider net than the phone call. ---- */
 function incWrittenView(){
   const r = (id, title, body) =>
-    `<div class="rule a"><b>${esc(title)}</b>${body}<span class="cite">49 CFR 171.16${esc(id)}</span>${incFold("171.16"+id, incText("171.16",id))}</div>`;
+    `<div class="rule a"><b>${esc(title)}</b>${body}<span class="cite">49 CFR 171.16${esc(id)}</span>${cfrFold("171.16"+id, incText("171.16",id))}</div>`;
 
   let h = `<div class="card"><h4>Form 5800.1 — the written report</h4>
     <div class="rule a"><b>Within 30 days of discovery</b>
       <p>Each person in physical possession of the hazardous material when the incident occurred must submit a Hazardous Materials Incident Report on DOT Form F 5800.1. In practice the carrier's office submits it; what the driver owes is an accurate account written down while it is fresh — what leaked, roughly how much, what the packaging looked like, and when.</p>
       <span class="cite">49 CFR 171.16(a)</span>
-      ${incFold("171.16(a)", incText("171.16","(a)"))}</div>
+      ${cfrFold("171.16(a)", incText("171.16","(a)"))}</div>
     <div class="hint">Nothing about the telephone call settles this one. The written report has a wider net, and a spill with nobody hurt and no road closed still generates paperwork.</div></div>`;
 
   h += `<div class="card"><h4>What puts a 5800.1 in play</h4>` +
@@ -2531,11 +2539,11 @@ function incWrittenView(){
     `</div>`;
 
   h += `<div class="card"><h4>The exceptions — read them, do not assume them</h4>
-    <p style="font-size:13.5px;line-height:1.55;color:#C6CED8">171.16(d) takes some small releases out of the written report. <b>HazPost does not apply them and cannot.</b> They turn on the capacity of the package, the amount that actually came out, and the packing group of the material as shipped — three things the app does not know and must not guess. They are printed here in full so you can hold them against what happened.</p>
+    <p style="font-size:13.5px;line-height:1.55;color:#C6CED8">171.16(d) takes some small releases out of the written report. <b>HazPost does not apply them and cannot.</b> They turn on the capacity of the package, the amount that actually came out, and the packing group of the material as shipped — three things the app does not know and must not guess. They are quoted in full behind the fold below, so you can hold them against what happened.</p>
     <p style="font-size:13.5px;line-height:1.55;color:#C6CED8;margin-top:8px">Note the opening clause. The exceptions do not apply at all if a telephone report was required under 171.15.</p>
     <div class="rule care"><b>Verbatim, § 171.16(d)</b>
-      ${incSec("171.16").paras.filter(p=>p.id.startsWith("(d)")).map(p=>incVerb("171.16"+p.id, p.text)).join("")}
-      <span class="cite">49 CFR 171.16(d)</span></div></div>`;
+      <span class="cite">49 CFR 171.16(d)</span>
+      ${cfrFolds("§ 171.16(d) — full text", incSec("171.16").paras.filter(p=>p.id.startsWith("(d)")).map(p=>["171.16"+p.id, p.text]))}</div></div>`;
 
   h += `<div class="card"><h4>After it is filed</h4>
     ${r("(c)", "Update it within a year if the facts move", `<p>A death resulting from an injury caused by the material, a misidentification on the earlier report, damage or cost that was not known at the time, or a cost estimate that moves by $25,000 or 10% — whichever is greater.</p>`)}
@@ -2543,16 +2551,14 @@ function incWrittenView(){
     <div class="rule"><b>Where it goes</b>
       <p>To PHMSA's Information Systems Manager, on paper or electronically. The carrier's office handles the submission.</p>
       <span class="cite">49 CFR 171.16(b)(1)</span>
-      ${incFold("171.16(b)(1)", incText("171.16","(b)(1)"))}</div></div>`;
+      ${cfrFold("171.16(b)(1)", incText("171.16","(b)(1)"))}</div></div>`;
 
   h += `<div class="limitbox"><p><b>HazPost neither prefills nor reproduces Form 5800.1</b>, and produces nothing that could be mistaken for a submitted report. The form comes from PHMSA and the carrier's office submits it.</p></div>`;
 
   h += `<div class="card"><h4>Source</h4>
     <div class="hint" style="margin-top:0">${esc(INC.source)}, current as of ${esc(INC.cfrDate)} (text v${esc(INC.version)}). Every plain-language line in this module is ours; the CFR paragraph it was written from sits under it.</div>
-    <details class="verbfold" style="margin-top:10px"><summary>§ 171.15 — full text</summary>
-      ${incSec("171.15").paras.map(p=>incVerb("171.15"+(p.id||" — note"), p.text)).join("")}</details>
-    <details class="verbfold"><summary>§ 171.16 — full text</summary>
-      ${incSec("171.16").paras.map(p=>incVerb("171.16"+(p.id||""), p.text)).join("")}</details></div>`;
+    ${cfrFolds("§ 171.15 — full text", incSec("171.15").paras.map(p=>["171.15"+(p.id||" — note"), p.text]))}
+    ${cfrFolds("§ 171.16 — full text", incSec("171.16").paras.map(p=>["171.16"+(p.id||""), p.text]))}</div>`;
 
   return h;
 }
@@ -2576,18 +2582,6 @@ function incWrittenView(){
 
 const carSec  = n => ((CAR && CAR.sections.find(s=>s.n===n)) || {paras:[]});
 const carText = (n,id) => { const p = carSec(n).paras.find(x=>x.id===id); return p ? p.text : ""; };
-
-function carVerb(cite, txt){
-  return txt ? `<div class="verb"><b>49 CFR ${esc(cite)}</b><p>${esc(txt)}</p></div>` : "";
-}
-function carFold(cite, txt){
-  return txt ? `<details class="verbfold"><summary>§ ${esc(cite)} — full text</summary>${carVerb(cite, txt)}</details>` : "";
-}
-/** Several items rest on more than one paragraph; fold them together. */
-function carFolds(label, list){
-  const body = list.map(([cite,txt])=>carVerb(cite,txt)).filter(Boolean).join("");
-  return body ? `<details class="verbfold"><summary>${esc(label)}</summary>${body}</details>` : "";
-}
 
 /* ---------------- DATE ARITHMETIC ----------------
    Pure and separate from the view, because this is the part that has to be
@@ -2699,7 +2693,7 @@ function carStopView(){
     item("CDL with the H or X endorsement",
       `<p>An endorsement is required to operate a vehicle used to transport hazardous materials. <b>H</b> is hazmat; <b>X</b> is the combined tank and hazmat endorsement. The letter is the same in every state — it is a federal code.</p>`,
       "383.93(b)(4), 383.153(a)(9)(iv), (v)",
-      carFolds("§ 383.93(b)(4) and the letter codes — full text", [
+      cfrFolds("§ 383.93(b)(4) and the letter codes — full text", [
         ["383.93(b)", carText("383.93","(b)")],
         ["383.93(b)(4)", carText("383.93","(b)(4)")],
         ["383.153(a)(9)(iv)", carText("383.153","(a)(9)(iv)")],
@@ -2710,7 +2704,7 @@ function carStopView(){
       `<p>This changed and it is worth knowing. Since <b>23 June 2025</b>, a driver required to hold a CDL or CLP <b>no longer carries the medical examiner's certificate</b>. The examiner reports the result to FMCSA, it reaches your driving record, and that record is what an inspector reads.</p>
        <p>Carrying the card does no harm. Relying on it does: if the paper copy and the electronic record disagree, <b>the electronic record controls</b>. What actually stops the truck is the certification lapsing on the record, which gets the CDL downgraded — so it is on the next tab.</p>`,
       "391.41(a)(2)(i)(B), (a)(2)(iv)",
-      carFolds("§ 391.41(a)(2) — full text", [
+      cfrFolds("§ 391.41(a)(2) — full text", [
         ["391.41(a)(2)(i)(B)", carText("391.41","(a)(2)(i)(B)")],
         ["391.41(a)(2)(iv)", carText("391.41","(a)(2)(iv)")],
       ])) +
@@ -2718,7 +2712,7 @@ function carStopView(){
     item("A medical variance, if you hold one",
       `<p>The exception to the item above. An FMCSA <b>exemption letter or skill performance evaluation certificate</b> must be on your person whenever you are on duty — that one is still a piece of paper you carry, and the rule says so twice.</p>`,
       "391.41(a)(1)(ii), (a)(2)(iii)",
-      carFolds("§ 391.41(a)(1)(ii) and (a)(2)(iii) — full text", [
+      cfrFolds("§ 391.41(a)(1)(ii) and (a)(2)(iii) — full text", [
         ["391.41(a)(1)(ii)", carText("391.41","(a)(1)(ii)")],
         ["391.41(a)(2)(iii)", carText("391.41","(a)(2)(iii)")],
       ])) +
@@ -2730,7 +2724,7 @@ function carStopView(){
     item("Emergency response information",
       `<p>In English, <b>usable away from the package</b> so not sealed inside it, and immediately accessible to you. The ERG satisfies this. HazPost reproduces no guide content — carry the official book or PHMSA's app.</p>`,
       "172.602(b)(1), (b)(2), (c)(1)",
-      carFolds("§ 172.602 — full text", [
+      cfrFolds("§ 172.602 — full text", [
         ["172.602(b)", carText("172.602","(b)")],
         ["172.602(b)(1)", carText("172.602","(b)(1)")],
         ["172.602(b)(2)", carText("172.602","(b)(2)")],
@@ -2746,7 +2740,7 @@ function carStopView(){
       `<p>Only for Division 1.1, 1.2 or 1.3, which is what you have on. The carrier furnishes a copy of the Part 397 rules and a document of <b>instructions for an accident or delay</b> — who to call, what the explosives are, what to do about fire, accident or leakage. <b>You sign a receipt for them.</b></p>
        <p>Then (c) requires you to be in possession of, familiar with, and in compliance with those documents, the shipping papers, and the <b>written route plan</b>. Routing is Subpart D and HazPost does not implement it — the route plan comes from your carrier. <a href="#" style="color:var(--brand)" onclick="view='ops';opsTab='where';render();window.scrollTo(0,0);return false">On the Road</a> covers the rest of Part 397.</p>`,
       "397.19(a), (b), (c)",
-      carFolds("§ 397.19 — full text", [
+      cfrFolds("§ 397.19 — full text", [
         ["397.19(a)", carText("397.19","(a)")],
         ["397.19(a)(1)", carText("397.19","(a)(1)")],
         ["397.19(a)(3)", carText("397.19","(a)(3)")],
@@ -2768,7 +2762,7 @@ function carStopView(){
       <p>This one surprises people. The training record is created and kept by the <b>employer</b>, not by you, and the employer is the one who produces it on request to an authorised DOT official. There is no training certificate you are expected to have in the truck at a roadside inspection.</p>
       <p>Worth knowing anyway, because <b>172.704(c)(4) puts compliance on the employer regardless of whether the training was ever completed</b>. A gap in your training is the carrier's violation. It is not something you can resolve at the scale house, and it is not something to try to talk your way through.</p>
       <span class="cite">49 CFR 172.704(d), 172.704(c)(4)</span>
-      ${carFolds("§ 172.704(d) and (c)(4) — full text", [
+      ${cfrFolds("§ 172.704(d) and (c)(4) — full text", [
         ["172.704(d)", carText("172.704","(d)")],
         ["172.704(c)(4)", carText("172.704","(c)(4)")],
       ])}</div></div>`;
@@ -2818,7 +2812,7 @@ function carExpView(){
       <p>Whether a transfer between States needs a fresh knowledge test, how a temporary endorsement is handled, what the fee is, how early you can file — all of that is set where your licence is issued and it varies. HazPost does not carry state rules and will not guess at them.</p>
       <p><b>Ask your own licensing agency.</b> They are the only ones who can tell you what your renewal actually involves.</p>
       <span class="cite">49 CFR 383.141(d), 1572.13(e)</span>
-      ${carFolds("§ 383.141 and § 1572.13 — the federal frame", [
+      ${cfrFolds("§ 383.141 and § 1572.13 — the federal frame", [
         ["383.141(b)", carText("383.141","(b)")],
         ["383.141(b)(1)", carText("383.141","(b)(1)")],
         ["383.141(b)(2)", carText("383.141","(b)(2)")],
@@ -2844,7 +2838,7 @@ function carTrainView(){
     r("The employer's, throughout",
       `<p>The hazmat employer trains, tests, certifies and holds the record. And the rule goes further than that: the employer is responsible for compliance <b>whether or not the training was ever completed</b>. A training gap is the carrier's violation, not yours.</p>`,
       "172.704(c)(4), (d)",
-      carFolds("§ 172.704(c)(4) — full text", [["172.704(c)(4)", carText("172.704","(c)(4)")]])) +
+      cfrFolds("§ 172.704(c)(4) — full text", [["172.704(c)(4)", carText("172.704","(c)(4)")]])) +
 
     r("What the training has to cover",
       `<ul><li><b>General awareness and familiarization</b> — recognising and identifying hazardous materials</li>
@@ -2853,7 +2847,7 @@ function carTrainView(){
        <li><b>Security awareness</b> — recognising and responding to security threats. New hazmat employees get this within 90 days of employment.</li>
        <li><b>In-depth security</b> — only where a security plan is required under Subpart I, for employees the plan covers</li></ul>`,
       "172.704(a)(1)–(a)(5)",
-      carFolds("§ 172.704(a) — full text", [
+      cfrFolds("§ 172.704(a) — full text", [
         ["172.704(a)(1)", carText("172.704","(a)(1)")],
         ["172.704(a)(2)(i)", carText("172.704","(a)(2)(i)")],
         ["172.704(a)(3)", carText("172.704","(a)(3)")],
@@ -2865,7 +2859,7 @@ function carTrainView(){
       `<p><b>New hire, or a change of job function — 90 days.</b> You may perform the function before training is complete, but only under the <b>direct supervision of a properly trained and knowledgeable hazmat employee</b>, and the training has to be done within 90 days. Both halves, not either.</p>
        <p><b>Then at least once every three years.</b> In-depth security training has a wrinkle: if the security plan is revised mid-cycle, retraining is due within 90 days of the revision rather than waiting for the three years.</p>`,
       "172.704(c)(1), (c)(2)",
-      carFolds("§ 172.704(c)(1) and (c)(2) — full text", [
+      cfrFolds("§ 172.704(c)(1) and (c)(2) — full text", [
         ["172.704(c)(1)", carText("172.704","(c)(1)")],
         ["172.704(c)(1)(i)", carText("172.704","(c)(1)(i)")],
         ["172.704(c)(1)(ii)", carText("172.704","(c)(1)(ii)")],
@@ -2878,7 +2872,7 @@ function carTrainView(){
       <p>Training you already have can count toward a new employer's obligation, <b>but only if a current record of it is obtained from the previous employer</b>. No record, no credit — and then you are retraining from scratch on somebody else's schedule.</p>
       <p>The record has to carry your name, the most recent completion date, a description or location of the materials used, the name and address of whoever did the training, and the certification that you were trained and tested. That is the thing to ask for, and the time to ask is before you leave.</p>
       <span class="cite">49 CFR 172.704(c)(3), (d)(1)–(d)(5)</span>
-      ${carFolds("§ 172.704(c)(3) and what the record contains — full text", [
+      ${cfrFolds("§ 172.704(c)(3) and what the record contains — full text", [
         ["172.704(c)(3)", carText("172.704","(c)(3)")],
         ["172.704(d)", carText("172.704","(d)")],
         ["172.704(d)(1)", carText("172.704","(d)(1)")],
@@ -2892,14 +2886,13 @@ function carTrainView(){
     r("Employment, plus 90 days",
       `<p>The employer keeps a current record covering the <b>preceding three years</b>, for as long as you are employed there as a hazmat employee and for 90 days after you leave. After that window it can be gone — which is the practical reason (c)(3) above has a deadline attached to it in real life even though the rule does not state one.</p>`,
       "172.704(d)",
-      carFolds("§ 172.704(d) — full text", [["172.704(d)", carText("172.704","(d)")]])) +
+      cfrFolds("§ 172.704(d) — full text", [["172.704(d)", carText("172.704","(d)")]])) +
     `</div>`;
 
   h += `<div class="card"><h4>Source</h4>
     <div class="hint" style="margin-top:0">${esc(CAR.source)}, current as of ${esc(CAR.cfrDate)} (text v${esc(CAR.version)}). Ten sections from three agencies — PHMSA, FMCSA and TSA. Every plain-language line in this module is ours; the CFR paragraph it was written from sits under it.</div>` +
     CAR.sections.map(s=>
-      `<details class="verbfold" style="margin-top:8px"><summary>§ ${esc(s.n)} — ${esc(s.agency)} — full text</summary>` +
-      s.paras.map(p=>carVerb(s.n+(p.id||""), p.text)).join("") + `</details>`).join("") +
+      cfrFolds(`§ ${s.n} — ${s.agency} — full text`, s.paras.map(p=>[s.n+(p.id||""), p.text]))).join("") +
     `</div>`;
 
   return h;
