@@ -364,7 +364,7 @@ table.mat td.b{background:var(--panel)}
 <script>
 /* The build a driver is running, shown in the home footer.
    Bump this and VERSION in sw.js together on every deploy — see README. */
-const APP_VERSION = "0.9.0";
+const APP_VERSION = "0.9.1";
 
 /* ---------------- DATA: the 172.101 table, fetched from hazmat.json ---------------- */
 const DATA_URL = "hazmat.json";
@@ -2003,7 +2003,10 @@ function papCheckView(){
       ${cfrFold("172.604(a)(2)", papText("172.604","(a)(2)"))}</div>
 
     <div class="rule a"><b>Shipper's certification</b>
-      <p>Except for hazardous waste, which always needs it, no certification is required for a shipment moving entirely by private carriage, or for a bulk shipment in a cargo tank the carrier supplied. A subsequent carrier does not need 172.204 at all.</p>
+      <p>An initial carrier may not accept a hazardous material unless the shipping paper carries the shipper's certification. Two kinds of shipment are excepted from it:</p>
+      <ul><li>One transported entirely by private carriage</li>
+      <li>A bulk shipment in a cargo tank the carrier supplied</li></ul>
+      <p><b>Hazardous waste is not excepted</b> — it always needs the certification. And a subsequent carrier does not need 172.204 at all.</p>
       <span class="cite">49 CFR 172.204(b), 177.817(a), (b)</span>
       ${cfrFold("177.817(b)", papText("177.817","(b)"))}</div>
 
@@ -2417,7 +2420,7 @@ function incVerdictHTML(picked){
 
   /* Nothing ticked. This is the branch the invariant is about. */
   return `<div class="verdict judg"><b class="hd">Nothing ticked. That does not settle it.</b>
-    <p>The rule carries a judgment trigger of its own. If a situation exists of such a nature that, in your judgment as the person in physical possession of the material, it should be reported — a continuing danger to life at the scene is the example the rule itself gives — then telephone notice is required even though none of the listed circumstances above applies.</p>
+    <p>The rule carries a judgment trigger of its own. The decision is yours, as the person in physical possession of the material. If in your judgment the situation should be reported, telephone notice is required — even though none of the listed circumstances above applies. A continuing danger to life at the scene is the example the rule itself gives, not the only case.</p>
     <p><b>HazPost cannot make that judgment.</b> It cannot see the scene, it does not know what leaked or how much, and it will not tell you the matter is closed. If anything happened at all, call your carrier's safety desk and describe it.</p>
     <p>The <b>Written report</b> tab matters here too: Form 5800.1 catches incidents the telephone notice never reaches.</p>
     ${carrierLine}
@@ -2495,12 +2498,19 @@ function incNoticeView(){
 
   h += `<div class="card"><h4>Also worth knowing</h4>
     <div class="rule a"><b>A hazardous substance released over its reportable quantity</b>
-      <p>EPA separately requires a release at or above the material's reportable quantity to be reported to the same NRC number, as soon as the person in charge knows about it. Different rule, different trigger — and it can bite where 171.15 does not.</p>
+      <p>Separate rule, separate trigger — which is the only reason this is here. EPA requires any release of a hazardous substance at or above its reportable quantity to be reported to the same NRC number. The duty is on the person in charge, as soon as they know about it. A transport vehicle counts as a facility for this, so it reaches you.</p>
       <span class="cite">40 CFR 302.6, note to 49 CFR 171.15</span>
       ${cfrFold("Note to 171.15", incNote())}</div>
 
     <div class="rule"><b>What the NRC will ask for</b>
-      <p>Your name; who you represent and their address; a phone number where you can be reached; the date, time and location; the extent of any injuries; the class, proper shipping name and quantity if you have it; and whether a continuing danger to life exists at the scene.</p>
+      <p>Seven things, and they are the same seven every time:</p>
+      <ul><li>Your name</li>
+      <li>The name and address of whoever you represent</li>
+      <li>A phone number where you can be reached</li>
+      <li>The date, time and location</li>
+      <li>The extent of any injury</li>
+      <li>The class or division, proper shipping name and quantity — if you have it</li>
+      <li>What happened, how the material was involved, and whether a continuing danger to life exists at the scene</li></ul>
       <span class="cite">49 CFR 171.15(a)(1)–(7)</span>
       ${cfrFolds("§ 171.15(a) — what the notice must include",
         incSec("171.15").paras.filter(p=>/^\(a\)\(\d+\)$/.test(p.id)).map(p=>["171.15"+p.id, p.text]))}</div>
@@ -2525,7 +2535,7 @@ function incWrittenView(){
 
   let h = `<div class="card"><h4>Form 5800.1 — the written report</h4>
     <div class="rule a"><b>Within 30 days of discovery</b>
-      <p>Each person in physical possession of the hazardous material when the incident occurred must submit a Hazardous Materials Incident Report on DOT Form F 5800.1. In practice the carrier's office submits it; what the driver owes is an accurate account written down while it is fresh — what leaked, roughly how much, what the packaging looked like, and when.</p>
+      <p>Each person in physical possession of the hazardous material when the incident occurred must submit a Hazardous Materials Incident Report on DOT Form F 5800.1. In practice the carrier's office submits it. What the driver owes is an accurate account, written down while it is fresh. That means what leaked, roughly how much, what the packaging looked like, and when.</p>
       <span class="cite">49 CFR 171.16(a)</span>
       ${cfrFold("171.16(a)", incText("171.16","(a)"))}</div>
     <div class="hint">Nothing about the telephone call settles this one. The written report has a wider net, and a spill with nobody hurt and no road closed still generates paperwork.</div></div>`;
@@ -2533,7 +2543,7 @@ function incWrittenView(){
   h += `<div class="card"><h4>What puts a 5800.1 in play</h4>` +
     r("(a)(1)", "Anything on the telephone list", `<p>Every circumstance in 171.15(b) — the checklist on the previous tab — brings the written report with it.</p>`) +
     r("(a)(2)", "An unintentional release, or any discharge of hazardous waste", `<p>This is the one drivers are surprised by. There is no injury threshold, no road closure, no minimum quantity here — the exceptions in paragraph (d) are further down and they are narrow.</p>`) +
-    r("(a)(3)", "A big cargo tank damaged, even with nothing released", `<p>A specification cargo tank of 1,000 gallons or more, containing any hazardous material, that suffers structural damage to the lading retention system — or damage requiring repair to a system meant to protect it.</p>`) +
+    r("(a)(3)", "A big cargo tank damaged, even with nothing released", `<p>Two conditions, and both have to hold. First, a specification cargo tank of 1,000 gallons or more carrying any hazardous material. Second, structural damage to the lading retention system — or damage requiring repair to a system meant to protect it. Nothing has to have been released.</p>`) +
     r("(a)(4)", "Undeclared hazmat is discovered", `<p>Found in transportation, whether or not anything happened to it.</p>`) +
     r("(a)(5)", "A battery fire, rupture, explosion or dangerous heat", `<p>Charring, melting or scorching of the packaging counts as evidence. Unlike the aircraft-only telephone trigger, this one is not limited by mode.</p>`) +
     `</div>`;
@@ -2546,7 +2556,11 @@ function incWrittenView(){
       ${cfrFolds("§ 171.16(d) — full text", incSec("171.16").paras.filter(p=>p.id.startsWith("(d)")).map(p=>["171.16"+p.id, p.text]))}</div></div>`;
 
   h += `<div class="card"><h4>After it is filed</h4>
-    ${r("(c)", "Update it within a year if the facts move", `<p>A death resulting from an injury caused by the material, a misidentification on the earlier report, damage or cost that was not known at the time, or a cost estimate that moves by $25,000 or 10% — whichever is greater.</p>`)}
+    ${r("(c)", "Update it within a year if the facts move", `<p>Any one of these:</p>
+      <ul><li>A death results from an injury caused by the material</li>
+      <li>The material, or the package information, was misidentified on the earlier report</li>
+      <li>Damage, loss or related cost that was not known when the report was filed becomes known</li>
+      <li>Damage, loss or related cost changes by $25,000 or more, or by 10% of the prior total estimate — whichever is greater</li></ul>`)}
     ${r("(b)(3)", "The copy is kept for two years", `<p>At the reporting person's principal place of business, or produced there within 24 hours of a request from an authorized DOT representative or special agent.</p>`)}
     <div class="rule"><b>Where it goes</b>
       <p>To PHMSA's Information Systems Manager, on paper or electronically. The carrier's office handles the submission.</p>
@@ -2691,7 +2705,7 @@ function carStopView(){
   let h = `<div class="card"><h4>On you, or in the cab</h4>` +
 
     item("CDL with the H or X endorsement",
-      `<p>An endorsement is required to operate a vehicle used to transport hazardous materials. <b>H</b> is hazmat; <b>X</b> is the combined tank and hazmat endorsement. The letter is the same in every state — it is a federal code.</p>`,
+      `<p>You must hold a State-issued endorsement to operate a vehicle used to transport hazardous materials. <b>H</b> is hazmat; <b>X</b> is the combined tank and hazmat endorsement. The letter is the same in every state — it is a federal code.</p>`,
       "383.93(b)(4), 383.153(a)(9)(iv), (v)",
       cfrFolds("§ 383.93(b)(4) and the letter codes — full text", [
         ["383.93(b)", carText("383.93","(b)")],
@@ -2781,7 +2795,7 @@ function carExpView(){
       <p>Where the CDL expires first, many States pull the endorsement date back to match, so your real date can be earlier than five years. And on a transfer between States the second State does not re-run the assessment until the first State's cycle runs out, up to five years.</p>`,
     med: `<p>Certification runs on a <b>24-month</b> cycle, and on <b>12 months</b> for an exempt intracity zone, an insulin-treated diabetes certificate under § 391.46, or a vision exemption under § 391.44. An examiner can also certify you for a shorter period than the maximum, so <b>use the date the examiner wrote, not a calculation.</b></p>
       <p>Since 23 June 2025 a CDL holder no longer carries the certificate, but the certification still has to be current on the record. Let it lapse and the State downgrades the CDL — which takes the endorsement with it.</p>`,
-    cdl: `<p>State-set, and not a federal interval. It is here because it can cut the endorsement short: many States align a hazmat endorsement to the licence expiry rather than running it a full five years.</p>`,
+    cdl: `<p>State-set, and not a federal interval. It is here because it can cut the endorsement short. Many States align the hazmat endorsement to the licence expiry rather than running it a full five years.</p>`,
     train: `<p>Type the date of your <b>last</b> hazmat training; recurrent training is due at least every three years, so HazPost adds three years to get the date above. Nothing about the number is stored — it is recomputed from the date you typed, every time.</p>
       <p><b>This is the carrier's obligation and the carrier's record.</b> You cannot fix it yourself and you are not the one who keeps it. It is tracked here for one reason: so you can prompt them before it lapses, and so you know which question to ask.</p>`,
   };
@@ -2809,7 +2823,12 @@ function carExpView(){
 
   h += `<div class="card"><h4>The mechanics are your State's</h4>
     <div class="rule a"><b>The five-year ceiling is federal. Almost nothing else is.</b>
-      <p>Whether a transfer between States needs a fresh knowledge test, how a temporary endorsement is handled, what the fee is, how early you can file — all of that is set where your licence is issued and it varies. HazPost does not carry state rules and will not guess at them.</p>
+      <p>All of this is set where your licence is issued, and it varies:</p>
+      <ul><li>Whether a transfer between States needs a fresh knowledge test</li>
+      <li>How a temporary endorsement is handled</li>
+      <li>What the fee is</li>
+      <li>How early you can file</li></ul>
+      <p>HazPost does not carry state rules and will not guess at them.</p>
       <p><b>Ask your own licensing agency.</b> They are the only ones who can tell you what your renewal actually involves.</p>
       <span class="cite">49 CFR 383.141(d), 1572.13(e)</span>
       ${cfrFolds("§ 383.141 and § 1572.13 — the federal frame", [
@@ -2870,7 +2889,13 @@ function carTrainView(){
   h += `<div class="card"><h4>The one part you can act on</h4>
     <div class="rule care"><b>Changing carriers — get your record on the way out</b>
       <p>Training you already have can count toward a new employer's obligation, <b>but only if a current record of it is obtained from the previous employer</b>. No record, no credit — and then you are retraining from scratch on somebody else's schedule.</p>
-      <p>The record has to carry your name, the most recent completion date, a description or location of the materials used, the name and address of whoever did the training, and the certification that you were trained and tested. That is the thing to ask for, and the time to ask is before you leave.</p>
+      <p>Five things have to be on it:</p>
+      <ul><li>Your name</li>
+      <li>The most recent training completion date</li>
+      <li>A description, copy or location of the training materials used</li>
+      <li>The name and address of whoever provided the training</li>
+      <li>Certification that you were trained and tested</li></ul>
+      <p>That is the thing to ask for, and the time to ask is before you leave.</p>
       <span class="cite">49 CFR 172.704(c)(3), (d)(1)–(d)(5)</span>
       ${cfrFolds("§ 172.704(c)(3) and what the record contains — full text", [
         ["172.704(c)(3)", carText("172.704","(c)(3)")],
