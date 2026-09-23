@@ -2,7 +2,7 @@
 
 Hazmat tools built for the driver's seat. Companion app to [MilesPost](https://5w311.github.io/milespost) and [FuelPost](https://5w311.github.io/FuelPost).
 
-**Live:** https://5w311.github.io/HazPost
+**Live:** https://hazpost.figari.dev
 
 ## What it does
 
@@ -94,13 +94,26 @@ tappable footer showing the running build; tapping it checks for a new one.
 
 ### Paths
 
-HazPost is a GitHub Pages **project** site, served from `/HazPost/` rather
-than a domain root. Every install path — the worker registration, the
-manifest, the icons, and every URL cached by `sw.js` — is therefore relative,
-and `sw.js` resolves its relative URLs against `self.registration.scope`.
-A leading slash anywhere would resolve to the domain root, cache the Pages
-404 page and serve that to drivers. Verified under both `/HazPost/` and a
-domain root.
+HazPost is served on GitHub Pages via the custom domain `hazpost.figari.dev`
+(`CNAME`), at the domain root. It was originally a GitHub Pages **project**
+site at `5w311.github.io/HazPost` — that URL now 301s to the custom domain —
+and every install path is written relative for that reason: the worker
+registration, the manifest, the icons, and every URL cached by `sw.js`, with
+`sw.js` resolving its relative URLs against `self.registration.scope`. A
+leading slash anywhere would have resolved to the domain root under the old
+project-page setup, caching the Pages 404 page and serving that to drivers.
+The relative-path design means the app needs no change to run at either a
+subpath or a root, and both have been verified working.
+
+**A driver who installed HazPost from the old `5w311.github.io/HazPost`
+address is stranded on whatever build they have.** A service worker cannot be
+updated through a redirect, so that install can never receive a new version —
+it keeps serving its cached build offline indefinitely, and the version
+footer correctly reports it cannot check rather than falsely claiming it is
+current. Their saved data (load, carrier number, credential dates) lives
+under the old origin and does not carry over. The only fix is to open
+`hazpost.figari.dev` directly, reinstall, and re-enter anything that was
+saved — in particular the carrier safety desk number in Incident Response.
 
 ## Versions and releasing
 
