@@ -13,14 +13,62 @@ HazPost is a verification aid for hazmat drivers. It does not classify materials
 
 ## Modules
 
-| Module | CFR | Status |
+HazPost is organised by what a driver is doing rather than by CFR part, in four
+tabs: **Load**, **Look Up**, **Carry** and **Emergency**. The six modules live
+inside them.
+
+| Module | Where it lives | CFR |
 |---|---|---|
-| Placarding (load builder + UN lookup) | 172.504 | Live |
-| Segregation (load check, Class 1 compatibility, reference tables) | 177.848 | Live |
-| On the Road (attendance, parking, always-on rules) | Part 397 Subpart A | Live |
-| Shipping Papers (basic description check + placement) | 172 Subpart C, 177.817 | Live |
-| Incident Response (who to call, notice, written report) | 171.15, 171.16 | Live |
-| What You Carry (at a stop, what expires, training rules) | 383.93, 383.141, 172.704 | Live |
+| Placarding | Load — the placards on top, and the Placards screen | 172.504 |
+| Segregation | Load → Segregation; the reference tables under Look Up | 177.848 |
+| On the Road | Load → On the road | Part 397 Subpart A |
+| Shipping Papers | Load → Shipping papers | 172 Subpart C, 177.817 |
+| Incident Response | Emergency — who to call, then Do I report? and Written report | 171.15, 171.16 |
+| What You Carry | Carry — what expires, at a stop, training rules | 383.93, 383.141, 172.704 |
+| UN lookup | Look Up | 172.101 |
+
+## Layout, type and colour
+
+**Load is the front door.** The lines come off the shipping paper once, and
+everything reads from them: the placards to hang sit on top, then one summary
+row per check — Placards, Segregation, Shipping papers, On the road — each
+opening its detail screen. Three levels and no more: summary, detail, then the
+regulation behind a fold.
+
+**A summary row never says less than the screen behind it.** Each value is
+built from the same functions its detail screen uses, and shows counts and
+states, never a check mark. Segregation shows *Not allowed* (an X, or a
+Class 1 ban) on its own. Otherwise it shows the strongest thing already
+proven — *Keep apart* (an O), *Explosives check* (a Class 1 pair or
+condition), or *Check N rules* (an advisory that bites with no table cell
+behind it, such as cyanides with acids) — followed by any open
+physical-state question, as *N questions*. *No conflicts* appears only when
+there is none of that and nothing left to answer. A row whose data file
+failed to load says *Unavailable* and calls nothing. `tools/test-load.mjs`
+holds this.
+
+**Emergency is one tap from every screen**, including the loading and error
+screens before `hazmat.json` arrives, and tapping it always lands on the phone
+numbers with 911 first — whatever was left open in it.
+
+**Three typefaces, each with one job.** Instrument Sans for the interface.
+Atkinson Hyperlegible Mono for identifiers a driver compares character by
+character against the paper — ID numbers, the basic description, the
+segregation markers. Source Serif 4 for the regulation text itself, so the law
+never looks like the app's own words. CFR cites, weights, dates and phone
+numbers use Instrument Sans with tabular figures. Placard words use Instrument
+Sans's condensed width (`font-stretch: 75%`) so the longest ones fit. The
+stylesheet URL in `index.html` and `FONT_CSS` in `sw.js` must match character
+for character — that string is the cache key the worker stores the fonts
+under, and if the two differ the fonts silently go missing offline.
+
+**Light and dark follow the phone** through `prefers-color-scheme`, in CSS
+only. Every interface colour is a token in `:root`, redefined for dark mode.
+What stays literal on purpose: the placard colours, which are regulatory;
+white glyphs on solid tiles; and the Carry cards and segregation-table keys,
+which keep one identity colour in both modes. The light tint is HazPost's
+amber darkened to pass contrast; green is an icon-tile colour and never means
+a status.
 
 ## Architecture
 
@@ -72,26 +120,27 @@ Placarding calls happen at docks and in yards with no signal, so the app is
 built to answer with none. The service worker caches the shell, every data
 file, the icons and the web fonts, and serves every request cache-first while
 refreshing in the background. Once the app has been opened online a single
-time, it works with the radio off — module grid, load builder, computed
-placard set, UN lookup, the segregation check, the Part 397 decision, the
-shipping paper comparison, the incident reporting rules and the credential
-reference.
+time, it works with the radio off — the Load screen and its placard set,
+Look Up, the segregation check, the Part 397 decision, the shipping paper
+comparison, the incident reporting rules and the credential reference, all in
+the app's own typefaces.
 
 **Every new data file must be added to `SHELL` in `sw.js`**, or it is fetched
 from the network on every launch and simply is not there offline.
 
 The current load is written to `localStorage` on every change and restored on
 start, so a load built at the dock survives the phone going in a pocket. The
-load comes back; the view does not — the app opens on the module grid every
-time, so a driver picks the tool for the job in front of them.
+load comes back; the screen does not — the app opens on Load every time, with
+the placards for that load on top and every check one tap below.
 Only the record id, weight and facility are stored: the hazard classification
 is re-read from `hazmat.json` each time, so a load saved before a CFR
 amendment can never resurrect a stale placard category. Lines whose entry has
 left the table are dropped with a notice rather than silently kept.
 
-While offline, a strip under the header says so and shows when the cached
-table was generated and when the cache last refreshed. The home view carries a
-tappable footer showing the running build; tapping it checks for a new one.
+While offline, a strip under the title says so and shows when the cached
+table was generated and when the cache last refreshed. The foot of the Load
+screen carries a tappable line showing the running build; tapping it checks
+for a new one.
 
 ### Paths
 
@@ -132,8 +181,8 @@ and must not be collapsed into one.
 | `incident.json` | `version` / `cfrDate` | which CFR edition the reporting text came from |
 | `carry.json` | `version` / `cfrDate` | which CFR edition the credential text came from |
 
-The first and third are on screen: `APP_VERSION` in the home footer,
-the data edition in the disclaimer line above it. The cache generation is
+The first and third are on screen: `APP_VERSION` at the foot of the Load
+screen, the data edition in the disclaimer line above it. The cache generation is
 plumbing and stays off screen.
 
 **Bump `APP_VERSION` and `VERSION` together on every deploy.** There is no
@@ -477,7 +526,7 @@ Three places that bites, all handled:
 
 ### Where the paper lives
 
-177.817(e), on its own tab. A correct paper in the wrong place is still a
+177.817(e), under Where they live. A correct paper in the wrong place is still a
 citation, and this rule is enforced on its own. At the controls it is two
 conditions joined by "and", the second of which is itself an either/or — the
 module makes that structure explicit. Away from the controls there are exactly
@@ -508,8 +557,8 @@ Two consequences elsewhere in the app fall out of this:
 - `incident.json` loads **first and outside the hazmat.json chain**. Everything
   else in HazPost is an aid a driver can do without for a day; the phone
   numbers are not, and a failed 172.101 fetch must not shut the door on them.
-- The module renders even while `dataState` is `error`, and the material-data
-  error screen carries a button into it.
+- Emergency renders even while `dataState` is `error` — the tab bar is always
+  drawn — and the material-data error screen carries a button into it.
 
 ### Two — no code path may say a report is unnecessary
 
@@ -531,8 +580,9 @@ shapes rather than to argue with the matcher.
 called it, and the rule allows as soon as practical but no later than 12 hours.
 The landing view says all three things, in our words with 171.15(a) verbatim
 beside them, and deliberately does **not** make the NRC number tappable there —
-911 is the only `tel:` link on that view. It becomes tappable on the notice tab,
-where the question is actually being answered.
+911 is the only `tel:` link on that view. It becomes tappable on the Do I
+report? screen, where the question is actually being answered — as a plain call
+row, never dressed as the red emergency button only 911 wears.
 
 ### What it will not do
 
@@ -554,7 +604,7 @@ where the question is actually being answered.
 node tools/test.mjs
 ```
 
-624 checks across seven files, in about a second and a half. No framework and
+679 checks across eight files, in about a second and a half. No framework and
 nothing to install — the app has no dependencies and neither does its suite,
 because a suite that needs a package install is a suite that stops being run.
 `tools/test.mjs` runs every `tools/test-*.mjs`, prints each file's count and
@@ -569,6 +619,7 @@ fails if any of them does.
 | `test-incident.mjs` | the three Incident Response invariants, including no-all-clear over every subset of the checklist |
 | `test-carry.mjs` | date arithmetic across month, year and leap boundaries; the 397.19 conditional; the absence of any image capture |
 | `test-data.mjs` | all six JSON files — provenance, counts, one CFR date across the set, and precaching |
+| `test-load.mjs` | the Load screen's summary rows against the engines, the tab bar, Emergency on every path including with no data, the line and Look Up screens against 172.505(a), and a corrupted saved load |
 
 ### How they run
 

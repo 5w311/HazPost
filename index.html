@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>HazPost — Hazmat Tools for Drivers</title>
 <meta name="description" content="Hazmat placarding and lookup tools for truck drivers, built to work with no signal.">
-<meta name="theme-color" content="#14171C">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#F2F2F7">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
 <!-- All install paths are relative: HazPost is a GitHub Pages project site
      under /HazPost/, so a leading slash would resolve to the domain root. -->
 <link rel="manifest" href="manifest.json">
@@ -15,360 +17,523 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="HazPost">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<!-- Must match FONT_CSS in sw.js character for character: that string is the
+     cache key the worker stores the stylesheet under for offline use. -->
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wdth,wght@75..100,400..700&family=Atkinson+Hyperlegible+Mono:wght@400..700&family=Source+Serif+4:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
 <style>
+/* ================= TOKENS =================
+   Three faces, each with one job. Instrument Sans is the interface.
+   Atkinson Hyperlegible Mono is for identifiers a driver compares character
+   by character against the paper. Source Serif 4 is the regulation itself,
+   so the law never looks like the app's own words.
+
+   Light and dark follow the phone. The light tint is HazPost's amber,
+   darkened until it passes contrast on white and on the grouped background;
+   the dark tint is the brand amber itself. Green is an icon-tile colour and
+   never a status. The only literal colours outside these tokens are the
+   placard colours, which are regulatory. */
 :root{
-  --bg:#14171C; --panel:#1C2129; --panel2:#232A34; --line:#2E3743;
-  --ink:#EDF0F4; --dim:#8B96A5; --faint:#5A6473;
-  --flam:#C8102E; --oxy:#FFB612; --wet:#0F5FBF; --gas:#1E8A44;
-  --expl:#FF6720; --tox:#F2F2F2; --brand:#FFB612;
-  --ok:#3BAA5C; --warn:#FFB612; --bad:#E5484D;
-  --r:14px;
+  color-scheme:light dark;
+  --ui:'Instrument Sans',-apple-system,BlinkMacSystemFont,'Helvetica Neue',system-ui,sans-serif;
+  --id:'Atkinson Hyperlegible Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --law:'Source Serif 4','Iowan Old Style',Georgia,'Times New Roman',serif;
+
+  --bg:#F2F2F7; --card:#FFFFFF; --inset:#F2F2F7;
+  --ink:#000000; --ink2:#3A3A3C; --dim:#6C6C70; --line:#E3E3E8; --chev:#BDBDC2;
+  --fill:rgba(120,120,128,.12); --seg-on:#FFFFFF; --seg-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.04);
+  --tint:#A35400; --on-tint:#FFFFFF; --tint-soft:rgba(163,84,0,.10);
+  --red:#D70015; --red2:#D70015; --blue:#0A5BD3;
+  --tile-red:#D70015; --tile-blue:#0A5BD3; --tile-green:#1E7A3E; --tile-grey:#636366; --tile-orange:#C93400;
+  --amber:#A35400; --on-amber:#FFFFFF;
+  --e-h:#0A5BD3; --e-p:#8944AB;
+  --glass:rgba(255,255,255,.82); --glass-line:rgba(0,0,0,.08);
+  --glass-shadow:0 10px 30px rgba(0,0,0,.12),0 1px 3px rgba(0,0,0,.06);
+  --pill:rgba(120,120,128,.14);
+  --emg:#D70015; --emg-pill:rgba(215,0,21,.08);
+  --plc-edge:rgba(0,0,0,.35); --plc-shadow:0 2px 6px rgba(0,0,0,.18);
+  --wallet-edge:rgba(0,0,0,.06);
+  --fade:rgba(242,242,247,0); --fade-to:rgba(242,242,247,.94);
+  /* names older templates still use inline */
+  --brand:var(--tint); --faint:var(--dim); --bad:var(--red);
 }
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#000000; --card:#1C1C1E; --inset:#2C2C2E;
+    --ink:#FFFFFF; --ink2:#D1D1D6; --dim:#AEAEB2; --line:#38383A; --chev:#5A5A5E;
+    --fill:rgba(118,118,128,.24); --seg-on:#636366; --seg-shadow:none;
+    --tint:#FFB612; --on-tint:#000000; --tint-soft:rgba(255,182,18,.14);
+    --red:#FF453A; --red2:#FF6961; --blue:#409CFF;
+    --tile-red:#E0243A; --tile-blue:#0A6CE0; --tile-green:#248A3D;
+    --amber:#FFB612; --on-amber:#000000;
+    --e-h:#64D2FF; --e-p:#DA8FFF;
+    --glass:rgba(44,44,46,.82); --glass-line:rgba(255,255,255,.1);
+    --glass-shadow:0 10px 30px rgba(0,0,0,.55);
+    --pill:rgba(255,255,255,.14);
+    --emg:#FF6961; --emg-pill:rgba(255,69,58,.14);
+    --plc-edge:rgba(255,255,255,.25); --plc-shadow:0 2px 8px rgba(0,0,0,.5);
+    --wallet-edge:rgba(255,255,255,.1);
+    --fade:rgba(0,0,0,0); --fade-to:rgba(0,0,0,.94);
+  }
+}
+
+/* ================= BASE ================= */
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{height:100%}
-body{background:var(--bg);color:var(--ink);font-family:'Barlow',sans-serif;font-size:16px;overscroll-behavior:none}
-.mono{font-family:'Roboto Mono',monospace}
-.app{max-width:520px;margin:0 auto;min-height:100%;display:flex;flex-direction:column}
-
-/* header */
-header{padding:18px 18px 14px;display:flex;align-items:center;gap:12px;position:sticky;top:0;background:linear-gradient(var(--bg) 75%,transparent);z-index:20}
-.logo-d{width:34px;height:34px;position:relative;flex:none}
-.logo-d::before{content:"";position:absolute;inset:3px;background:var(--brand);transform:rotate(45deg);border-radius:4px}
-.logo-d::after{content:"HZ";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:800 13px 'Barlow Condensed';color:#14171C;letter-spacing:.5px}
-h1{font:700 22px/1 'Barlow';letter-spacing:.2px}
-h1 span{color:var(--brand)}
-.sub{font-size:12.5px;color:var(--dim);margin-top:3px}
-.back{background:none;border:none;color:var(--brand);font:600 15px 'Barlow';padding:6px 10px 6px 0;cursor:pointer;display:none;align-items:center;gap:4px}
-main{flex:1;padding:0 18px calc(40px + env(safe-area-inset-bottom, 0px))}
-
-/* offline indicator — a strip under the header, only while actually offline */
-.offbar{display:flex;align-items:center;gap:9px;margin:0 18px 12px;padding:8px 11px;background:#2A2418;border:1px solid #5A4A1E;border-radius:10px;font-size:12.5px;color:#E8C877;line-height:1.4}
-.offbar[hidden]{display:none}
-.offbar .dot{width:7px;height:7px;border-radius:50%;background:var(--warn);flex:none;box-shadow:0 0 0 3px rgba(255,182,18,.16)}
-.offbar b{font-weight:700;color:#FFCE5C}
-.offbar .when{color:#A8936A;white-space:nowrap}
-
-/* module grid */
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
-.tile{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px 14px 14px;cursor:pointer;position:relative;transition:transform .08s ease;min-height:118px;display:flex;flex-direction:column;justify-content:space-between}
-.tile:active{transform:scale(.97)}
-.tile .td{width:26px;height:26px;position:relative;margin-bottom:10px}
-.tile .td::before{content:"";position:absolute;inset:2px;transform:rotate(45deg);border-radius:3px;background:var(--tc,#39424F)}
-.tile h3{font:700 16.5px 'Barlow';letter-spacing:.2px}
-.tile p{font-size:12px;color:var(--dim);margin-top:3px;line-height:1.35}
-.tile .cfr{font:500 10.5px 'Roboto Mono';color:var(--faint);margin-top:8px}
-.tile.stub{opacity:.62}
-.tile.stub::after{content:"NEXT";position:absolute;top:12px;right:12px;font:700 9.5px 'Barlow Condensed';letter-spacing:1.2px;color:var(--faint);border:1px solid var(--line);padding:3px 6px;border-radius:20px}
-/* No .tile.live::after badge. All six modules are live now, so a pill
-   announcing that on every tile is noise with nothing left to contrast
-   against — .tile.live still exists as a class (full opacity, vs. .stub's
-   dimming) so the "NEXT" treatment above is ready the day a seventh module
-   ships as a stub. */
-
-/* tabs */
-.tabs{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:4px;margin:6px 0 16px}
-.tabs button{flex:1;border:none;background:none;color:var(--dim);font:600 14.5px 'Barlow';padding:9px 0;border-radius:9px;cursor:pointer}
-.tabs button.on{background:var(--panel2);color:var(--ink)}
-
-/* load builder */
-.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:12px}
-.card h4{font:700 13px 'Barlow Condensed';letter-spacing:1.4px;color:var(--dim);text-transform:uppercase;margin-bottom:10px}
-.row{display:flex;gap:8px;margin-bottom:8px}
-input,select{background:var(--bg);border:1px solid var(--line);border-radius:10px;color:var(--ink);font:500 15px 'Barlow';padding:11px 12px;width:100%;outline:none}
-input:focus,select:focus{border-color:var(--brand)}
-input.mono{font:500 15px 'Roboto Mono'}
-.btn{background:var(--brand);color:#14171C;border:none;border-radius:10px;font:700 15px 'Barlow';padding:12px 16px;cursor:pointer;width:100%}
-.btn:active{opacity:.85}
-.btn.ghost{background:none;border:1px solid var(--line);color:var(--ink)}
-.hint{font-size:12px;color:var(--faint);margin-top:8px;line-height:1.4}
-.sugg{background:var(--panel2);border:1px solid var(--line);border-radius:10px;margin-top:-4px;margin-bottom:8px;max-height:180px;overflow:auto;display:none}
-.sugg div{padding:10px 12px;font-size:13.5px;border-bottom:1px solid var(--line);cursor:pointer}
-.sugg div:last-child{border-bottom:none}
-.sugg .u{font:600 13px 'Roboto Mono';color:var(--brand);margin-right:8px}
-
-/* load lines */
-.line-item{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:8px}
-.line-item .un{font:700 14px 'Roboto Mono';color:var(--brand);flex:none}
-.line-item .nm{flex:1;min-width:0}
-.line-item .nm b{display:block;font:600 14px 'Barlow';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.line-item .nm span{font-size:11.5px;color:var(--dim)}
-.line-item .wt{font:500 13px 'Roboto Mono';color:var(--ink);flex:none}
-.line-item .x{background:none;border:none;color:var(--faint);font-size:18px;cursor:pointer;flex:none;padding:2px 4px}
-.t1tag{font:700 9px 'Barlow Condensed';letter-spacing:1px;background:var(--bad);color:#fff;padding:2px 5px;border-radius:4px;margin-left:6px;vertical-align:2px}
-
-/* trailer result */
-.trailer{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:12px}
-.trailer h4{font:700 13px 'Barlow Condensed';letter-spacing:1.4px;color:var(--dim);text-transform:uppercase}
-.trailer .tr-body{background:repeating-linear-gradient(90deg,var(--panel2) 0 46px,var(--line) 46px 47px);border:2px solid var(--line);border-radius:8px;min-height:120px;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:18px;padding:20px 10px;flex-wrap:wrap}
-.tr-none{color:var(--faint);font-size:14px}
-.plc{width:86px;height:86px;position:relative;flex:none}
-.plc .dia{position:absolute;inset:6px;transform:rotate(45deg);border-radius:6px;border:2.5px solid rgba(0,0,0,.55);overflow:hidden;box-shadow:0 3px 10px rgba(0,0,0,.4)}
-.plc .fill{position:absolute;width:141.4%;height:141.4%;left:-20.7%;top:-20.7%;transform:rotate(-45deg)}
-.plc .txt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2;text-align:center}
-.plc .w{font:800 11px 'Barlow Condensed';letter-spacing:.6px;line-height:1.05;text-transform:uppercase}
-.plc .n{font:800 17px 'Barlow Condensed';margin-top:2px}
-.plc .cap{position:absolute;left:0;right:0;bottom:-16px;text-align:center;font:600 10px 'Barlow Condensed';letter-spacing:1px;color:var(--dim);text-transform:uppercase}
-
-/* reasoning */
-.why{border-left:3px solid var(--line);padding:2px 0 2px 12px;margin:10px 0}
-.why.ok{border-color:var(--ok)} .why.warn{border-color:var(--warn)} .why.bad{border-color:var(--bad)}
-.why p{font-size:14px;line-height:1.45}
-.why .cite{display:inline-block;font:500 11px 'Roboto Mono';color:var(--faint);margin-top:3px}
-.optlbl{font:700 12px 'Barlow Condensed';letter-spacing:1.4px;color:var(--brand);text-transform:uppercase;margin:14px 0 4px}
-
-/* lookup detail */
-.lk{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:14px;margin-top:10px}
-.lk .un{font:700 18px 'Roboto Mono';color:var(--brand)}
-.lk h5{font:700 17px 'Barlow';margin:4px 0 10px}
-.kv{display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid var(--line);font-size:14px}
-.kv span:first-child{color:var(--dim)}
-.kv span:last-child{font-weight:600;text-align:right}
-.pill{display:inline-block;font:700 11px 'Barlow Condensed';letter-spacing:1px;padding:3px 8px;border-radius:20px;text-transform:uppercase}
-.pill.t1{background:var(--bad);color:#fff}.pill.t2{background:var(--panel);border:1px solid var(--line);color:var(--dim)}
-
-/* stub view */
-.stubview{text-align:center;padding:60px 20px;color:var(--dim)}
-.stubview .big-d{width:64px;height:64px;position:relative;margin:0 auto 18px;opacity:.5}
-.stubview .big-d::before{content:"";position:absolute;inset:5px;transform:rotate(45deg);border-radius:6px;border:2.5px dashed var(--faint)}
-.stubview h3{font:700 20px 'Barlow';color:var(--ink);margin-bottom:8px}
-.stubview p{font-size:14px;line-height:1.5;max-width:320px;margin:0 auto}
-.stubview .cfr{font:500 12px 'Roboto Mono';color:var(--faint);margin-top:14px;display:block}
-
-.disclaimer{font-size:11.5px;color:var(--faint);line-height:1.5;padding:14px 4px 0;border-top:1px solid var(--line);margin-top:20px}
-
-/* shipping papers module */
-.desc{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:10px}
-.desc-id{font:700 10px 'Barlow Condensed';letter-spacing:1.2px;color:var(--faint);text-transform:uppercase;margin-bottom:7px}
-.bd{font:600 14px 'Roboto Mono';line-height:1.8;word-break:break-word}
-.bd .e-i{color:var(--brand)}
-.bd .e-s{color:var(--ink)}
-.bd .e-h{color:#7FD1E8}
-.bd .e-p{color:#C9A7E8}
-.bd .e-c{color:var(--faint)}
-.bd .e-gap{background:#3A2A15;border:1px dashed #6B5520;color:#E8C98A;padding:1px 6px;border-radius:4px;font-size:12.5px}
-.seq{display:flex;gap:5px;margin-top:9px;flex-wrap:wrap}
-.seq span{font:700 9px 'Barlow Condensed';letter-spacing:.9px;padding:2px 6px;border-radius:4px;background:var(--panel);border:1px solid var(--line);color:var(--dim);text-transform:uppercase}
-.pflag{border-left:3px solid var(--line);padding:5px 0 5px 11px;margin-top:10px}
-.pflag p{font-size:12.5px;line-height:1.5;color:#C6CED8}
-.pflag .cite{display:inline-block;font:500 10.5px 'Roboto Mono';color:var(--faint);margin-top:3px}
-.pflag.pih{border-color:var(--bad)}
-.pflag.gap{border-color:var(--brand)}
-.pflag.warn{border-color:var(--warn)}
-.pflag.ok{border-color:var(--ok)}
-.pflag .mono{font:500 11.5px 'Roboto Mono';color:#A9B3C0}
-.rule.a{border-color:var(--brand)}
-.rule ul{margin:6px 0 0 17px}
-.rule li{font-size:13.5px;line-height:1.55;color:#C6CED8;margin-bottom:4px}
-
-/* on the road module */
-.tierbar{border-radius:12px;padding:12px 14px;margin-bottom:12px;border:1px solid;display:flex;gap:11px;align-items:flex-start}
-.tierbar.e{background:#2A1618;border-color:#6B2429}
-.tierbar.o{background:#1B2430;border-color:#31465E}
-.tierbar .badge{font:800 10px 'Barlow Condensed';letter-spacing:1px;padding:4px 7px;border-radius:5px;flex:none;text-transform:uppercase;margin-top:1px}
-.tierbar.e .badge{background:var(--bad);color:#fff}
-.tierbar.o .badge{background:#3C566F;color:#DCE9F5}
-.tierbar>b{display:block;font:700 15px 'Barlow';margin-bottom:2px}
-.tierbar p{font-size:13px;line-height:1.45;color:#C6CED8}
-.seg{display:flex;flex-wrap:wrap;gap:6px}
-.seg button{flex:1 1 46%;border:1px solid var(--line);background:var(--bg);color:var(--dim);font:600 13px 'Barlow';padding:11px 8px;border-radius:10px;cursor:pointer;line-height:1.25;text-align:left}
-.seg button.on{background:var(--panel2);color:var(--ink);border-color:var(--brand)}
-.opshead{border-radius:12px;padding:14px;margin-bottom:12px;border:1px solid}
-.opshead.bad{background:#2A1618;border-color:#6B2429}
-.opshead.ok{background:#16241A;border-color:#265731}
-.opshead>b{display:block;font:800 16px 'Barlow';margin-bottom:5px}
-.opshead.bad b{color:#FF9CA1} .opshead.ok b{color:#7FD69B}
-.opshead p{font-size:13.5px;line-height:1.5;color:#DCE2EA}
-.rule{border-left:3px solid var(--line);padding:6px 0 6px 12px;margin:12px 0}
-.rule.stop{border-color:var(--bad)} .rule.care{border-color:var(--brand)} .rule.ok{border-color:var(--ok)}
-.rule>b{display:block;font:700 14.5px 'Barlow';margin-bottom:3px}
-.rule p{font-size:13.5px;line-height:1.5;color:#C6CED8}
-.rule .cite{display:inline-block;font:500 11px 'Roboto Mono';color:var(--faint);margin-top:5px}
-.verb{background:var(--bg);border:1px solid var(--line);border-left:2px solid var(--faint);border-radius:0 8px 8px 0;padding:8px 10px;margin-top:8px}
-.verb>b{display:block;font:500 10px 'Roboto Mono';color:var(--faint);letter-spacing:.3px;margin-bottom:4px}
-.verb p{font-size:12.5px;line-height:1.5;color:#A9B3C0;font-style:italic}
-.eyebox{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px 12px;margin-top:10px}
-.eyebox b{font:700 10px 'Barlow Condensed';letter-spacing:1.2px;color:var(--brand);display:block;margin-bottom:4px;text-transform:uppercase}
-.eyebox p{font-size:12.5px;color:#B4BDC9;line-height:1.5}
-.limitbox{border:1px dashed var(--line);border-radius:10px;padding:11px 12px;margin-top:12px}
-.limitbox p{font-size:12.5px;color:var(--dim);line-height:1.55}
-.limitbox b{color:var(--ink)}
-.onboard{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-top:8px}
-.onboard b{font:700 9.5px 'Barlow Condensed';letter-spacing:1.2px;color:var(--bad);display:block;margin-bottom:3px;text-transform:uppercase}
-.onboard.ok b{color:var(--ok)}
-.onboard p{font:600 12.5px 'Roboto Mono';color:#C6CED8;line-height:1.45}
-.refp{display:flex;gap:9px;padding:6px 0;border-top:1px solid var(--line)}
-.refp:first-child{border-top:none}
-.refp .pid{font:600 11.5px 'Roboto Mono';color:var(--brand);flex:none;min-width:52px}
-.verbfold{margin-top:8px}
-.verbfold>summary{font:500 11px 'Roboto Mono';color:var(--brand);cursor:pointer;padding:5px 0;list-style:none;opacity:.85}
-.verbfold>summary::-webkit-details-marker{display:none}
-.verbfold>summary::before{content:"▸ ";font-size:10px}
-.verbfold[open]>summary::before{content:"▾ "}
-.refp p{font-size:13px;line-height:1.55;color:#C6CED8}
-
-/* what you carry module */
-.item{display:flex;gap:11px;align-items:flex-start;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:8px}
-.item .dot{width:9px;height:9px;border-radius:50%;background:var(--brand);flex:none;margin-top:6px}
-.item .dot.cond{background:var(--expl)}
-.item .dot.off{background:var(--faint)}
-.item .in>b{display:block;font:700 14.5px 'Barlow';margin-bottom:2px}
-.item p{font-size:12.8px;line-height:1.45;color:#C6CED8}
-.item p+p{margin-top:5px}
-.item .cite{display:block;font:500 10.5px 'Roboto Mono';color:var(--faint);margin-top:4px}
-.item .in{flex:1;min-width:0}
-.cond-tag{display:inline-block;font:700 9px 'Barlow Condensed';letter-spacing:.9px;background:var(--expl);color:#14171C;padding:2px 5px;border-radius:4px;margin-left:6px;vertical-align:1.5px}
-.not{border:1px dashed var(--line);border-radius:11px;padding:12px}
-.not>b{display:block;font:700 14px 'Barlow';color:var(--ink);margin-bottom:4px}
-.not p{font-size:12.8px;color:var(--dim);line-height:1.5}
-.not p+p{margin-top:6px}
-.not .cite{display:block;font:500 10.5px 'Roboto Mono';color:var(--faint);margin-top:6px}
-
-/* the expiry tracker */
-.exp{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:8px}
-.exp .top{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.exp b{font:700 14.5px 'Barlow'}
-.exp input[type=date]{width:150px;flex:none;font:500 13px 'Roboto Mono';padding:8px 9px}
-.days{display:inline-block;font:700 12px 'Barlow Condensed';letter-spacing:.8px;padding:3px 9px;border-radius:20px;text-transform:uppercase;margin-top:9px}
-.days.ok{background:#16241A;color:#7FD79A;border:1px solid #265731}
-.days.soon{background:#2A2015;color:#FFD98A;border:1px solid #6B5520}
-.days.bad{background:#2A1618;color:#FF9CA1;border:1px solid #6B2429}
-.days.none{background:var(--panel);color:var(--faint);border:1px solid var(--line)}
-.exp .due{font:500 11.5px 'Roboto Mono';color:var(--dim);margin-left:8px}
-.exp .note{font-size:12.3px;color:var(--dim);line-height:1.5;margin-top:8px}
-.exp .note p+p{margin-top:7px}
-.exp .note b{font:700 12.3px 'Barlow';color:#C6CED8;display:inline}
-.exp .cite{display:block;font:500 10.5px 'Roboto Mono';color:var(--faint);margin-top:5px}
-
-/* incident response module — the call blocks are never gated behind a question */
-.call{display:flex;align-items:center;gap:13px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:9px;text-decoration:none;color:inherit}
-.call.urgent{background:#2A1618;border-color:#8B2E34}
-.call .n{font:800 21px 'Barlow Condensed';letter-spacing:.5px;flex:none;width:74px;color:var(--brand);line-height:1.05}
-.call.urgent .n{color:#FF7A80;font-size:30px}
-.call .t>b{display:block;font:700 15px 'Barlow'}
-.call .t span{font-size:12.5px;color:var(--dim);line-height:1.4;display:block;margin-top:2px}
-.call .t span.num{font:600 13px 'Roboto Mono';color:#C6CED8}
-.paper{border:2px dashed #6B5520;background:#2A2015;border-radius:12px;padding:14px;margin-bottom:9px}
-.paper>b{display:block;font:700 15px 'Barlow';color:#FFD98A;margin-bottom:3px}
-.paper p{font-size:13px;color:#E0CFA8;line-height:1.5}
-.paper .cite,.myth .cite{display:inline-block;font:500 11px 'Roboto Mono';color:var(--faint);margin-top:6px}
-.myth{background:#1B2430;border:1px solid #31465E;border-radius:12px;padding:14px;margin-bottom:12px}
-.myth>b{display:block;font:700 15px 'Barlow';color:#9FD0F0;margin-bottom:5px}
-.myth p{font-size:13.5px;line-height:1.55;color:#C6D6E4}
-.myth p+p{margin-top:7px}
-.carbox{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:9px}
-.carbox>b{display:block;font:700 15px 'Barlow';margin-bottom:3px}
-.carbox p{font-size:12.5px;color:var(--dim);line-height:1.45}
-.carrow{display:flex;gap:8px;margin-top:10px}
-.carrow .btn{width:auto;flex:none;padding:11px 15px}
-.linkbtn{background:none;border:none;color:var(--brand);font:600 12px 'Barlow';padding:4px 0;cursor:pointer;text-decoration:underline}
-
-/* the trigger checklist */
-.trig{display:flex;gap:11px;align-items:flex-start;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:8px;cursor:pointer}
-.trig.on{border-color:var(--bad);background:#2A1618}
-.trig.judg{border-style:dashed}
-.trig.judg.on{border-color:var(--brand);background:#2A2015}
-.trig .box{width:21px;height:21px;border-radius:5px;border:2px solid var(--faint);flex:none;margin-top:1px;display:flex;align-items:center;justify-content:center;font:800 13px 'Barlow';color:transparent}
-.trig.on .box{background:var(--bad);border-color:var(--bad);color:#fff}
-.trig.judg.on .box{background:var(--brand);border-color:var(--brand);color:#111}
-.trig p{font-size:13.5px;line-height:1.45}
-.trig .cite{display:block;font:500 10.5px 'Roboto Mono';color:var(--faint);margin-top:3px}
-.verdict{border-radius:12px;padding:15px;margin:12px 0;border:1px solid}
-.verdict.yes{background:#2A1618;border-color:#8B2E34}
-.verdict.judg{background:#2A2015;border-color:#6B5520}
-.verdict b.hd{display:block;font:800 16px 'Barlow';margin-bottom:6px}
-.verdict.yes b.hd{color:#FF9CA1} .verdict.judg b.hd{color:#FFD98A}
-.verdict p{font-size:13.5px;line-height:1.55;color:#DCE2EA;margin-bottom:7px}
-.verdict .cite{display:inline-block;font:500 11px 'Roboto Mono';color:var(--faint)}
-.verdict .call{margin:2px 0 10px}
-
-/* segregation module */
-.segchip{font:700 9.5px 'Barlow Condensed';letter-spacing:.8px;padding:2px 6px;border-radius:4px;text-transform:uppercase;flex:none}
-.segchip.sub{background:#3A2E4A;color:#C9A7E8}
-.segv{border-radius:12px;padding:14px;margin-bottom:12px;border:1px solid}
-.segv.x{background:#2A1618;border-color:#6B2429}
-.segv.o{background:#2A2415;border-color:#6B5520}
-.segv.s{background:#1E2430;border-color:#39424F}
-.segv.clear{background:#16241A;border-color:#265731}
-.segv.pend{background:#241E15;border-color:#5A4A1E}
-.segv .hd{font:800 15px 'Barlow';display:flex;align-items:center;gap:8px;margin-bottom:6px}
-.segv p{font-size:13.5px;line-height:1.5;color:#DCE2EA}
-.segv .mark{width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;font:800 13px 'Barlow Condensed';flex:none}
-.segv .mark.x{background:var(--bad);color:#fff}
-.segv .mark.o{background:var(--brand);color:#111}
-.segv .mark.s{background:#39424F;color:var(--brand)}
-.segv .mark.c{background:var(--ok);color:#fff}
-.segv .mark.p{background:var(--warn);color:#111}
-.segv .cite{display:inline-block;font:500 11px 'Roboto Mono';color:var(--faint);margin-top:8px}
-.pairline{font:500 12px 'Roboto Mono';color:var(--dim);margin-top:6px;line-height:1.45}
-.pairline.sub{color:#C9A7E8}
-.stateq{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:10px}
-.stateq p{font-size:13.5px;line-height:1.45}
-.stateq p.q{color:var(--dim);margin:5px 0 10px}
-.c1sum{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
-.c1chip{font:500 11.5px 'Roboto Mono';background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:4px 8px;color:var(--dim)}
-.c1chip b{color:var(--brand);font-weight:700}
-.c1res,.c1rules{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px;margin-top:10px}
-.c1res h5,.c1rules h5{font:700 12px 'Barlow Condensed';letter-spacing:1.3px;color:var(--dim);text-transform:uppercase;margin-bottom:8px}
-.c1res p,.c1rules p{font-size:13.5px;line-height:1.5;margin-bottom:8px}
-.c1res p:last-child,.c1rules p:last-child{margin-bottom:0}
-.c1res p.warn{color:#FFCE5C}
-.c1res .cite,.c1rules .cite{display:block;font:500 11px 'Roboto Mono';color:var(--faint);margin-top:3px}
-.matwrap{overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:10px}
-table.mat{border-collapse:collapse;font:600 10px 'Roboto Mono'}
-table.mat th,table.mat td{width:27px;height:27px;text-align:center;border:1px solid #262E39;padding:0}
-table.mat th{background:var(--panel2);color:var(--dim);font-size:8.5px;position:sticky;top:0;z-index:2}
-table.mat th.rh{position:sticky;left:0;z-index:3;width:52px;min-width:52px;text-align:left;padding-left:5px}
-table.mat td.x{background:rgba(229,72,77,.85);color:#fff}
-table.mat td.o{background:rgba(255,182,18,.85);color:#111}
-table.mat td.s{background:#39424F;color:var(--brand)}
-table.mat td.n{background:#2A3140;color:var(--brand);font-size:9px}
-table.mat td.b{background:var(--panel)}
-.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;font-size:11.5px;color:var(--dim)}
-.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
-.legend i.x{background:rgba(229,72,77,.85)} .legend i.o{background:rgba(255,182,18,.85)}
-.legend i.s{background:#39424F} .legend i.b{background:var(--panel);border:1px solid var(--line)}
-
-/* version footer — home only, tap to check for a new build */
-.verfoot{display:block;width:100%;background:none;border:none;cursor:pointer;
-  font:500 10.5px 'Roboto Mono',monospace;letter-spacing:.4px;color:var(--faint);
-  text-align:center;padding:14px 4px 2px}
-.verfoot:active{opacity:.6}
-.verfoot.live{color:var(--brand)}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--ink);font:400 17px/22px var(--ui);letter-spacing:.2px;
+  -webkit-font-smoothing:antialiased;overscroll-behavior:none;padding-top:env(safe-area-inset-top,0px)}
+a{color:var(--tint);text-decoration:none}
+b,strong{font-weight:600}
+button{font:inherit;letter-spacing:inherit;color:inherit;background:none;border:none;cursor:pointer;text-align:inherit}
+:focus-visible{outline:2px solid var(--tint);outline-offset:2px}
+.mono{font-family:var(--id);letter-spacing:0}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .hidden{display:none!important}
+.app{max-width:560px;margin:0 auto;min-height:100%;
+  padding:0 16px calc(96px + max(16px, env(safe-area-inset-bottom,0px) - 12px))}
 
-/* data loading / error states */
-.dstate{text-align:center;padding:56px 20px}
-.dstate .big-d{width:56px;height:56px;position:relative;margin:0 auto 18px}
-.dstate .big-d::before{content:"";position:absolute;inset:4px;transform:rotate(45deg);border-radius:6px;border:2.5px solid var(--line);border-top-color:var(--brand);animation:spin 1s linear infinite}
-.dstate.err .big-d::before{border:2.5px solid var(--bad);animation:none}
-.dstate.err .big-d::after{content:"!";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:800 22px 'Barlow';color:var(--bad)}
+/* ================= TOP BAR =================
+   Round glass buttons over the large title. Once the page scrolls the bar
+   frosts over and the screen's name appears small in the middle. */
+.topbar{position:sticky;top:0;z-index:30;height:56px;margin:0 -16px;padding:0 16px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;transition:background .2s,box-shadow .2s}
+.topbar.scrolled{background:var(--glass);-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);box-shadow:0 .5px 0 var(--glass-line)}
+.topbar .tt{position:absolute;left:76px;right:76px;text-align:center;font-weight:600;opacity:0;transition:opacity .15s;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+.topbar.titled .tt{opacity:1}
+.gbtn{width:44px;height:44px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;color:var(--ink);
+  background:var(--glass);-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);
+  border:.5px solid var(--glass-line);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.gbtn:active{opacity:.6}
+
+/* ================= TITLES ================= */
+.lt{font:700 34px/40px var(--ui);letter-spacing:-.4px;margin-top:2px;overflow-wrap:anywhere}
+/* the title takes focus on arrival so VoiceOver announces the screen; it is not a control, so no ring */
+.lt:focus,.lt:focus-visible{outline:none}
+.upd{display:block;width:100%;min-height:44px;margin:0 0 14px;padding:11px 16px;border-radius:14px;background:var(--card);
+  color:var(--tint);font-size:15px;line-height:20px;font-weight:600;text-align:center}
+.upd[hidden]{display:none}
+.lede{font-size:15px;line-height:20px;color:var(--dim);margin-top:4px;overflow-wrap:anywhere}
+.body{margin-top:16px}
+.sh{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:26px 4px 8px}
+.sh h2{font:600 22px/28px var(--ui);letter-spacing:-.2px}
+.sh>span{font-size:15px;line-height:20px;color:var(--dim);font-variant-numeric:tabular-nums}
+.foot{margin:-4px 16px 14px;font-size:13px;line-height:18px;color:var(--dim);letter-spacing:.25px;font-variant-numeric:tabular-nums}
+.foot.c{text-align:center}
+
+/* offline — under the title, only while actually offline */
+.offbar{display:flex;align-items:flex-start;gap:10px;margin-top:12px;padding:10px 12px;border-radius:14px;
+  background:var(--tint-soft);font-size:13px;line-height:18px;color:var(--ink2)}
+.offbar[hidden]{display:none}
+.offbar .dot{width:8px;height:8px;border-radius:50%;background:var(--tint);flex:none;margin-top:5px}
+.offbar b{color:var(--ink)}
+.offbar .when{color:var(--dim)}
+
+/* ================= CARDS AND LISTS ================= */
+.card{background:var(--card);border-radius:22px;padding:14px 16px 16px;margin-bottom:12px}
+.card>h4{font:600 17px/22px var(--ui);letter-spacing:0;margin-bottom:8px}
+.hero{border-radius:26px}
+.card p,.card li{font-size:15px;line-height:20px;color:var(--ink2)}
+.card p b,.card li b{color:var(--ink)}
+.card p+p{margin-top:8px}
+.card ul{margin:6px 0 0 18px}
+.card li{margin-bottom:4px}
+.sub{font-size:15px;line-height:20px;color:var(--dim)}
+.hint{font-size:13px;line-height:18px;color:var(--dim);letter-spacing:.25px;margin-top:10px}
+.hint b{color:var(--ink2)}
+.hint.c{text-align:center}
+.card .hint,.card p.hint{font-size:13px;line-height:18px;color:var(--dim)}
+.card .sub,.card p.sub{color:var(--dim)}
+.cite{display:block;margin-top:6px;font-size:13px;line-height:18px;color:var(--dim);letter-spacing:.25px;font-variant-numeric:tabular-nums}
+.msg{margin-top:12px;padding:10px 12px;border-radius:12px;background:var(--inset);font:500 13px/18px var(--id);color:var(--red);word-break:break-word;text-align:left}
+.msg{color:var(--red2)}
+
+/* grouped list: summary rows, line rows, key-value rows */
+.list{background:var(--card);border-radius:22px;overflow:hidden;margin-bottom:12px}
+.srow,.lrow{position:relative;width:100%;display:flex;align-items:center;gap:12px;min-height:52px;padding:8px 16px;color:var(--ink);text-align:left}
+.srow+.srow::before,.lrow+.lrow::before{content:"";position:absolute;top:0;right:0;left:58px;height:.5px;background:var(--line)}
+.lrow+.lrow::before{left:16px}
+.srow:active,.lrow:active{background:var(--fill)}
+.tile{width:30px;height:30px;border-radius:8px;flex:none;display:flex;align-items:center;justify-content:center;color:#FFFFFF}
+.tile.red{background:var(--tile-red)} .tile.blue{background:var(--tile-blue)} .tile.green{background:var(--tile-green)}
+.tile.grey{background:var(--tile-grey)} .tile.orange{background:var(--tile-orange)}
+.tl{flex:1;min-width:0}
+.tv{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;column-gap:12px}
+.tv .tl{flex:0 1 auto}
+.tv .val{margin-left:auto}
+.tl2{flex:1;min-width:0;display:flex;flex-direction:column}
+.tsub{font-size:13px;line-height:18px;color:var(--dim);letter-spacing:.25px}
+.val{display:flex;align-items:center;gap:7px;color:var(--dim);text-align:right;font-variant-numeric:tabular-nums}
+.val.bad{color:var(--red);font-weight:600}
+.qdot{width:8px;height:8px;border-radius:50%;background:var(--blue);flex:none}
+.chev{flex:none;color:var(--chev)}
+.lm{flex:1;min-width:0;display:flex;flex-direction:column;overflow-wrap:anywhere}
+.ls{font-size:13px;line-height:18px;color:var(--dim);letter-spacing:.25px;font-variant-numeric:tabular-nums}
+.ls .mono{font-size:12.5px}
+.lc{display:flex;align-items:center;gap:7px;font-size:15px;font-weight:600;color:var(--ink2);flex:none}
+.lrow.add{color:var(--tint);min-height:48px}
+.kv{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:11px 0;border-top:.5px solid var(--line)}
+.kv>span:last-child{min-width:0;overflow-wrap:anywhere}
+.kv:first-child{border-top:none}
+.kv>span:first-child{flex:none}
+.kv>span:last-child{color:var(--dim);text-align:right;min-width:0;overflow-wrap:anywhere}
+.list.kvl{padding:0 16px}
+.textbtn{display:block;width:100%;padding:12px 16px;text-align:center;color:var(--tint);font-weight:500}
+.textbtn.danger{color:var(--red)}
+.linkbtn{background:none;border:none;color:var(--tint);font-size:15px;font-weight:500;padding:6px 0}
+
+/* ================= CONTROLS ================= */
+.row{display:flex;gap:10px;margin-bottom:10px}
+.row>*{flex:1;min-width:0}
+.fl{display:block;font-size:13px;line-height:18px;color:var(--dim);letter-spacing:.25px;margin:0 4px 6px}
+input,select{width:100%;min-height:44px;padding:10px 14px;border:none;border-radius:12px;background:var(--fill);color:var(--ink);
+  font:400 17px/22px var(--ui);letter-spacing:.2px;outline:none;-webkit-appearance:none;appearance:none}
+input::placeholder{color:var(--dim);opacity:1}
+input:focus,select:focus{box-shadow:0 0 0 2px var(--tint)}
+input.mono{font:400 17px/22px var(--ui);letter-spacing:.2px;font-variant-numeric:tabular-nums}
+select{padding-right:36px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%238E8E93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center}
+.btn{display:block;width:100%;min-height:50px;padding:14px 18px;border:none;border-radius:14px;background:var(--tint);color:var(--on-tint);
+  font:600 17px/22px var(--ui);text-align:center;cursor:pointer}
+.btn:active{opacity:.8}
+.btn.ghost{background:var(--fill);color:var(--tint)}
+.btn.danger{background:var(--card);color:var(--red)}
+.body>.btn.ghost,.dstate .btn.ghost{background:var(--card)}
+.btn:disabled{opacity:.4;cursor:default}
+.card .btn{margin-top:12px}
+
+/* segmented control — sub-views inside a screen */
+.tabs{display:flex;gap:2px;padding:3px;border-radius:12px;background:var(--fill);margin-bottom:14px}
+.tabs button{flex:1 1 0;min-height:36px;padding:6px 8px;border-radius:9px;font-size:15px;line-height:20px;font-weight:500;color:var(--ink);text-align:center}
+.tabs button.on{background:var(--seg-on);box-shadow:var(--seg-shadow);font-weight:600}
+/* at 320px an equal split wraps the longer label (Where am I stopping, Separate
+   placards); sized to content, every pair fits on one line */
+@media (max-width:359px){.tabs button{font-size:14px;flex:1 1 auto;padding:6px;white-space:nowrap}
+  input,select,input.mono{font-size:16px}}
+
+/* suggestions under a search field */
+.sugg{display:none;margin-top:8px;background:var(--card);border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.12),0 0 0 .5px var(--line);overflow:hidden;max-height:300px;overflow-y:auto}
+.sugg div{padding:12px 14px;font-size:15px;line-height:20px;border-top:.5px solid var(--line);cursor:pointer}
+.sugg div:first-child{border-top:none}
+.sugg div:active{background:var(--fill)}
+.sugg .u{font:600 15px/20px var(--id);color:var(--tint);margin-right:8px}
+.search{position:relative}
+.search svg{position:absolute;left:13px;top:13px;color:var(--dim);pointer-events:none}
+.search input{border-radius:22px;padding-left:40px}
+.search input::-webkit-search-cancel-button{-webkit-appearance:none}
+
+/* ================= TAB BAR ================= */
+.tabbar{position:fixed;z-index:40;left:50%;transform:translateX(-50%);bottom:max(16px, env(safe-area-inset-bottom,0px) - 12px);
+  width:calc(min(100vw, 560px) - 32px);height:62px;padding:4px;display:flex;gap:2px;border-radius:31px;
+  background:var(--glass);-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);
+  border:.5px solid var(--glass-line);box-shadow:var(--glass-shadow)}
+.tabbar button{flex:1 1 0;min-height:48px;border-radius:27px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  font-size:10.5px;line-height:12px;font-weight:600;letter-spacing:.2px;color:var(--ink);text-align:center}
+.tabbar button.on{background:var(--pill);color:var(--tint)}
+.tabbar button.emg{color:var(--emg)}
+.tabbar button.emg.on{background:var(--emg-pill);font-weight:700}
+.fade{position:fixed;z-index:35;left:0;right:0;bottom:0;height:118px;pointer-events:none;background:linear-gradient(to bottom,var(--fade),var(--fade-to) 62%)}
+@supports not ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){
+  .tabbar,.gbtn,.topbar.scrolled{background:var(--card)}
+}
+
+/* ================= GLYPHS =================
+   The tone of a note sits in a circle at its start, never in the card
+   behind it: red for Table 1, an X or a must-stop rule; amber for a warning;
+   blue for an open question or a correction of a common belief. Notes the
+   engines mark ok, and neutral notes, carry no glyph. No status is ever a
+   green check. */
+.why.bad,.why.warn,.rule.stop,.rule.care,.opshead.bad,.verdict,.limitbox,.myth,.stateq,.pflag.pih,.pflag.gap,.pflag.warn{position:relative;padding-left:42px}
+.why.bad::before,.why.warn::before,.rule.stop::before,.rule.care::before,.opshead.bad::before,.verdict::before,
+.limitbox::before,.myth::before,.stateq::before,.pflag.pih::before,.pflag.gap::before,.pflag.warn::before{
+  content:"!";position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font:700 17px/1 var(--ui);letter-spacing:0;color:#FFFFFF;background:var(--tile-red)}
+.why.warn::before,.rule.care::before,.verdict.judg::before,.pflag.gap::before,.pflag.warn::before{background:var(--amber);color:var(--on-amber)}
+.limitbox::before,.myth::before{content:"i";background:var(--tile-blue);font-family:var(--law);font-style:italic;font-weight:600;font-size:19px}
+.stateq::before{content:"?";background:var(--tile-blue)}
+
+/* ================= NOTES, RULES, VERDICTS =================
+   Inside a card these are rows split by hairlines. Standing alone in a
+   screen they are cards of their own. */
+.why,.rule,.item,.trig{padding:12px 0;border-top:.5px solid var(--line)}
+.card>h4+.why,.card>h4+.rule,.card>h4+.item,.card>h4+.trig,.card>h4+p+.trig,.card>.why:first-child,.card>.rule:first-child{border-top:none;padding-top:4px}
+.why.bad::before,.why.warn::before,.rule.stop::before,.rule.care::before{top:12px}
+.card>h4+.why::before,.card>h4+.rule::before,.card>.why:first-child::before,.card>.rule:first-child::before{top:4px}
+.why p{font-size:15px;line-height:20px;color:var(--ink2)}
+.rule>b,.item .in>b{display:block;font-size:17px;line-height:22px;font-weight:600;color:var(--ink);margin-bottom:2px}
+.rule p+p,.rule p+ul,.rule ul+p{margin-top:6px}
+.body>.why,.body>.limitbox,.body>.rule,.body>.myth,.body>.paper,.body>.carbox,.body>.verdict,.body>.segv,.body>.opshead,.body>.tierbar{
+  background:var(--card);border:none;border-radius:22px;padding:14px 16px 16px;margin:0 0 12px}
+.body>.why.bad,.body>.why.warn,.body>.limitbox,.body>.myth,.body>.verdict,.body>.opshead.bad{padding-left:58px}
+.body>.why.bad::before,.body>.why.warn::before,.body>.limitbox::before,.body>.myth::before,.body>.verdict::before,.body>.opshead.bad::before{left:16px;top:14px}
+.limitbox p,.myth p,.paper p,.carbox p,.verdict p,.opshead p,.tierbar p,.segv p{font-size:15px;line-height:20px;color:var(--ink2)}
+.limitbox b,.myth p b,.verdict p b{color:var(--ink)}
+.card .limitbox{margin-top:12px;padding-top:12px;border-top:.5px solid var(--line)}
+.card .limitbox::before{top:12px}
+.card>.limitbox:first-child{margin-top:0;padding-top:0;border-top:none}
+.card>.limitbox:first-child::before{top:0}
+.myth>b,.paper>b,.carbox>b,.verdict b.hd,.opshead>b{display:block;font-size:17px;line-height:22px;font-weight:600;color:var(--ink);margin-bottom:4px}
+.myth p+p,.verdict p+p{margin-top:8px}
+.verdict{margin:12px 0}
+.verdict .call{margin:10px 0}
+
+/* the verbatim regulation, one tap away and set in the serif */
+.verbfold{margin-top:8px}
+.verbfold>summary{display:inline-flex;align-items:center;gap:6px;min-height:32px;font-size:13px;line-height:18px;font-weight:500;color:var(--tint);cursor:pointer;list-style:none}
+.verbfold>summary::-webkit-details-marker{display:none}
+.verbfold>summary::before{content:"";width:6px;height:6px;border-right:1.8px solid currentColor;border-bottom:1.8px solid currentColor;transform:rotate(-45deg);transition:transform .15s;margin-right:2px}
+.verbfold[open]>summary::before{transform:rotate(45deg)}
+.verb{background:var(--inset);border-radius:12px;padding:10px 12px;margin-top:6px}
+.verb>b{display:block;font-size:12px;line-height:16px;font-weight:500;color:var(--dim);letter-spacing:.25px;margin-bottom:4px;font-variant-numeric:tabular-nums}
+.verb p,.card .verb p{font:400 16px/23px var(--law);letter-spacing:0;color:var(--ink2)}
+.refp{display:flex;gap:10px;padding:8px 0;border-top:.5px solid var(--line)}
+.refp:first-of-type{border-top:none}
+.refp .pid{font:600 13px/23px var(--id);color:var(--tint);flex:none;min-width:48px}
+.refp p,.card .refp p{font:400 16px/23px var(--law);letter-spacing:0;color:var(--ink2)}
+
+/* ================= PLACARDS =================
+   A rotated square with a thin inner border in the text colour, inset like
+   the real thing. The fill is counter-rotated so each colour split sits
+   where 49 CFR puts it. Words run in Instrument Sans's condensed width. */
+.plc{--s:80px;width:var(--s);height:var(--s);position:relative;flex:none}
+.plc.s96{--s:96px}
+.plc .sq{position:absolute;left:calc(var(--s)*.146);top:calc(var(--s)*.146);width:calc(var(--s)*.708);height:calc(var(--s)*.708);
+  transform:rotate(45deg);border-radius:calc(var(--s)*.0625);border:1px solid var(--plc-edge);box-shadow:var(--plc-shadow);overflow:hidden}
+.plc .fill{position:absolute;width:141.5%;height:141.5%;left:-20.75%;top:-20.75%;transform:rotate(-45deg)}
+.plc .in{position:absolute;left:calc(var(--s)*.196);top:calc(var(--s)*.196);width:calc(var(--s)*.608);height:calc(var(--s)*.608);
+  transform:rotate(45deg);border-radius:calc(var(--s)*.04);border-width:calc(var(--s)*.017);border-style:solid}
+.plc .w{position:absolute;left:calc(var(--s)*.2);right:calc(var(--s)*.2);top:50%;transform:translateY(-50%);text-align:center;
+  font:700 calc(var(--s)*.1)/1.1 var(--ui);font-stretch:75%;letter-spacing:.03em;text-transform:uppercase}
+.plc .w.long{font-size:calc(var(--s)*.085)}
+.plc .n{position:absolute;left:0;right:0;top:calc(var(--s)*.64);text-align:center;font:700 calc(var(--s)*.19)/1 var(--ui);letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.plc.low .w{top:calc(var(--s)*.57);transform:none}
+.plc.low .n{top:calc(var(--s)*.7);font-size:calc(var(--s)*.16)}
+.plc .cap{position:absolute;left:-12px;right:-12px;top:100%;margin-top:2px;text-align:center;font-size:12px;line-height:16px;color:var(--dim);letter-spacing:.25px}
+.plcrow{display:flex;flex-wrap:wrap;justify-content:center;gap:12px 16px;margin-top:12px}
+.plcrow.capped{padding-bottom:14px}
+.plcrow.big{gap:14px 10px}
+.plcrow.capped,.plcrow.big.capped{row-gap:30px}
+/* material names are long single words often enough (TRIMETHYLHEXAMETHYLENEDIAMINES):
+   in the cards that quote them, break the word rather than the page */
+.stateq,.why,.segv,.verdict,.rule,.desc,.card h4{overflow-wrap:anywhere}
+.sw{width:12px;height:12px;position:relative;overflow:hidden;transform:rotate(45deg);border-radius:2px;border:1px solid var(--plc-edge);flex:none}
+.sw i{position:absolute;width:141.5%;height:141.5%;left:-20.75%;top:-20.75%;transform:rotate(-45deg)}
+.sw.none{border:1.5px dashed var(--dim)}
+.hh{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;column-gap:12px}
+.hh h4{font:600 17px/22px var(--ui);margin:0}
+.hh span{font-size:13px;line-height:18px;color:var(--dim);letter-spacing:.25px}
+.also{margin-top:12px;text-align:center;font-size:13px!important;line-height:18px!important;color:var(--dim)!important;letter-spacing:.25px}
+.capline{margin-top:10px;text-align:center;font-size:15px!important;color:var(--dim)!important}
+.t1tag{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:5px;background:var(--tile-red);color:#FFFFFF;
+  font:600 11px/15px var(--ui);letter-spacing:.3px;vertical-align:1px}
+
+/* look up */
+.lkhero{display:flex;flex-direction:column;align-items:center;text-align:center;padding:18px 16px}
+.lkhero h2{font:700 26px/32px var(--ui);letter-spacing:-.3px;margin-top:6px;overflow-wrap:anywhere}
+.lsub{font-size:15px;line-height:20px;color:var(--dim)}
+.lsub .mono{font-size:14px}
+.caps{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:12px}
+.caps span{padding:5px 12px;border-radius:999px;font-size:13px;line-height:16px;font-weight:600}
+.caps .c1{background:var(--tile-red);color:#FFFFFF}
+.caps .c0{background:var(--fill);color:var(--ink2)}
+.caps .co{border:1.5px solid var(--red);color:var(--red);padding:3.5px 10.5px}
+.lknone{margin-top:10px;font-size:15px;line-height:20px;color:var(--dim)}
+
+/* ================= SEGREGATION ================= */
+.line-item{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-top:.5px solid var(--line)}
+.card>h4+.line-item{border-top:none;padding-top:2px}
+.line-item .un{font:600 14px/22px var(--id);color:var(--ink);flex:none;min-width:64px}
+.line-item .nm{flex:1;min-width:0}
+.line-item .nm b{display:block;font-size:17px;line-height:22px;font-weight:500;overflow-wrap:anywhere}
+.line-item .nm span{display:block;font-size:13px;line-height:18px;color:var(--dim);letter-spacing:.25px}
+.segchip{flex:none;padding:2px 8px;border-radius:999px;background:var(--fill);font-size:12px;line-height:18px;font-weight:600;color:var(--ink2)}
+.segv{margin-bottom:12px}
+.card .segv{margin:12px 0 0;padding-top:12px;border-top:.5px solid var(--line)}
+.segv .hd{display:flex;align-items:center;gap:12px;font-size:17px;line-height:22px;font-weight:600;margin-bottom:6px}
+.segv .mark{width:28px;height:28px;border-radius:8px;border:1.8px solid var(--ink2);color:var(--ink2);display:flex;align-items:center;justify-content:center;
+  font:700 14px/1 var(--id);flex:none}
+.segv .mark.x{border-color:var(--red);color:var(--red)}
+.segv .mark.s{border-color:var(--amber);color:var(--amber)}
+.segv .mark.p{border:none;border-radius:50%;background:var(--tile-blue);color:#FFFFFF;font-family:var(--ui);font-size:17px}
+.segv .mark.c{display:none}
+.pairline{margin-top:6px;font:500 13px/18px var(--id);color:var(--dim)}
+.pairline b{color:var(--ink2)}
+.pairline.sub{font-family:var(--ui);letter-spacing:.2px;font-style:italic}
+.stateq{padding:12px 0 12px 42px;border-top:.5px solid var(--line)}
+.card>h4+.stateq{border-top:none;padding-top:4px}
+.card>h4+.stateq::before{top:4px}
+.stateq::before{top:12px}
+.stateq p.q{margin:4px 0 10px;color:var(--dim)}
+.stateq .row{display:flex;gap:2px;padding:3px;margin:0;border-radius:999px;background:var(--fill)}
+.stateq .row .btn,.stateq .row .btn.ghost{min-height:38px;padding:8px;border-radius:999px;background:transparent;color:var(--ink);font-weight:500;margin:0}
+.c1sum{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.c1chip{padding:4px 10px;border-radius:999px;background:var(--fill);font:500 13px/18px var(--id);color:var(--ink2)}
+.c1chip b{color:var(--ink);font-weight:700}
+.c1res,.c1rules{background:var(--inset);border-radius:14px;padding:12px 14px;margin-top:12px}
+.c1res h5,.c1rules h5{font:600 15px/20px var(--ui);margin-bottom:6px}
+.c1res p,.c1rules p{margin-bottom:8px}
+.c1res p:last-child,.c1rules p:last-child{margin-bottom:0}
+.c1res p.warn{color:var(--ink)}
+.matwrap{overflow:auto;-webkit-overflow-scrolling:touch;border-radius:12px;border:.5px solid var(--line)}
+table.mat{border-collapse:collapse;font:600 11px/1 var(--id)}
+table.mat th,table.mat td{width:28px;height:28px;text-align:center;border:.5px solid var(--line);padding:0}
+table.mat th{background:var(--inset);color:var(--dim);font-size:9.5px;position:sticky;top:0;z-index:2}
+table.mat th.rh{position:sticky;left:0;z-index:3;width:54px;min-width:54px;text-align:left;padding-left:6px}
+table.mat tr:first-child th:not(.rh){height:auto;padding:6px 0;writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;text-align:left}
+table.mat td.x{background:var(--tile-red);color:#FFFFFF}
+table.mat td.o{background:#FFB612;color:#111111}
+table.mat td.s{background:var(--tile-grey);color:#FFFFFF}
+table.mat td.n{background:var(--tile-blue);color:#FFFFFF;font-size:10px}
+table.mat td.b{background:var(--card)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:13px;line-height:18px;color:var(--dim)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.legend i.x{background:var(--tile-red)} .legend i.o{background:#FFB612}
+.legend i.s{background:var(--tile-grey)} .legend i.n{background:var(--tile-blue)} .legend i.b{background:var(--card);box-shadow:inset 0 0 0 1px var(--line)}
+
+/* ================= SHIPPING PAPERS ================= */
+.desc{background:var(--inset);border-radius:14px;padding:12px 14px;margin-top:10px}
+.card>h4+.desc{margin-top:4px}
+.desc-id{font-size:12px;line-height:16px;font-weight:600;color:var(--dim);letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px}
+.bd{font:600 15px/26px var(--id);word-break:break-word}
+.bd .e-i{color:var(--tint)} .bd .e-s{color:var(--ink)} .bd .e-h{color:var(--e-h)} .bd .e-p{color:var(--e-p)} .bd .e-c{color:var(--dim)}
+.bd .e-gap{padding:1px 6px;border-radius:6px;border:1px dashed var(--tint);color:var(--tint);font-size:13px}
+.seq{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.seq span{padding:2px 8px;border-radius:999px;background:var(--card);font-size:11px;line-height:16px;font-weight:600;color:var(--dim);letter-spacing:.3px}
+.pflag{padding:10px 0 0;margin-top:10px;border-top:.5px solid var(--line)}
+.pflag.pih,.pflag.gap,.pflag.warn{padding-left:32px}
+.pflag.pih::before,.pflag.gap::before,.pflag.warn::before{width:22px;height:22px;font-size:13px;top:10px}
+.pflag p{font-size:14px!important;line-height:19px!important}
+.pflag .mono{font-size:13px}
+
+/* ================= ON THE ROAD ================= */
+.tierbar{display:flex;gap:12px;align-items:flex-start}
+.tierbar .badge{flex:none;margin-top:1px;padding:3px 9px;border-radius:999px;font-size:12px;line-height:16px;font-weight:700;letter-spacing:.3px;color:#FFFFFF}
+.tierbar.e .badge{background:var(--tile-red)}
+.tierbar.o .badge{background:var(--tile-blue)}
+.tierbar>div>b{display:block;font-size:17px;line-height:22px;font-weight:600;margin-bottom:2px}
+.seg{display:flex;flex-direction:column;margin:4px -16px 0}
+.seg button{position:relative;display:flex;align-items:center;gap:12px;min-height:52px;padding:10px 16px 10px 52px;font-size:15px;line-height:20px;color:var(--ink);text-align:left}
+.seg button+button{border-top:.5px solid var(--line)}
+.seg button::before{content:"";position:absolute;left:16px;top:50%;width:22px;height:22px;margin-top:-11px;border-radius:50%;box-shadow:inset 0 0 0 2px var(--chev)}
+.seg button.on{font-weight:600}
+.seg button.on::before{box-shadow:inset 0 0 0 2px var(--tint),inset 0 0 0 6px var(--card),inset 0 0 0 11px var(--tint)}
+.opshead>b{font-size:20px;line-height:25px}
+.eyebox{background:var(--inset);border-radius:14px;padding:12px 14px;margin-top:12px}
+.eyebox>b{display:block;font-size:15px;line-height:20px;font-weight:600;margin-bottom:4px}
+.onboard{background:var(--inset);border-radius:12px;padding:8px 12px;margin-top:8px}
+.onboard>b{display:block;font-size:12px;line-height:16px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--red2);margin-bottom:2px}
+.onboard.ok>b{color:var(--dim)}
+.onboard p{font-family:var(--id)!important;font-size:14px!important;letter-spacing:0}
+
+/* ================= WHAT YOU CARRY ================= */
+.item{display:flex;gap:12px;align-items:flex-start}
+.item .dot{width:8px;height:8px;border-radius:50%;background:var(--tint);flex:none;margin-top:8px}
+.item .dot.cond{background:var(--blue)}
+.item .dot.off{background:var(--chev)}
+.item .in{flex:1;min-width:0}
+.cond-tag{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:var(--fill);font-size:12px;line-height:16px;font-weight:600;color:var(--ink2);vertical-align:2px}
+.not{background:var(--inset);border-radius:14px;padding:12px 14px}
+.not>b{display:block;font-size:17px;line-height:22px;font-weight:600;margin-bottom:4px}
+
+/* What expires — a stack of cards, like a wallet. One is open at a time;
+   the rest show their name and how long is left. The date fields are always
+   in the page, just folded away on a closed card. */
+.wallet{padding-bottom:4px}
+.wcard{position:relative;border-radius:18px;background:var(--card);box-shadow:0 -2px 10px rgba(0,0,0,.14),0 0 0 .5px var(--wallet-edge);overflow:hidden}
+.wcard+.wcard{margin-top:-14px}
+.wh{width:100%;min-height:64px;display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:6px 10px;padding:14px 16px 26px;text-align:left;
+  font-size:17px;line-height:22px;font-weight:600}
+.wcard:last-child .wh{padding-bottom:14px;min-height:52px}
+.wcard.open .wh{padding-bottom:12px;min-height:0}
+.w-hme .wh{background:#FFB612;color:#111111}
+.w-med .wh{background:#0A5BD3;color:#FFFFFF}
+.w-cdl .wh{background:#3A3A3C;color:#FFFFFF}
+.w-train .wh{background:#D1D1D6;color:#111111}
+.wb{display:none;padding:14px 16px 30px}
+.wcard:last-child .wb{padding-bottom:16px}
+.wcard.open .wb{display:block}
+.wk{font-size:13px;line-height:18px;color:var(--dim);letter-spacing:.25px}
+.wb input[type=date]{margin-top:2px;min-height:48px;padding:6px 12px;font:700 26px/32px var(--ui);letter-spacing:-.3px;font-variant-numeric:tabular-nums;background:var(--fill)}
+.wb .due{display:block;margin-top:8px;font-size:15px;line-height:20px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.wb .note{margin-top:10px}
+.wb .note p{font-size:15px;line-height:20px;color:var(--ink2)}
+.wb .note p+p{margin-top:8px}
+.days{flex:none;padding:3px 10px;border-radius:999px;font-size:13px;line-height:18px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.w-hme .days,.w-train .days{background:rgba(0,0,0,.12);color:#111111}
+.w-med .days{background:rgba(0,0,0,.22);color:#FFFFFF}
+.w-cdl .days{background:rgba(255,255,255,.22);color:#FFFFFF}
+.wcard .days.soon{background:#FFFFFF;color:#111111;box-shadow:0 0 0 .5px rgba(0,0,0,.2)}
+.wcard .days.bad{background:#D70015;color:#FFFFFF;box-shadow:0 0 0 1px rgba(255,255,255,.7)}
+
+/* ================= EMERGENCY ================= */
+.call{display:grid;grid-template-columns:1fr auto;align-items:center;column-gap:12px;background:var(--card);border-radius:22px;padding:12px 12px 12px 16px;margin-bottom:12px;color:var(--ink);text-decoration:none}
+.call .n{grid-column:1;font-size:13px;line-height:18px;color:var(--dim);letter-spacing:.25px}
+.call .t{grid-column:1;min-width:0}
+.call::after{content:"";grid-column:2;grid-row:1 / span 2;width:44px;height:44px;border-radius:50%;background-color:var(--tint);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5.2 3.5h3.3l1.6 4.1-2.1 1.4a11 11 0 005.9 5.9l1.4-2.1 4.1 1.6v3.3a2 2 0 01-2.2 2A16.5 16.5 0 013.2 5.7a2 2 0 012-2.2z' fill='%23fff' stroke='%23fff' stroke-width='1.2' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-size:20px 20px;background-repeat:no-repeat;background-position:center}
+@media (prefers-color-scheme:dark){
+  .call::after{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5.2 3.5h3.3l1.6 4.1-2.1 1.4a11 11 0 005.9 5.9l1.4-2.1 4.1 1.6v3.3a2 2 0 01-2.2 2A16.5 16.5 0 013.2 5.7a2 2 0 012-2.2z' fill='%23000' stroke='%23000' stroke-width='1.2' stroke-linejoin='round'/%3E%3C/svg%3E")}
+}
+.call .t>b{display:block;font-size:17px;line-height:22px;font-weight:600}
+.call .t span{display:block;font-size:15px;line-height:20px;color:var(--ink2)}
+.call .t span.num{font-size:17px;line-height:22px;color:var(--ink);font-variant-numeric:tabular-nums}
+.call.urgent{display:flex;align-items:center;gap:14px;min-height:84px;padding:14px 18px;border-radius:24px;background:var(--tile-red);color:#FFFFFF;box-shadow:0 6px 18px rgba(215,0,21,.28)}
+.call.urgent::before{content:"";width:28px;height:28px;flex:none;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5.2 3.5h3.3l1.6 4.1-2.1 1.4a11 11 0 005.9 5.9l1.4-2.1 4.1 1.6v3.3a2 2 0 01-2.2 2A16.5 16.5 0 013.2 5.7a2 2 0 012-2.2z' fill='%23fff' stroke='%23fff' stroke-width='1.2' stroke-linejoin='round'/%3E%3C/svg%3E") center/28px no-repeat}
+.call.urgent::after{display:none}
+.call.urgent .n{font:700 30px/34px var(--ui);letter-spacing:-.3px;color:#FFFFFF;flex:none}
+.call.urgent .t>b{font-size:17px;line-height:22px}
+.call.urgent .t span{color:#FFFFFF}
+.verdict .call{background:var(--inset)}
+.paper{position:relative;padding-left:58px!important}
+.paper::before{content:"";position:absolute;left:16px;top:14px;width:30px;height:30px;border-radius:8px;background-color:var(--tile-green);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3h8l5 5v13H6z'/%3E%3Cpath d='M14 3v5h5M9 13h7M9 17h7'/%3E%3C/svg%3E");
+  background-size:16px 16px;background-repeat:no-repeat;background-position:center}
+.carbox p{margin-top:2px}
+.carrow{display:flex;gap:10px;margin-top:10px}
+.carrow .btn{width:auto;flex:none;margin:0;min-height:44px;padding:10px 18px}
+.trig{display:flex;gap:12px;align-items:flex-start;cursor:pointer}
+.trig .box{width:24px;height:24px;border-radius:7px;flex:none;margin-top:0;display:flex;align-items:center;justify-content:center;
+  box-shadow:inset 0 0 0 2px var(--chev);color:transparent;font-size:15px;font-weight:700}
+.trig.judg .box{box-shadow:none;border:2px dashed var(--chev)}
+.trig.on .box{box-shadow:none;border:none;background:var(--tile-red);color:#FFFFFF}
+.trig.judg.on .box{background:var(--amber);color:var(--on-amber)}
+.trig p{font-size:15px;line-height:20px;color:var(--ink2)}
+.trig .cite{margin-top:2px}
+
+/* ================= FOOTER, LOADING ================= */
+.disclaimer{margin:22px 4px 0;font-size:13px;line-height:18px;color:var(--dim);letter-spacing:.25px}
+.verfoot{display:block;width:100%;padding:14px 4px 4px;text-align:center;font-size:13px;line-height:18px;letter-spacing:.25px;
+  color:var(--dim);font-variant-numeric:tabular-nums}
+.verfoot:active{opacity:.6}
+.verfoot.live{color:var(--tint);font-weight:600}
+.dstate{text-align:center;padding:64px 12px 24px}
+.dstate .big-d{width:56px;height:56px;position:relative;margin:0 auto 20px}
+.dstate .big-d::before{content:"";position:absolute;inset:6px;transform:rotate(45deg);border-radius:8px;border:3px solid var(--fill);border-top-color:var(--tint);animation:spin 1s linear infinite}
+.dstate.err .big-d::before{border-color:var(--red);animation:none}
+.dstate.err .big-d::after{content:"!";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:700 22px/1 var(--ui);color:var(--red)}
 @keyframes spin{to{transform:rotate(405deg)}}
-.dstate h3{font:700 19px 'Barlow';margin-bottom:8px}
-.dstate p{font-size:14px;line-height:1.5;color:var(--dim);max-width:340px;margin:0 auto}
-.dstate .msg{font:500 12.5px 'Roboto Mono';color:var(--bad);background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin:14px auto 0;max-width:340px;word-break:break-word;text-align:left}
-.dstate .btn{max-width:220px;margin:18px auto 0}
+.dstate h3{font:600 22px/28px var(--ui);margin-bottom:8px}
+.dstate p{font-size:15px;line-height:20px;color:var(--dim);max-width:340px;margin:0 auto}
+.dstate .msg{max-width:340px;margin:14px auto 0;background:var(--card)}
+.dstate .btn{max-width:280px;margin:16px auto 0}
+.dstate .btn+.btn{margin-top:10px}
+@media (prefers-reduced-motion:reduce){*,*::before{transition:none!important;animation-duration:0s!important}}
 </style>
 </head>
 <body>
 <div class="app">
-  <header>
-    <button class="back" id="backBtn" onclick="go('home')">‹ Back</button>
-    <div class="logo-d" id="logoD"></div>
-    <div>
-      <h1>Haz<span>Post</span></h1>
-      <div class="sub" id="subTitle">Hazmat tools built for the driver's seat</div>
-    </div>
-  </header>
-  <div class="offbar" id="offBar" hidden></div>
+  <div class="topbar" id="topBar"></div>
   <main id="main"></main>
 </div>
+<div class="fade" aria-hidden="true"></div>
+<nav class="tabbar" id="tabBar" aria-label="Tabs"></nav>
 
 <script>
-/* The build a driver is running, shown in the home footer.
+/* The build a driver is running, shown at the foot of the Load screen.
    Bump this and VERSION in sw.js together on every deploy — see README. */
-const APP_VERSION = "0.9.3";
+const APP_VERSION = "0.10.0";
 
 /* ---------------- DATA: the 172.101 table, fetched from hazmat.json ---------------- */
 const DATA_URL = "hazmat.json";
@@ -399,6 +564,7 @@ async function loadData(){
      numbers are not, and a failure to load the 172.101 table must not be
      able to shut the door on them. */
   await loadIncident();
+  if(tab==="emergency") render();
   try{
     const res = await fetch(DATA_URL, {cache:"no-cache"});
     if(!res.ok) throw new Error(`the server answered ${res.status} ${res.statusText||""}`.trim());
@@ -699,13 +865,14 @@ function verFootText(){
   }
 }
 
-/* The home view is rebuilt by render() on every navigation, so the footer is
-   drawn from verState each time rather than being written once at startup. */
+/* The Load screen is rebuilt by render() on every navigation, so the footer
+   is drawn from verState each time rather than being written once at startup. */
 function paintVersionFoot(){
+  const live = verState==="ready" || verState==="updating";
   const el = document.getElementById('verFoot');
-  if(!el) return;
-  el.textContent = verFootText();
-  el.classList.toggle('live', verState==="ready" || verState==="updating");
+  if(el){ el.textContent = verFootText(); el.className = "verfoot" + (live ? " live" : ""); }
+  const b = document.getElementById('verBanner');
+  if(b){ b.textContent = verFootText(); b.hidden = !live; }
 }
 
 /* The driver's explicit tap — the only path that is allowed to reload. */
@@ -865,20 +1032,26 @@ function restoreLoad(){
   if(!raw) return;
   let doc;
   try{ doc = JSON.parse(raw); }catch(e){ return; }
-  const lines = Array.isArray(doc && doc.lines) ? doc.lines : [];
+  /* Anything that is not what saveLoad() writes is ignored rather than
+     trusted: a saved load that throws here would stop the app on every
+     launch until the phone's storage was cleared. */
+  if(!doc || typeof doc!=="object") return;
+  const lines = Array.isArray(doc.lines) ? doc.lines : [];
   if(OPS_PLACES.some(x=>x.k===doc.opsPlace)) opsPlace = doc.opsPlace;
   const dropped = [];
   load = lines.map(l=>{
+    if(!l || typeof l!=="object") return null;
     const m = HM.find(x=>x.id===l.id);
-    if(!m || !(l.wt>0)){ dropped.push(l.id); return null; }
-    return {...m, wt:l.wt, fac:l.fac||"A", ...(l.st==="liquid"||l.st==="solid" ? {st:l.st} : {})};
+    const wt = Number(l.wt);
+    if(!m || !(Number.isFinite(wt) && wt>0)){ dropped.push(l.id); return null; }
+    return {...m, wt, fac:["A","B","C"].includes(l.fac) ? l.fac : "A", ...(l.st==="liquid"||l.st==="solid" ? {st:l.st} : {})};
   }).filter(Boolean);
   if(dropped.length){
     restoreNote = `${dropped.length} saved line${dropped.length===1?" is":"s are"} no longer in the 172.101 table and ${dropped.length===1?"was":"were"} dropped. Re-check your papers.`;
   }
-  /* The load comes back; the view does not. Opening the app lands on the
-     module grid every time, so a driver picks the tool for the job in front
-     of them rather than resuming wherever they happened to stop. */
+  /* The load comes back; the screen does not. Opening the app lands on Load
+     every time — the placards for this load on top, every check one tap
+     below — rather than resuming wherever the driver happened to stop. */
 }
 
 /* ---------------- CARRIER SAFETY DESK NUMBER ----------------
@@ -980,157 +1153,353 @@ function clearLoad(){
   if(!confirm(`Clear all ${n} line${n===1?"":"s"}?\n\nThis also erases the load saved on this phone — it will not come back when you reopen HazPost.`)) return;
   load = []; restoreNote = ""; opsPlace = null; commit();
 }
-let view = "home", plcTab = "builder", segTab = "load", opsTab = "where", papTab = "check", incTab = "now", carTab = "stop";
+/* ---------------- NAVIGATION ----------------
+   Four tabs, organised by what a driver is doing rather than by CFR part.
+   Load is the front door: the load off the paper, the placards it needs,
+   and one summary row per check, each opening its detail screen. Look Up is
+   any ID number. Carry is what expires and what is on you at a stop.
+   Emergency is who to call.
+
+   Emergency is one tap from every screen, including the loading and error
+   screens, and tapping it always lands on the phone numbers with 911 first —
+   whatever was open in it last time. */
+let tab = "load", screen = "", opsTab = "where", papTab = "check", incTab = "now";
 let incPicked = {};    /* trigger checklist, this session only */
 let opsPlace = null;   /* where the truck is stopping — rides with the load */
+let plcOpt = "separate";  /* Placards screen: the separate set, or the DANGEROUS option */
+let lineAt = -1;          /* the line open on the line screen */
+let carOpen = null;       /* the card open in What expires; null until the driver picks */
+let lkId = null;          /* the material shown in Look Up */
 
-/* ---------------- ROUTER ---------------- */
-const MODULES = [
- {id:"placards", tc:"var(--brand)", t:"Placarding", d:"Build your load, get the placard set for the trailer", cfr:"49 CFR 172.504", live:true},
- {id:"seg", tc:"var(--flam)", t:"Segregation", d:"What can and can't ride together", cfr:"49 CFR 177.848", live:true},
- {id:"ops", tc:"var(--wet)", t:"On the Road", d:"Attendance, parking, fueling, tire checks", cfr:"49 CFR Part 397", live:true},
- {id:"papers", tc:"var(--gas)", t:"Shipping Papers", d:"What must be on them, where they must sit", cfr:"49 CFR 177.817", live:true},
- {id:"incident", tc:"var(--expl)", t:"Incident Response", d:"When and who you must call, immediately", cfr:"49 CFR 171.15", live:true},
- {id:"carry", tc:"var(--tox)", t:"What You Carry", d:"What is on you at a stop, and what expires", cfr:"49 CFR 383.93", live:true},
+const ERG_LINK = "https://www.phmsa.dot.gov/training/hazmat/erg/emergency-response-guidebook-erg";
+
+/* Inline icons. aria-hidden: every control that carries one also carries
+   words or an aria-label. */
+const svg = (w, body, extra) => `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"${extra||""}>${body}</svg>`;
+const PHONE_PATH = `<path d="M5.2 3.5h3.3l1.6 4.1-2.1 1.4a11 11 0 005.9 5.9l1.4-2.1 4.1 1.6v3.3a2 2 0 01-2.2 2A16.5 16.5 0 013.2 5.7a2 2 0 012-2.2z"/>`;
+const ICON = {
+  load:    svg(24, `<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/>`, ` stroke-width="1.8"`),
+  lookup:  svg(24, `<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/>`, ` stroke-width="1.9"`),
+  carry:   svg(24, `<rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3 10h18"/>`, ` stroke-width="1.8"`),
+  phone:   svg(24, PHONE_PATH, ` stroke-width="1.8"`),
+  phoneOn: svg(24, PHONE_PATH, ` stroke-width="1.2" fill="currentColor"`),
+  plus:    svg(21, `<path d="M12 5v14M5 12h14"/>`, ` stroke-width="2"`),
+  plusSm:  svg(18, `<path d="M12 5v14M5 12h14"/>`, ` stroke-width="2.2"`),
+  back:    `<svg width="11" height="18" viewBox="0 0 11 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2L2 9l7 7"/></svg>`,
+  chev:    `<svg class="chev" width="7" height="12" viewBox="0 0 7 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l5 5-5 5"/></svg>`,
+  ext:     svg(14, `<path d="M14 4h6v6M20 4l-9 9M19 14v6H4V5h6"/>`, ` stroke-width="2.4" class="chev"`),
+  diamond: svg(16, `<path d="M12 3l9 9-9 9-9-9z"/>`, ` stroke-width="2.4"`),
+  pair:    svg(17, `<rect x="2.5" y="6" width="7.5" height="12" rx="1.5"/><rect x="14" y="6" width="7.5" height="12" rx="1.5"/>`, ` stroke-width="2.2"`),
+  doc:     svg(16, `<path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5M9 13h7M9 17h7"/>`, ` stroke-width="2.2"`),
+  park:    svg(16, `<path d="M8 20V4h5a4.5 4.5 0 010 9H8"/>`, ` stroke-width="2.6"`),
+  book:    svg(16, `<path d="M4 5.5A2.5 2.5 0 016.5 3H20v15H6.5A2.5 2.5 0 004 20.5z"/><path d="M4 20.5A2.5 2.5 0 016.5 18H20v3H6.5"/>`, ` stroke-width="2.2"`),
+  grid:    svg(16, `<rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="M3.5 9.5h17M3.5 15h17M9.5 3.5v17M15 3.5v17"/>`, ` stroke-width="2.2"`),
+  search:  svg(18, `<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/>`, ` stroke-width="2.2"`),
+  ask:     svg(16, `<path d="M9.2 9a2.9 2.9 0 015.6 1c0 2-2.8 2.6-2.8 4.4"/><path d="M12 18.2v.1"/>`, ` stroke-width="2.4"`),
+  school:  svg(16, `<path d="M2.5 9L12 4.5 21.5 9 12 13.5z"/><path d="M6.5 11v4.5c1.6 1.5 3.4 2.2 5.5 2.2s3.9-.7 5.5-2.2V11"/>`, ` stroke-width="2.2"`),
+};
+
+const TABS = [
+  {k:"load",      t:"Load",      icon:"load"},
+  {k:"lookup",    t:"Look Up",   icon:"lookup"},
+  {k:"carry",     t:"Carry",     icon:"carry"},
+  {k:"emergency", t:"Emergency", icon:"phone"},
 ];
-/* Every tile is live. STUBTXT is kept for the next module that is not. */
-const STUBTXT = {};
 
-function go(v){ view=v; render(); window.scrollTo(0,0); }
+function goTab(t){
+  tab = t; screen = "";
+  if(t==="emergency") incTab = "now";
+  arrive();
+}
+/* Where each tab's root screen was, so Back returns the driver to the row
+   they opened rather than to the top. */
+const rootAt = {};
+function openScreen(t, s){
+  if(tab===t && screen==="" && !(t==="emergency" && incTab!=="now")){
+    const ae = document.activeElement;
+    rootAt[t] = {y: window.scrollY || 0, from: ae && ae.getAttribute ? ae.getAttribute('onclick') : null};
+  }
+  tab = t;
+  if(t==="emergency"){ incTab = s || "now"; screen = ""; }
+  else screen = s || "";
+  /* the Placards screen opens on the specific set every time — the choice
+     of DANGEROUS belongs to one look at one load */
+  if(screen==="placards") plcOpt = "separate";
+  arrive();
+}
+function back(){
+  if(tab==="emergency") incTab = "now";
+  screen = "";
+  const at = rootAt[tab] || {};
+  arrive(at.y, at.from);
+}
+/* A new screen: draw it, start at the top (or where Back left it), and put
+   focus on its title so a screen reader announces where the driver has
+   landed — or, coming back, on the row that was opened. */
+function arrive(y, from){
+  render(); window.scrollTo(0, y || 0); paintTop();
+  if(from && refocus(from)) return;
+  const h = document.querySelector ? document.querySelector('#main .lt') : null;
+  if(h){ h.setAttribute('tabindex','-1'); try{ h.focus({preventScroll:true}); }catch(e){} }
+}
+/* Focus the control in #main that runs this onclick, if the screen has one. */
+function refocus(onclick){
+  if(!onclick || !document.querySelectorAll) return false;
+  const el = [...document.querySelectorAll('#main [onclick]')].find(e=>e.getAttribute('onclick')===onclick);
+  if(!el) return false;
+  try{ el.focus({preventScroll:true}); }catch(e){}
+  return true;
+}
+
+function paintTabs(){
+  const el = document.getElementById('tabBar');
+  if(!el) return;
+  el.innerHTML = TABS.map(x=>{
+    const on = tab===x.k, emg = x.k==="emergency";
+    return `<button type="button" class="${emg?"emg":""}${on?" on":""}"${on?' aria-current="page"':""} onclick="goTab('${x.k}')">${
+      emg && on ? ICON.phoneOn : ICON[x.icon]}<span>${x.t}</span></button>`;
+  }).join("");
+}
+
+/* The bar above the large title: a back button on pushed screens, actions on
+   the right, and the screen's name, shown once the large title scrolls away. */
+let topTitle = "";
+function setTop(backTo, title, right){
+  topTitle = title || "";
+  const el = document.getElementById('topBar');
+  if(!el) return;
+  el.innerHTML = (backTo
+      ? `<button type="button" class="gbtn" onclick="back()" aria-label="Back to ${esc(backTo)}">${ICON.back}</button>`
+      : `<span></span>`) +
+    `<span class="tt" aria-hidden="true">${esc(topTitle)}</span>` + (right || `<span></span>`);
+}
+function paintTop(){
+  const el = document.getElementById('topBar');
+  if(!el) return;
+  const y = window.scrollY || 0;
+  el.className = "topbar" + (y > 4 ? " scrolled" : "") + (y > 44 && topTitle ? " titled" : "");
+}
+
+/* A large-title screen, with the offline strip under the title on every
+   screen but Emergency's, where nothing may sit above 911. */
+function page(title, body, opts){
+  const o = opts || {};
+  return `<h1 class="lt">${esc(title)}</h1>` +
+    (o.lede ? `<p class="lede">${o.lede}</p>` : "") +
+    (o.offline===false ? "" : `<div class="offbar" id="offBar" hidden></div>`) +
+    `<div class="body">${body}</div>`;
+}
 
 function render(){
-  const m=document.getElementById('main');
-  const back=document.getElementById('backBtn'), logo=document.getElementById('logoD'), sub=document.getElementById('subTitle');
-  back.style.display = view==="home" ? "none":"flex";
-  logo.style.display = view==="home" ? "block":"none";
+  const m = document.getElementById('main');
+  /* A toggle, a tick or a segmented control redraws the screen in place.
+     Put focus back on the same control afterwards, so a keyboard or
+     VoiceOver user keeps their place. */
+  const ae = document.activeElement;
+  const again = ae && m && m.contains && m.contains(ae) && ae.getAttribute ? ae.getAttribute('onclick') : null;
+  paintTabs();
 
   /* The rest of the app is data-driven and nothing renders until hazmat.json
-     is in hand. Incident Response is the exception: it needs no material
-     table, and a driver reaching for a phone number does not care that the
-     172.101 fetch failed. */
-  if(dataState!=="ready" && view!=="incident"){
-    back.style.display="none"; logo.style.display="block";
+     is in hand. Emergency is the exception: it needs no material table, and a
+     driver reaching for a phone number does not care that the 172.101 fetch
+     failed. */
+  if(dataState!=="ready" && tab!=="emergency"){
+    setTop("", "", "");
     if(dataState==="loading"){
-      sub.textContent="Loading the 172.101 table…";
-      m.innerHTML=`<div class="dstate"><div class="big-d"></div>
+      m.innerHTML = `<div class="dstate"><div class="big-d"></div>
         <h3>Loading material data</h3>
         <p>Reading the 49 CFR 172.101 hazardous materials table from <span class="mono">hazmat.json</span>.</p></div>`;
     } else {
-      sub.textContent="Material data unavailable";
-      m.innerHTML=`<div class="dstate err"><div class="big-d"></div>
+      m.innerHTML = `<div class="dstate err"><div class="big-d"></div>
         <h3>Couldn't load the material data</h3>
         <p>HazPost can't tell you what to hang on the trailer without the 172.101 table, so it won't guess. Check your connection and try again.</p>
         <div class="msg">${esc(DATA_URL)} — ${esc(dataError)}</div>
         <button class="btn" onclick="loadData()">Try again</button>
-        <button class="btn ghost" style="margin-top:9px" onclick="go('incident')">Incident Response — who to call</button>
-        <p style="margin-top:16px;font-size:12.5px">If you opened this file straight off the disk, your browser blocks the fetch. Serve the folder over HTTP instead.</p></div>`;
+        <button class="btn ghost" onclick="goTab('emergency')">Emergency — who to call</button>
+        <p style="margin-top:16px">If you opened this file straight off the disk, your browser blocks the fetch. Serve the folder over HTTP instead.</p></div>`;
     }
     return;
   }
 
-  if(view==="home"){
-    sub.textContent="Hazmat tools built for the driver's seat";
-    m.innerHTML = `<div class="grid">`+MODULES.map(x=>
-      `<div class="tile ${x.live?'live':'stub'}" style="--tc:${x.tc}" onclick="go('${x.id}')">
-        <div><div class="td"></div><h3>${x.t}</h3><p>${x.d}</p></div>
-        <div class="cfr">${x.cfr}</div></div>`).join("")+`</div>
-      <div class="disclaimer">HazPost is a verification aid, not a substitute for the shipping paper or the regulations. The shipper certifies classification and provides placards. Always confirm against your papers and 49 CFR.<br>${esc(dataNote())}</div>
-      <button type="button" class="verfoot${verState==="ready"||verState==="updating"?" live":""}" id="verFoot"
-        onclick="tapVersion()" aria-label="Check for app updates">${esc(verFootText())}</button>`;
-  } else if(view==="placards"){
-    sub.textContent="49 CFR 172.504 · Subpart F";
-    m.innerHTML = `
-      <div class="tabs">
-        <button class="${plcTab==='builder'?'on':''}" onclick="plcTab='builder';render()">Load Builder</button>
-        <button class="${plcTab==='lookup'?'on':''}" onclick="plcTab='lookup';render()">UN Lookup</button>
-      </div>
-      <div id="tabBody"></div>`;
-    if(plcTab==='builder') renderBuilder(); else renderLookup();
-  } else if(view==="incident"){
-    sub.textContent="49 CFR 171.15 · 171.16";
-    m.innerHTML = `
-      <div class="tabs">
-        <!-- render(), not commit(): this module never touches the load, and
-             it is reachable while hazmat.json is still failing to load —
-             saving an empty load from here would erase a real one. -->
-        <button class="${incTab==='now'?'on':''}" onclick="incTab='now';render()">Right now</button>
-        <button class="${incTab==='notice'?'on':''}" onclick="incTab='notice';render()">Do I report?</button>
-        <button class="${incTab==='written'?'on':''}" onclick="incTab='written';render()">Written report</button>
-      </div>
-      <div id="incBody"></div>`;
-    document.getElementById('incBody').innerHTML =
-      !INC ? incUnavailable() : (incTab==='now' ? incNowView() : incTab==='notice' ? incNoticeView() : incWrittenView());
-  } else if(view==="carry"){
-    sub.textContent="49 CFR 383.93 · 383.141 · 172.704";
-    m.innerHTML = `
-      <div class="tabs">
-        <button class="${carTab==='stop'?'on':''}" onclick="carTab='stop';render()">At a stop</button>
-        <button class="${carTab==='exp'?'on':''}" onclick="carTab='exp';render()">What expires</button>
-        <button class="${carTab==='train'?'on':''}" onclick="carTab='train';render()">Training rules</button>
-      </div>
-      <div id="carBody"></div>`;
-    document.getElementById('carBody').innerHTML =
-      !CAR ? carUnavailable() : (carTab==='stop' ? carStopView() : carTab==='exp' ? carExpView() : carTrainView());
-  } else if(view==="papers"){
-    sub.textContent="49 CFR 172 Subpart C · 177.817";
-    m.innerHTML = `
-      <div class="tabs">
-        <button class="${papTab==='check'?'on':''}" onclick="papTab='check';commit()">Check my papers</button>
-        <button class="${papTab==='where'?'on':''}" onclick="papTab='where';commit()">Where they live</button>
-      </div>
-      <div id="papBody"></div>`;
-    document.getElementById('papBody').innerHTML =
-      !PAPERS ? papersUnavailable() : (papTab==='check' ? papCheckView() : papWhereView());
-  } else if(view==="ops"){
-    sub.textContent="49 CFR Part 397 Subpart A";
-    m.innerHTML = `
-      <div class="tabs">
-        <button class="${opsTab==='where'?'on':''}" onclick="opsTab='where';commit()">Where am I stopping</button>
-        <button class="${opsTab==='ref'?'on':''}" onclick="opsTab='ref';commit()">Reference</button>
-      </div>
-      <div id="opsBody"></div>`;
-    document.getElementById('opsBody').innerHTML =
-      !OPS ? opsUnavailable() : (opsTab==='where' ? opsWhereView() : opsRefView());
-  } else if(view==="seg"){
-    sub.textContent="49 CFR 177.848 · Segregation";
-    m.innerHTML = `
-      <div class="tabs">
-        <button class="${segTab==='load'?'on':''}" onclick="segTab='load';commit()">Check my load</button>
-        <button class="${segTab==='table'?'on':''}" onclick="segTab='table';commit()">Reference table</button>
-      </div>
-      <div id="segBody"></div>`;
-    document.getElementById('segBody').innerHTML =
-      !SEG ? segUnavailable() : (segTab==='load' ? segLoadView() : segTableView());
-  } else {
-    const s=STUBTXT[view];
-    sub.textContent = MODULES.find(x=>x.id===view).cfr;
-    m.innerHTML = `<div class="stubview"><div class="big-d"></div><h3>${s[0]}</h3><p>${s[1]}</p><span class="cfr">${MODULES.find(x=>x.id===view).cfr} · next in the build order</span></div>`;
-  }
+  m.innerHTML = tab==="lookup" ? lookupTab()
+    : tab==="carry" ? carryTab()
+    : tab==="emergency" ? emergencyTab()
+    : loadTab();
+  paintOffline();
+  if(again) refocus(again);
 }
 
-/* ---------------- LOAD BUILDER ---------------- */
-function renderBuilder(){
-  const b=document.getElementById('tabBody');
-  b.innerHTML = `
-   <div class="card">
-     <h4>Add a line from the shipping paper</h4>
-     <input class="mono" id="unIn" placeholder="UN number or name — try 1203" oninput="suggest(this.value)" autocomplete="off">
-     <div class="sugg" id="sugg"></div>
-     <div class="row" style="margin-top:8px">
-       <input class="mono" id="wtIn" placeholder="Gross weight, lbs" inputmode="numeric">
-       <select id="fac"><option value="A">Facility A</option><option value="B">Facility B</option><option value="C">Facility C</option></select>
-     </div>
-     <button class="btn" onclick="addLine()">Add to load</button>
-     <div class="hint">Weight is package gross weight — the material plus its packaging, straight off the papers. Facility = where you picked it up (it matters for the DANGEROUS placard rule).</div>
-   </div>
-   <div class="card" id="loadCard">
-     <h4>Current load — ${load.length} line${load.length===1?'':'s'}</h4>
-     ${restoreNote?`<div class="why bad" style="margin:0 0 10px"><p style="font-size:13px">${esc(restoreNote)}</p></div>`:''}
-     <div id="lines"></div>
-     ${load.length? `<button class="btn ghost" onclick="clearLoad()" style="margin-top:4px">Clear load</button>`:`<div class="hint" style="margin-top:0">Nothing on the trailer yet. Add lines above, or <a href="#" style="color:var(--brand)" onclick="demo();return false">load a demo mixed load</a>.</div>`}
-   </div>
-   <div id="result"></div>`;
-  drawLines(); computeAndDraw();
+/* ---------------- LOAD ---------------- */
+function loadTab(){
+  if(screen==="add") return addLineView();
+  if(screen==="line" && load[lineAt]) return lineView();
+  if(screen==="placards"){
+    setTop("Load", "Placards", "");
+    return page("Placards", placardsView());
+  }
+  if(screen==="seg"){
+    setTop("Load", "Segregation", "");
+    return page("Segregation", SEG ? segLoadView() : segUnavailable());
+  }
+  if(screen==="papers"){
+    setTop("Load", "Shipping papers", "");
+    return page("Shipping papers", `
+      <div class="tabs" role="group" aria-label="Shipping papers">
+        <button type="button" class="${papTab==='check'?'on':''}" aria-pressed="${papTab==='check'}" onclick="papTab='check';render()">Check my papers</button>
+        <button type="button" class="${papTab==='where'?'on':''}" aria-pressed="${papTab==='where'}" onclick="papTab='where';render()">Where they live</button>
+      </div>` + (!PAPERS ? papersUnavailable() : (papTab==='check' ? papCheckView() : papWhereView())));
+  }
+  if(screen==="ops"){
+    setTop("Load", "On the road", "");
+    return page("On the road", `
+      <div class="tabs" role="group" aria-label="On the road">
+        <button type="button" class="${opsTab==='where'?'on':''}" aria-pressed="${opsTab==='where'}" onclick="opsTab='where';render()">Where am I stopping</button>
+        <button type="button" class="${opsTab==='ref'?'on':''}" aria-pressed="${opsTab==='ref'}" onclick="opsTab='ref';render()">Reference</button>
+      </div>` + (!OPS ? opsUnavailable() : (opsTab==='where' ? opsWhereView() : opsRefView())));
+  }
+  screen = "";
+  return loadRoot();
+}
+
+function loadRoot(){
+  setTop("", "Load", `<button type="button" class="gbtn" onclick="openScreen('load','add')" aria-label="Add a line from the paper">${ICON.plus}</button>`);
+  const live = verState==="ready" || verState==="updating";
+  /* an update waiting is worth seeing without scrolling to the footer */
+  let h = `<button type="button" class="upd" id="verBanner" onclick="tapVersion()"${live?"":" hidden"}>${esc(verFootText())}</button>`;
+  if(restoreNote) h += `<div class="why bad"><p>${esc(restoreNote)}</p></div>`;
+
+  if(!load.length){
+    h += `<div class="card">
+      <h4>Nothing on the trailer yet</h4>
+      <p>Add each line from the shipping paper: the ID number, the gross weight, and where it was loaded. The placards and every check below read from it.</p>
+      <button class="btn" onclick="openScreen('load','add')">Add the first line</button>
+      <p class="hint c">Or <a href="#" onclick="demo();return false">load a sample mixed load</a> to see how it works.</p>
+    </div>` + summaryList(null);
+  } else {
+    const r = compute();
+    h += heroCard(r) + summaryList(r) + linesSection();
+  }
+
+  h += `<p class="disclaimer">HazPost is a verification aid, not a substitute for the shipping paper or the regulations. The shipper certifies classification and provides placards. Always confirm against your papers and 49 CFR.<br>${esc(dataNote())}</p>
+    <button type="button" class="verfoot${live?" live":""}" id="verFoot"
+      onclick="tapVersion()" aria-label="Check for app updates">${esc(verFootText())}</button>`;
+
+  return page("Load", h, {lede:"Check it against your paper. The paper wins."});
+}
+
+/* The placards for the load, on top, the way they hang, with the cite the
+   verdict rests on underneath. Class 9 is optional for domestic highway
+   transport (172.504(f)(9)), so a set that is only Class 9 is not called
+   something to hang. */
+function heroCard(r){
+  if(!r.placards.length){
+    return `<section class="card hero" aria-label="Placards for this load"><h4>Placards</h4>
+      <p>No placards required for this load.</p>
+      <p class="hint">Open Placards, below, for the reason.</p></section>
+      <p class="foot">49 CFR 172.504</p>`;
+  }
+  const only9 = r.placards.length===1 && r.placards[0]==="misc9";
+  const name = k => k==="misc9" ? "CLASS 9 (optional)" : plcName(k);
+  return `<section class="card hero" aria-label="Placards for this load">
+    <div class="hh">${only9 ? `<h4>Placards</h4><span>Optional for this load</span>` : `<h4>Hang these placards</h4><span>Each side and end</span>`}</div>
+    <div class="plcrow${r.placards.includes("misc9")?" capped":""}">${r.placards.map(k=>plcHTML(k, 80)).join("")}</div>
+    ${r.dangerOption ? `<p class="also">Also legal: ${esc(dangerSet(r).map(name).join(" + "))}</p>` : ""}
+  </section>
+  <p class="foot">49 CFR 172.504${r.dangerOption ? " · DANGEROUS option, 172.504(b)" : ""}${only9 ? " · 172.504(f)(9)" : ""}${extraCites(r)}</p>`;
+}
+
+/* One row per check. Each value is built from the same functions its detail
+   screen uses, so the row can never say less than the screen behind it —
+   and it shows counts and states, never a check mark. The rows are there
+   with no load too: Where the papers live and the Part 397 reference do not
+   depend on one. A value that cannot be worked out says Unavailable rather
+   than taking the Load screen down with it. */
+function summaryList(r){
+  const safe = f => { try{ return f(); }catch(e){ return `<span class="val">Unavailable</span>`; } };
+  const val = t => `<span class="val">${t}</span>`;
+  const none = val("No load");
+  const plc = !r ? none : safe(()=>{
+    const req = r.placards.filter(k=>k!=="misc9").length;
+    return val(req ? `${req} required` : r.placards.includes("misc9") ? "Class 9 optional" : "None required");
+  });
+  const pre = {papers:"papTab='check';", ops:"opsTab='where';"};
+  const row = (s, tile, icon, title, v) =>
+    `<button type="button" class="srow" onclick="${pre[s]||""}openScreen('load','${s}')">
+      <span class="tile ${tile}">${ICON[icon]}</span><span class="tv"><span class="tl">${title}</span>${v}</span>${ICON.chev}</button>`;
+  return `<div class="list">
+    ${row("placards", "red", "diamond", "Placards", plc)}
+    ${row("seg", "blue", "pair", "Segregation", !r ? none : safe(segSummary))}
+    ${row("papers", "green", "doc", "Shipping papers", !r ? none : safe(()=>val(papSummary())))}
+    ${row("ops", "grey", "park", "On the road", !r ? none : safe(()=>val(opsSummary())))}
+  </div>`;
+}
+
+/* An X, or a Class 1 pair the compatibility table bans, is proven whatever
+   else is open, so it stands alone. Otherwise the row gives the strongest
+   thing already proven — an O, an explosives condition, or an advisory that
+   bites with no table cell behind it, like cyanides with acids — and adds
+   any open question after it. No conflicts only when there is none of that
+   and nothing left to answer. */
+function segSummary(){
+  if(!SEG) return `<span class="val">Unavailable</span>`;
+  const {mapped, pairs, outstanding} = segCheck();
+  const c1 = class1Check();
+  if(pairs.some(p=>p.code==="X") || (c1 && c1.bans.length)) return `<span class="val bad">Not allowed</span>`;
+  const bad = segAdvisoryList(mapped).filter(a=>a[0]==="bad").length;
+  const proven = pairs.some(p=>p.code==="O") ? "Keep apart"
+    : (pairs.some(p=>p.code==="*") || (c1 && c1.conds.length)) ? "Explosives check"
+    : bad ? `Check ${bad} rule${bad===1?"":"s"}` : "";
+  const q = outstanding.length;
+  if(q) return `<span class="val">${proven ? proven + " · " : ""}<i class="qdot"></i>${q} question${q===1?"":"s"}</span>`;
+  return `<span class="val">${proven || "No conflicts"}</span>`;
+}
+
+/* Excepted lines still carry the detail screen's limits — a hazardous
+   substance, hazardous waste or marine pollutant stays in the subpart — so
+   the value says there are limits rather than a bare Excepted. */
+function papSummary(){
+  if(!PAPERS) return "Unavailable";
+  const n = load.filter(l=>!papExcepted(l)).length;
+  return n ? `Compare ${n}` : "Excepted, with limits";
+}
+
+function opsSummary(){
+  if(!OPS) return "Unavailable";
+  const st = opsCheck();
+  if(!st.placarded) return "Not placarded";
+  return st.tier1 ? "Explosives rules" : "Standard";
+}
+
+/* The lines as the paper lists them. The total is a plain sum of the gross
+   weights entered — not compute().agg, which counts Table 2 only. */
+function linesSection(){
+  const total = load.reduce((s,l)=>s+l.wt, 0);
+  return `<div class="sh"><h2>From the paper</h2><span>${total.toLocaleString()} lb</span></div>
+    <div class="list">${load.map((l,i)=>`<button type="button" class="lrow" onclick="openLine(${i})">
+      <span class="lm"><span>${esc(l.psn||l.name)}</span>
+        <span class="ls"><span class="mono">${idLabel(l)}</span> · ${l.wt.toLocaleString()} lb · Facility ${esc(l.fac)}${l.t1?`<span class="t1tag">Table 1</span>`:""}</span></span>
+      <span class="lc">${plcSwatch(l.plc)}${esc(String(l.cls||"").split(" ")[0])}</span>${ICON.chev}</button>`).join("")}
+      <button type="button" class="lrow add" onclick="openScreen('load','add')">${ICON.plusSm}<span>Add a line</span></button>
+    </div>
+    <button type="button" class="textbtn danger" onclick="clearLoad()">Clear load</button>`;
+}
+
+/* ---------------- ADDING AND OPENING LINES ---------------- */
+function addLineView(){
+  picked = null;   /* a pick from an earlier visit must not ride into this one */
+  setTop("Load", "Add a line", "");
+  return page("Add a line", `
+    <div class="card">
+      <label class="fl" for="unIn">Material</label>
+      <input class="mono" id="unIn" placeholder="UN number or name — try 1203" oninput="suggest(this.value)" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <div class="sugg" id="sugg"></div>
+      <div class="row" style="margin-top:12px">
+        <div><label class="fl" for="wtIn">Gross weight</label><input class="mono" id="wtIn" placeholder="lb" inputmode="numeric"></div>
+        <div><label class="fl" for="fac">Loaded at</label><select id="fac"><option value="A">Facility A</option><option value="B">Facility B</option><option value="C">Facility C</option></select></div>
+      </div>
+      <button class="btn" onclick="addLine()">Add to load</button>
+      <p class="hint">Weight is package gross weight — the material plus its packaging, straight off the papers. Facility = where you picked it up (it matters for the DANGEROUS placard rule).</p>
+    </div>`, {lede:"One line from the shipping paper."});
 }
 let picked=null;
 function suggest(q){
@@ -1142,21 +1511,29 @@ function suggest(q){
   s.innerHTML=hits.map(x=>`<div onclick="pick('${x.id}')"><span class="u">${idLabel(x)}</span>${esc(x.name)} · ${esc(x.cls)}</div>`).join('');
   s.style.display='block';
 }
+const pickedLabel = x => `${idLabel(x)} — ${x.name}`;
 function pick(id){ picked=HM.find(x=>x.id===id);
-  document.getElementById('unIn').value=`${idLabel(picked)} — ${picked.name}`;
+  document.getElementById('unIn').value=pickedLabel(picked);
   document.getElementById('sugg').style.display='none';
   document.getElementById('wtIn').focus();
 }
 function addLine(){
-  if(!picked){ // allow raw UN typed without picking
-    const raw=document.getElementById('unIn').value.replace(/\D/g,'');
-    picked=HM.find(x=>x.un===raw);
+  const typed = document.getElementById('unIn').value;
+  /* a pick counts only while the field still shows it */
+  if(picked && typed!==pickedLabel(picked)) picked=null;
+  if(!picked){
+    /* A bare number is enough only when one entry carries it. Several
+       shipping names can share an ID number, and taking the first of them
+       would build the placards off an entry the driver never chose. */
+    const raw=typed.replace(/\D/g,'');
+    const hits = raw ? HM.filter(x=>x.un===raw) : [];
+    if(hits.length===1) picked=hits[0];
   }
   const wt=parseInt(document.getElementById('wtIn').value.replace(/\D/g,''),10);
   if(!picked){alert('Pick a material from the list — several shipping names can share one ID number, so HazPost needs to know which entry you mean.');return;}
   if(!wt){alert('Enter the gross weight in pounds.');return;}
   load.push({...picked, wt, fac:document.getElementById('fac').value});
-  picked=null; commit();
+  picked=null; screen=""; saveLoad(); arrive();
 }
 function demo(){
   const byUn=u=>HM.find(x=>x.un===u&&(x.pfx||"UN")==="UN");
@@ -1167,15 +1544,37 @@ function demo(){
   ].filter(l=>l.un);
   commit();
 }
-function drawLines(){
-  const el=document.getElementById('lines'); if(!el) return;
-  el.innerHTML = load.map((l,i)=>`
-   <div class="line-item">
-     <span class="un">${idLabel(l)}</span>
-     <div class="nm"><b>${esc(l.name)}${l.t1?'<span class="t1tag">TABLE 1</span>':''}</b><span>Class ${esc(l.cls)} · PG ${esc(l.pg)} · Facility ${esc(l.fac)}</span></div>
-     <span class="wt">${l.wt.toLocaleString()} lb</span>
-     <button class="x" onclick="load.splice(${i},1);commit()">✕</button>
-   </div>`).join('');
+
+function openLine(i){ lineAt = i; openScreen('load', 'line'); }
+
+/* One line, as entered. Removing it is the only edit: the facts come from
+   the 172.101 table, and a wrong weight is quicker to re-add than to fix. */
+function lineView(){
+  const l = load[lineAt];
+  const title = l.psn || l.name;
+  const rule = plcRule(l);
+  setTop("Load", title, "");
+  return page(title, `
+    <div class="list kvl">
+      <div class="kv"><span>ID number</span><span class="mono">${idLabel(l)}</span></div>
+      <div class="kv"><span>Hazard class</span><span>${esc(l.cls)}</span></div>
+      <div class="kv"><span>Packing group</span><span>${esc(l.pg)}</span></div>
+      <div class="kv"><span>Gross weight</span><span>${l.wt.toLocaleString()} lb</span></div>
+      <div class="kv"><span>Loaded at</span><span>Facility ${esc(l.fac)}</span></div>
+      ${l.st ? `<div class="kv"><span>Physical state</span><span>${l.st==="liquid"?"Liquid":"Solid"}, from the paper</span></div>` : ""}
+      ${l.pih ? `<div class="kv"><span>Inhalation hazard</span><span>${esc(l.pih)}</span></div>` : ""}
+      <div class="kv"><span>Placarding</span><span>${esc(rule.txt)}</span></div>
+      ${l.cond ? `<div class="kv"><span>Condition</span><span>${esc(l.cond)}</span></div>` : ""}
+    </div>
+    <p class="foot">49 CFR 172.101 table · 172.504(e)${rule.cites.map(c=>" · "+c).join("")}</p>
+    <button type="button" class="btn danger" onclick="removeLine(${lineAt})">Remove from load</button>`,
+    {lede: l.name!==title ? esc(l.name) : ""});
+}
+function removeLine(i){
+  if(!load[i]) return;
+  load.splice(i,1); lineAt = -1; screen = "";
+  if(!load.length){ opsPlace = null; restoreNote = ""; }   /* as clearLoad() does */
+  saveLoad(); arrive();
 }
 
 /* ---------------- THE 172.504 ENGINE ---------------- */
@@ -1271,50 +1670,159 @@ function compute(){
   return {placards:[...placards], why, dangerOption, agg, t2cats: t2.length};
 }
 
-function computeAndDraw(){
-  const el=document.getElementById('result'); if(!el) return;
-  const r=compute();
-  if(!r){ el.innerHTML=""; return; }
-  let trailerA = r.placards.map(p=>plcHTML(p)).join("");
-  let html = `<div class="trailer"><h4>Required on the trailer${r.dangerOption?' — Option A: specific placards':''}</h4>
-     <div class="tr-body">${trailerA||'<span class="tr-none">No placards required for this load</span>'}</div>`;
-  if(r.dangerOption){
-    const dSet=[plcHTML('danger')].concat(
-      r.placards.filter(p=>{
-        // keep table-1 placards and blocked-class placards alongside DANGEROUS
-        const cat=Object.keys(CLSPLC).find(k=>CLSPLC[k]===p);
-        return !cat || !r.dangerOption.cats.includes(cat);
-      }).map(p=>plcHTML(p)));
-    html += `<h4 style="margin-top:22px">Option B: DANGEROUS placard</h4>
-      <div class="tr-body">${dSet.join("")}</div>
-      <div class="hint">Either option is legal for this load. Most fleets prefer specific placards — emergency responders get better information.</div>`;
-  }
-  html += `</div><div class="card"><h4>Why</h4>`+
-    r.why.map(w=>`<div class="why ${w.tone}"><p>${w.txt}</p><span class="cite">49 CFR ${w.cite}</span></div>`).join("")+
-    `</div>`;
-  el.innerHTML=html;
-}
-function plcHTML(key){
-  const p=PLC[key];
-  if(!p || p.none) return "";
-  const stripes = p.stripes? `<div style="position:absolute;top:0;left:0;right:0;height:50%;background:repeating-linear-gradient(90deg,#111 0 7px,#F2F2F2 7px 14px)"></div>`:"";
-  return `<div class="plc"><div class="dia"><div class="fill" style="background:${p.bg}">${stripes}</div></div>
-    <div class="txt" style="color:${p.fg}"><span class="w" style="max-width:60px">${p.w}</span><span class="n">${p.n}</span></div>
-    <div class="cap">${key==='danger'?'dangerous':''}</div></div>`;
+/* ---------------- PLACARDS: how they are drawn ---------------- */
+
+/** DANGEROUS plus whatever it cannot stand in for — Table 1 placards, and
+    any class blocked by 2,205 lb from one facility. */
+function dangerSet(r){
+  return ["danger"].concat(r.placards.filter(p=>{
+    const cat=Object.keys(CLSPLC).find(k=>CLSPLC[k]===p);
+    return !cat || !r.dangerOption.cats.includes(cat);
+  }));
 }
 
-/* ---------------- LOOKUP ---------------- */
-function renderLookup(){
-  const b=document.getElementById('tabBody');
-  b.innerHTML=`<div class="card"><h4>Look up a material</h4>
-    <input class="mono" id="lkIn" placeholder="UN number or name" oninput="lkSuggest(this.value)" autocomplete="off">
-    <div class="sugg" id="lkSugg"></div><div id="lkOut"></div>
-    <div class="hint">${esc(dataNote())}</div></div>`;
+/** The placard's name as it is printed on it. */
+function plcName(key){
+  const p = PLC[key];
+  if(!p || p.none) return "";
+  if(!p.w) return `CLASS ${p.n}`;
+  return (p.w + (EXPLDIV[key] ? " " + p.n : "")).toUpperCase();
+}
+
+/**
+ * One placard. The square is rotated and its fill counter-rotated, so every
+ * background in PLC is drawn in page coordinates — each colour split sits
+ * where 172.519 to 172.560 put it. The inner border is the text colour, and
+ * on CORROSIVE it turns white across the black half.
+ *
+ * Class 9 is captioned Optional: 172.504(f)(9) does not require it for
+ * domestic highway transport, which is what the placard note says too.
+ */
+function plcHTML(key, size){
+  const p=PLC[key];
+  if(!p || p.none) return "";
+  const s = size===96 ? " s96" : "";
+  const low = p.fg2 ? " low" : "";
+  const ink = p.fg2 || p.fg;
+  const ring = p.fg2 ? `${p.fg} ${p.fg2} ${p.fg2} ${p.fg}` : p.fg;
+  const stripes = p.stripes ? `<div style="position:absolute;top:0;left:0;right:0;height:50%;background:repeating-linear-gradient(90deg,#111 0 calc(var(--s)*.07),#F2F2F2 calc(var(--s)*.07) calc(var(--s)*.14))"></div>` : "";
+  const long = p.w && p.w.split(" ").some(w=>w.length>10) ? " long" : "";
+  return `<div class="plc${s}${low}" role="img" aria-label="${esc(plcName(key))} placard${key==="misc9"?", optional":""}">
+    <div class="sq"><div class="fill" style="background:${p.bg}">${stripes}</div></div>
+    <div class="in" style="border-color:${ring}"></div>
+    ${p.w ? `<span class="w${long}" style="color:${ink}">${esc(p.w)}</span>` : ""}
+    ${p.n ? `<span class="n" style="color:${ink}">${esc(p.n)}</span>` : ""}
+    ${key==="misc9" ? `<span class="cap">Optional</span>` : ""}</div>`;
+}
+
+/**
+ * How one material is placarded, for the line screen and Look Up. It follows
+ * the rules compute() applies, so neither screen can describe a material more
+ * lightly than the placards on Load do:
+ *   a PIH material outside 6.1 and 2.3 carries POISON INHALATION HAZARD at any
+ *   amount on top of its own class placard (172.505(a));
+ *   Class 9 is optional for domestic highway transport (172.504(f)(9)).
+ */
+function plcRule(x){
+  const none = noPlc(x);
+  const pih = !!x.pih && x.base!=="6.1" && x.base!=="2.3";
+  const own = none ? "No placard for this material"
+    : x.plc==="misc9" ? "Class 9 — optional domestically"
+    : x.t1 ? (x.cond ? "Table 1 — any amount, with a condition" : "Table 1 — any amount")
+    : "Table 2 — 1,001 lb aggregate";
+  const cites = [];
+  if(x.plc==="misc9") cites.push("172.504(f)(9)");
+  if(pih) cites.push("172.505(a)");
+  return {
+    pih,
+    txt: pih ? `POISON INHALATION HAZARD at any amount, plus its own placard: ${own}` : own,
+    /* the placards to picture, in the order compute() adds them */
+    set: none ? [] : pih ? ["pih61", x.plc] : [x.plc],
+    chip: (x.t1 && !none) || pih ? `<span class="c1">Placard at any amount</span>`
+      : none ? `<span class="c0">No placard required</span>`
+      : x.plc==="misc9" ? `<span class="c0">Placard optional</span>`
+      : `<span class="c0">Placards at 1,001 lb aggregate</span>`,
+    cites,
+  };
+}
+
+/** A small diamond in the placard's colours, for a line in a list. */
+function plcSwatch(key){
+  const p = PLC[key];
+  if(!p || p.none) return `<span class="sw none" aria-hidden="true"></span>`;
+  return `<span class="sw" aria-hidden="true"><i style="background:${p.bg}"></i></span>`;
+}
+
+/* ---------------- PLACARDS: the screen ---------------- */
+function placardsView(){
+  const r = compute();
+  if(!r) return emptyLoadCard();
+  const hasD = !!r.dangerOption;
+  if(!hasD) plcOpt = "separate";
+  const set = plcOpt==="dangerous" ? dangerSet(r) : r.placards;
+  let h = "";
+  if(hasD){
+    h += `<div class="tabs" role="group" aria-label="Placard option">
+      <button type="button" class="${plcOpt==='separate'?'on':''}" aria-pressed="${plcOpt==='separate'}" onclick="plcOpt='separate';render()">Separate placards</button>
+      <button type="button" class="${plcOpt==='dangerous'?'on':''}" aria-pressed="${plcOpt==='dangerous'}" onclick="plcOpt='dangerous';render()">DANGEROUS</button>
+    </div>`;
+  }
+  if(set.length){
+    h += `<section class="card hero" aria-label="Placards">
+      <div class="plcrow big${set.includes("misc9")?" capped":""}">${set.map(k=>plcHTML(k, 96)).join("")}</div>
+      <p class="capline">On each side and each end of the trailer.</p>
+      ${hasD ? `<p class="hint c">Either option is legal for this load. Most fleets prefer specific placards — emergency responders get better information.</p>` : ""}
+    </section>
+    <p class="foot">49 CFR 172.504(a)${plcOpt==="dangerous" ? " · 172.504(b)" : ""}${extraCites(r)}</p>`;
+  } else {
+    h += `<section class="card hero"><p>No placards required for this load.</p></section>`;
+  }
+  h += `<div class="card"><h4>Why</h4>` +
+    r.why.map(w=>`<div class="why ${w.tone}"><p>${w.txt}</p><span class="cite">49 CFR ${w.cite}</span></div>`).join("") +
+    `</div>`;
+  return h;
+}
+
+/* Placards that come from outside 172.504 — the inhalation placard of
+   172.505(a), the 1.1 of 177.848(i) — carry their own cite into the footers. */
+function extraCites(r){
+  return [...new Set(r.why.map(w=>w.cite).filter(c=>/^172\.505|^177\.848\(i\)/.test(c)))].map(c=>" · "+c).join("");
+}
+
+/* A detail screen reached with nothing on the trailer. */
+function emptyLoadCard(){
+  return `<div class="card"><h4>Nothing on the trailer</h4>
+    <p>This reads the load you enter on the Load screen, and there is nothing on it yet.</p>
+    <button class="btn" onclick="goTab('load')">Go to Load</button></div>`;
+}
+
+/* ---------------- LOOK UP ---------------- */
+function lookupTab(){
+  if(screen==="segtable"){
+    setTop("Look Up", "Segregation tables", "");
+    return page("Segregation tables", SEG ? segTableView() : segUnavailable());
+  }
+  screen = "";
+  setTop("", "Look Up", "");
+  const x = lkId ? HM.find(h=>h.id===lkId) : null;
+  return page("Look Up", `
+    <div class="search"><label class="vh" for="lkIn">UN number or name</label>${ICON.search}
+      <input id="lkIn" type="search" placeholder="UN number or name" oninput="lkSuggest(this.value)" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" value="${x?esc(idLabel(x)):""}">
+    </div>
+    <div class="sugg" id="lkSugg"></div>
+    <div id="lkOut" style="margin-top:14px">${x ? lkResult(x) : ""}</div>
+    <div class="list">
+      <a class="srow" href="${ERG_LINK}" target="_blank" rel="noopener"><span class="tile orange">${ICON.book}</span>
+        <span class="tl2"><span>Open the ERG</span><span class="tsub">PHMSA's official guide</span></span>${ICON.ext}</a>
+      <button type="button" class="srow" onclick="openScreen('lookup','segtable')"><span class="tile grey">${ICON.grid}</span>
+        <span class="tl">Segregation tables</span>${ICON.chev}</button>
+    </div>
+    <p class="foot">${esc(dataNote())}</p>`, {offline:true});
 }
 function lkSuggest(q){
   const s=document.getElementById('lkSugg');
   q=q.trim().toLowerCase();
-  if(!q){s.style.display='none';document.getElementById('lkOut').innerHTML='';return;}
+  if(!q){s.style.display='none';lkId=null;document.getElementById('lkOut').innerHTML='';return;}
   const hits=HM.filter(x=>x.un.includes(q)||x.name.toLowerCase().includes(q)).slice(0,6);
   if(!hits.length){s.style.display='none';return;}
   s.innerHTML=hits.map(x=>`<div onclick="lkShow('${x.id}')"><span class="u">${idLabel(x)}</span>${esc(x.name)} · ${esc(x.cls)}</div>`).join('');
@@ -1322,21 +1830,36 @@ function lkSuggest(q){
 }
 function lkShow(id){
   const x=HM.find(h=>h.id===id);
+  if(!x) return;
+  lkId = id;
   document.getElementById('lkSugg').style.display='none';
   document.getElementById('lkIn').value=idLabel(x);
-  const noPlc = PLC[x.plc] && PLC[x.plc].none;
-  document.getElementById('lkOut').innerHTML=`
-   <div class="lk"><span class="un">${idLabel(x)}</span><h5>${esc(x.name)}</h5>
-     <div class="kv"><span>Hazard class</span><span>${esc(x.cls)}</span></div>
-     <div class="kv"><span>Packing group</span><span>${esc(x.pg)}</span></div>
-     ${x.sym?`<div class="kv"><span>Column 1 symbols</span><span>${esc(x.sym)}</span></div>`:""}
-     ${x.pih?`<div class="kv"><span>Inhalation hazard</span><span>${esc(x.pih)}</span></div>`:""}
-     ${x.subs?`<div class="kv"><span>Subsidiary hazard</span><span>Class ${esc(x.subs)}</span></div>`:""}
-     <div class="kv"><span>Placarding table</span><span>${noPlc?`<span class="pill t2">No placard required</span>`:`<span class="pill ${x.t1?'t1':'t2'}">${x.t1?'Table 1 — any amount':'Table 2 — 1,001 lb aggregate'}</span>`}</span></div>
-     ${x.cond?`<div class="kv"><span>Condition</span><span style="max-width:62%;font-weight:500">${esc(x.cond)}</span></div>`:""}
-   </div>
-   ${noPlc?`<div class="hint" style="text-align:center;padding:16px 0 4px">${esc(PLC[x.plc].why||"No placard is specified for this material.")}</div>`
-          :`<div style="display:flex;justify-content:center;padding:18px 0 4px">${plcHTML(x.plc)}</div>`}`;
+  document.getElementById('lkOut').innerHTML=lkResult(x);
+}
+function lkResult(x){
+  const none = !!(PLC[x.plc] && PLC[x.plc].none);
+  const first = String(x.cls||"").split(" ")[0];
+  const kind = /^\d\.\d/.test(first) ? `Division ${esc(first)}` : /^\d$/.test(first) ? `Class ${esc(first)}` : esc(x.cls);
+  const rule = plcRule(x);
+  const caps = [rule.chip];
+  if(x.pih) caps.push(`<span class="co">Inhalation hazard · ${esc(x.pih)}</span>`);
+  return `<section class="card hero lkhero" aria-label="${esc(idLabel(x))} ${esc(x.psn||x.name)}">
+      ${rule.set.length ? `<div class="plcrow big${rule.set.includes("misc9")?" capped":""}">${rule.set.map(k=>plcHTML(k, 96)).join("")}</div>` : ""}
+      <h2>${esc(x.psn||x.name)}</h2>
+      <div class="lsub"><span class="mono">${idLabel(x)}</span> · ${kind}</div>
+      <div class="caps">${caps.join("")}</div>
+      ${none ? `<p class="lknone">${esc(PLC[x.plc].why||"No placard is specified for this material.")}</p>` : ""}
+    </section>
+    <div class="list kvl">
+      ${x.psn && x.psn!==x.name ? `<div class="kv"><span>Table entry</span><span>${esc(x.name)}</span></div>` : ""}
+      <div class="kv"><span>Hazard class</span><span>${esc(x.cls)}</span></div>
+      <div class="kv"><span>Packing group</span><span>${esc(x.pg)}</span></div>
+      ${x.sym?`<div class="kv"><span>Column 1 symbols</span><span>${esc(x.sym)}</span></div>`:""}
+      ${x.subs?`<div class="kv"><span>Subsidiary hazard</span><span>Class ${esc(x.subs)}</span></div>`:""}
+      ${x.cond?`<div class="kv"><span>Condition</span><span>${esc(x.cond)}</span></div>`:""}
+      <div class="kv"><span>Placarding</span><span>${esc(rule.txt)}</span></div>
+    </div>
+    <p class="foot">49 CFR 172.101 table · 172.504(e) ${x.t1 ? "Table 1" : "Table 2"}${rule.cites.map(c=>" · "+c).join("")}</p>`;
 }
 
 /* ================= SEGREGATION — 49 CFR 177.848 =================
@@ -1636,7 +2159,7 @@ function class1View(r){
     if(r.iApplies){
       h += `<p class="warn"><b>Division 1.1D</b> — ${esc(SEG.compat.fifteenWithTwelve)}
         <span class="cite">49 CFR 177.848(i)</span></p>
-        <p class="warn">That is a lower division than either line carries, so it moves the placard too. Placarding applies this — the trailer shows <b>EXPLOSIVES 1.1</b> for this load.
+        <p class="warn">That is a lower division than either line carries, so it moves the placard too. The placards on Load already follow this — the trailer shows <b>EXPLOSIVES 1.1</b> for this load.
         <span class="cite">49 CFR 172.504(e), (f)(1)</span></p>`;
     } else if(r.divs.length > 1){
       h += `<p>Lowest division aboard is <b>${esc(r.shipmentDiv)}</b>, which is what the placard follows.
@@ -1664,15 +2187,15 @@ function setLineState(i, v){
 
 function segUnavailable(){
   return `<div class="card"><h4>Segregation data unavailable</h4>
-    <p style="font-size:14px;line-height:1.5;color:var(--dim)">The 177.848 tables could not be loaded, so HazPost will not guess at what can ride together.</p>
-    <div class="msg" style="font:500 12.5px 'Roboto Mono';color:var(--bad);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:12px;word-break:break-word">${esc(SEG_URL)} — ${esc(segError||"not loaded")}</div>
-    <button class="btn" style="margin-top:12px" onclick="loadSeg().then(render)">Try again</button></div>`;
+    <p class="sub">The 177.848 tables could not be loaded, so HazPost will not guess at what can ride together.</p>
+    <div class="msg">${esc(SEG_URL)} — ${esc(segError||"not loaded")}</div>
+    <button class="btn" onclick="loadSeg().then(render)">Try again</button></div>`;
 }
 
 function segLoadView(){
   if(!load.length){
     return `<div class="card"><h4>Nothing on the trailer</h4>
-      <div class="hint" style="margin-top:0">Segregation reads the same load you built for placarding. Add lines in <a href="#" style="color:var(--brand)" onclick="view='placards';plcTab='builder';commit();return false">Placarding → Load Builder</a>, then come back.</div></div>`;
+      <p>Segregation reads the load you enter on the <a href="#" onclick="goTab('load');return false">Load</a> screen, and there is nothing on it yet.</p></div>`;
   }
 
   const {mapped, pairs, outstanding, notes} = segCheck();
@@ -1756,7 +2279,9 @@ function segVerdict(p, cls, title, body, cite){
 }
 
 /* Rules that are not in the grid. The table looks complete; it is not. */
-function segAdvisories(mapped, notes){
+/** The advisories as data — [tone, html, cite] — so the Load screen can count
+    the ones that bite without rendering them. */
+function segAdvisoryList(mapped){
   /* Advisories use every row a line might occupy, including one whose state is
      still open — an advisory that only appears after the question is answered
      is an advisory that arrives too late. */
@@ -1785,10 +2310,14 @@ function segAdvisories(mapped, notes){
     adv.push(["ok", `${noRow.map(m=>idLabel(m.l)).join(", ")} ${noRow.length===1?"has":"have"} <b>no segregation row at all</b> — Division 6.2, Class 9 and combustible liquids are not on the 177.848 table, so nothing here restricts them. That is a real answer, not a gap in the check.`, "177.848(d)"]);
   }
   adv.push(["", `If this trailer is going onto a vessel other than a ferry, segregation follows § 176.83(b) instead of this table. HazPost does not implement vessel segregation.`, "177.848(b)"]);
+  return adv;
+}
 
+function segAdvisories(mapped, notes){
+  const adv = segAdvisoryList(mapped);
   return `<div class="card"><h4>Also applies</h4>` +
-    adv.map(a=>`<div class="why ${a[0]}"><p style="font-size:13.5px">${a[1]}</p><span class="cite">49 CFR ${a[2]}</span></div>`).join("") +
-    notes.map(n=>`<div class="why warn"><p style="font-size:13.5px">${n}</p></div>`).join("") +
+    adv.map(a=>`<div class="why ${a[0]}"><p>${a[1]}</p><span class="cite">49 CFR ${a[2]}</span></div>`).join("") +
+    notes.map(n=>`<div class="why warn"><p>${n}</p></div>`).join("") +
     `</div>`;
 }
 
@@ -1835,12 +2364,12 @@ function segTableView(){
       <p><b>(h)</b> ${esc(SEG.compat.divisionRollup)}</p>
       <p><b>(i)</b> ${esc(SEG.compat.fifteenWithTwelve)}</p>
     </div>
-    <div class="hint">Check my load applies all of this to the explosives on your trailer. Rules 4 and 6 turn on facts the 172.101 table does not carry — whether a detonator is involved, and whether an item is an article or a substance — so those come back as a stated condition rather than a verdict.</div>
+    <div class="hint">Segregation, on the Load screen, applies all of this to the explosives on your trailer. Rules 4 and 6 turn on facts the 172.101 table does not carry — whether a detonator is involved, and whether an item is an article or a substance — so those come back as a stated condition rather than a verdict.</div>
   </div>`;
 
   h += `<div class="card"><h4>Markers</h4>` +
     Object.entries(SEG.markers).map(([k,v])=>
-      `<div class="why ${k==="X"?"bad":k==="O"?"warn":""}"><p style="font-size:13.5px"><b>${k===""?"blank":k==="*"?"★":k}</b> — ${esc(v)}</p></div>`).join("") +
+      `<div class="why ${k==="X"?"bad":k==="O"?"warn":""}"><p><b>${k===""?"blank":k==="*"?"★":k}</b> — ${esc(v)}</p></div>`).join("") +
     `<div class="hint">${esc(SEG.source)}, current as of ${esc(SEG.cfrDate)} (table v${esc(SEG.version)}).</div></div>`;
   return h;
 }
@@ -1941,21 +2470,21 @@ function papExcepted(l){
 
 function papersUnavailable(){
   return `<div class="card"><h4>Shipping paper text unavailable</h4>
-    <p style="font-size:14px;line-height:1.5;color:var(--dim)">HazPost will not describe a requirement it could not load.</p>
-    <div style="font:500 12.5px 'Roboto Mono';color:var(--bad);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:12px;word-break:break-word">${esc(PAPERS_URL)} — ${esc(papersError||"not loaded")}</div>
-    <button class="btn" style="margin-top:12px" onclick="loadPapers().then(render)">Try again</button></div>`;
+    <p class="sub">HazPost will not describe a requirement it could not load.</p>
+    <div class="msg">${esc(PAPERS_URL)} — ${esc(papersError||"not loaded")}</div>
+    <button class="btn" onclick="loadPapers().then(render)">Try again</button></div>`;
 }
 
 function papCheckView(){
   if(!load.length){
     return `<div class="card"><h4>Nothing on the trailer</h4>
-      <div class="hint" style="margin-top:0">Shipping Papers reads the same load you built for placarding. Add lines in <a href="#" style="color:var(--brand)" onclick="view='placards';plcTab='builder';commit();return false">Placarding → Load Builder</a>, then come back.</div></div>`;
+      <p>Shipping Papers reads the load you enter on the <a href="#" onclick="goTab('load');return false">Load</a> screen, and there is nothing on it yet.</p></div>`;
   }
 
   const marked = load.map(l=>({l, ex:papExcepted(l)}));
   const needing = marked.filter(m=>!m.ex);
 
-  let h = `<div class="limitbox" style="margin-bottom:12px"><p><b>Compare, do not copy.</b> This is what the 172.101 table says each line should read like. Hold it against the paper in your hand. If they disagree, <b>the paper and the shipper win</b> — call the shipper. Do not correct the paper yourself, and do not copy this onto it. HazPost describes what should be there; it does not produce the document.</p></div>`;
+  let h = `<div class="limitbox"><p><b>Compare, do not copy.</b> This is what the 172.101 table says each line should read like. Hold it against the paper in your hand. If they disagree, <b>the paper and the shipper win</b> — call the shipper. Do not correct the paper yourself, and do not copy this onto it. HazPost describes what should be there; it does not produce the document.</p></div>`;
 
   /* 177.817(d) / 172.200(b) — do not show requirements that are not reaching */
   if(!needing.length){
@@ -1966,7 +2495,7 @@ function papCheckView(){
       marked.map(m=>`<div class="rule ok"><b>${idLabel(m.l)} ${esc(m.l.name.slice(0,44))}${m.l.name.length>44?"…":""}</b>
         <p>Symbol <b>${esc(m.ex.sym)}</b> — subject to the subchapter only when offered for transport by ${esc(m.ex.mode)}.</p>
         <span class="cite">49 CFR 172.200(b)</span></div>`).join("") +
-      `<div class="why warn"><p style="font-size:13px">Three things this does not clear. It does not hold if the material is a <b>hazardous substance, hazardous waste or marine pollutant</b> — those stay in the subpart regardless. It says nothing about placarding or the other modules. And limited-quantity and consumer-commodity exceptions are the shipper's call, not something HazPost can read off the table.</p><span class="cite">49 CFR 172.200(b)</span></div>
+      `<div class="why warn"><p>Three things this does not clear. It does not hold if the material is a <b>hazardous substance, hazardous waste or marine pollutant</b> — those stay in the subpart regardless. It says nothing about placarding or the other modules. And limited-quantity and consumer-commodity exceptions are the shipper's call, not something HazPost can read off the table.</p><span class="cite">49 CFR 172.200(b)</span></div>
       ${cfrFold("172.200(b)", papText("172.200","(b)"))}
       ${cfrFold("177.817(d)", papText("177.817","(d)"))}</div>`;
     return h;
@@ -2027,7 +2556,7 @@ function papWhereView(){
   const rule = (title, body, cite, verb) =>
     `<div class="rule a"><b>${esc(title)}</b>${body}<span class="cite">49 CFR ${esc(cite)}</span>${verb||""}</div>`;
 
-  let h = `<div class="limitbox" style="margin-bottom:12px"><p><b>A correct paper in the wrong place is still a citation.</b> This rule is enforced on its own, and responders look in exactly the places it names.</p></div>`;
+  let h = `<div class="limitbox"><p><b>A correct paper in the wrong place is still a citation.</b> This rule is enforced on its own, and responders look in exactly the places it names.</p></div>`;
 
   h += `<div class="card"><h4>177.817(e) — where the paper sits</h4>` +
     rule("Tab it, or put it first",
@@ -2205,15 +2734,15 @@ function setOpsPlace(k){ opsPlace = k; commit(); }
 
 function opsUnavailable(){
   return `<div class="card"><h4>Part 397 text unavailable</h4>
-    <p style="font-size:14px;line-height:1.5;color:var(--dim)">HazPost will not paraphrase a rule it could not load.</p>
-    <div style="font:500 12.5px 'Roboto Mono';color:var(--bad);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:12px;word-break:break-word">${esc(OPS_URL)} — ${esc(opsError||"not loaded")}</div>
-    <button class="btn" style="margin-top:12px" onclick="loadOps().then(render)">Try again</button></div>`;
+    <p class="sub">HazPost will not paraphrase a rule it could not load.</p>
+    <div class="msg">${esc(OPS_URL)} — ${esc(opsError||"not loaded")}</div>
+    <button class="btn" onclick="loadOps().then(render)">Try again</button></div>`;
 }
 
 function opsWhereView(){
   if(!load.length){
     return `<div class="card"><h4>Nothing on the trailer</h4>
-      <div class="hint" style="margin-top:0">On the Road reads the same load you built for placarding. Add lines in <a href="#" style="color:var(--brand)" onclick="view='placards';plcTab='builder';commit();return false">Placarding → Load Builder</a>, then come back.</div></div>`;
+      <p>On the Road reads the load you enter on the <a href="#" onclick="goTab('load');return false">Load</a> screen, and there is nothing on it yet.</p></div>`;
   }
 
   const st = opsCheck();
@@ -2222,7 +2751,7 @@ function opsWhereView(){
   if(!st.placarded){
     return `<div class="card"><h4>Part 397 — does it apply?</h4>
       <div class="segv clear"><div class="hd"><span class="mark c">✓</span>Most of Part 397 does not apply</div>
-        <p>Placarding shows <b>no placards required</b> for this load, and Part 397 hangs off the vehicle having to be marked or placarded. The driving and parking rules in Subpart A are not reaching you.</p>
+        <p>The placard check shows <b>no placards required</b> for this load, and Part 397 hangs off the vehicle having to be marked or placarded. The driving and parking rules in Subpart A are not reaching you.</p>
         <span class="cite">49 CFR 397.1(a)</span></div>
       ${cfrFold("397.1(a)", opsText("397.1","(a)"))}
       <div class="hint">Two things this does not say. Add one more line and the aggregate can cross 1,001 lb, at which point it does apply. And 397.1 reads "marked <b>or</b> placarded" — HazPost computes placards, not markings, so a marking requirement is yours to check.</div>
@@ -2241,7 +2770,7 @@ function opsWhereView(){
         <p>Baseline tier. The 5-foot rule, and attendance only while on the roadway.</p></div></div>`;
 
   if(st.cls1sub.length){
-    h += `<div class="why warn" style="margin:0 0 12px"><p style="font-size:13px">${st.cls1sub.map(l=>idLabel(l)).join(", ")} carr${st.cls1sub.length===1?"ies":"y"} a <b>Class 1 subsidiary</b> label. That does not make the material a Division 1.1, 1.2 or 1.3 — its division is what column 3 assigns — so it does not by itself put you in Tier 1. Worth confirming against the papers.</p><span class="cite">49 CFR 397.5(a)</span></div>`;
+    h += `<div class="why warn"><p>${st.cls1sub.map(l=>idLabel(l)).join(", ")} carr${st.cls1sub.length===1?"ies":"y"} a <b>Class 1 subsidiary</b> label. That does not make the material a Division 1.1, 1.2 or 1.3 — its division is what column 3 assigns — so it does not by itself put you in Tier 1. Worth confirming against the papers.</p><span class="cite">49 CFR 397.5(a)</span></div>`;
   }
 
   /* the one question */
@@ -2319,7 +2848,7 @@ function opsRefView(){
   OPS.sections.forEach(s=>{
     h += `<div class="card"><h4>${esc(s.head.replace(/^§\s*/,""))}</h4>` +
       (s.reserved
-        ? `<p style="font-size:13.5px;color:var(--dim)">[Reserved]</p>`
+        ? `<p class="sub">[Reserved]</p>`
         : s.paras.map(p=>`<div class="refp">${p.id?`<span class="pid">${esc(p.id)}</span>`:""}<p>${esc(p.text)}</p></div>`).join("")) +
       `</div>`;
   });
@@ -2407,7 +2936,7 @@ function incVerdictHTML(picked){
   const carrierLine = carrier
     ? `<a class="call" href="tel:${esc(telSafe(carrier.tel))}"><span class="n">Carrier</span>
         <div class="t"><b>${esc(carrier.name||"Your safety desk")}</b><span class="num">${esc(carrier.tel)}</span></div></a>`
-    : `<p>Your carrier's safety desk normally makes this call. Store their number on the <b>Right now</b> tab and it will be one tap from here.</p>`;
+    : `<p>Your carrier's safety desk normally makes this call. Store their number on the <b>Emergency</b> screen and it will be one tap from here.</p>`;
 
   if(v.kind==="required"){
     return `<div class="verdict yes"><b class="hd">Immediate telephone notice to the NRC is required</b>
@@ -2415,8 +2944,8 @@ function incVerdictHTML(picked){
       ${v.basis==="judgment"
         ? `<p>You answered that this should be reported in your judgment. That is a trigger in its own right, and it stands whether or not any of the listed circumstances applies.</p>`
         : `<p>Triggered by: ${v.hit.map(t=>`<b>${esc(t.c.replace("171.15",""))}</b>`).join(", ")}.</p>`}
-      <p>A written report on Form 5800.1 also becomes due — see the <b>Written report</b> tab.</p>
-      <a class="call urgent" href="tel:${esc(nrc.replace(/[^\d+]/g,""))}"><span class="n" style="font-size:19px">NRC</span>
+      <p>A written report on Form 5800.1 also becomes due — see <b>Written report</b>, on the Emergency screen.</p>
+      <a class="call" href="tel:${esc(nrc.replace(/[^\d+]/g,""))}"><span class="n">NRC</span>
         <div class="t"><b>National Response Center</b><span class="num">${esc(nrc)}</span></div></a>
       ${carrierLine}
       <span class="cite">49 CFR 171.15(a), (b), (c)</span></div>`;
@@ -2426,7 +2955,7 @@ function incVerdictHTML(picked){
   return `<div class="verdict judg"><b class="hd">Nothing ticked. That does not settle it.</b>
     <p>The rule carries a judgment trigger of its own. The decision is yours, as the person in physical possession of the material. If in your judgment the situation should be reported, telephone notice is required — even though none of the listed circumstances above applies. A continuing danger to life at the scene is the example the rule itself gives, not the only case.</p>
     <p><b>HazPost cannot make that judgment.</b> It cannot see the scene, it does not know what leaked or how much, and it will not tell you the matter is closed. If anything happened at all, call your carrier's safety desk and describe it.</p>
-    <p>The <b>Written report</b> tab matters here too: Form 5800.1 catches incidents the telephone notice never reaches.</p>
+    <p><b>Written report</b>, on the Emergency screen, matters here too: Form 5800.1 catches incidents the telephone notice never reaches.</p>
     ${carrierLine}
     ${cfrFold("171.15(b)(5)", incText("171.15","(b)(5)"))}
     <span class="cite">49 CFR 171.15(b)(5)</span></div>`;
@@ -2442,10 +2971,38 @@ function incUnavailable(){
       <p>The emergency response telephone number on the paper in your door holder is monitored the whole time the load is rolling, by somebody who knows this product. HazPost does not have it and never will.</p>
       <span class="cite">49 CFR 172.604</span></div>
     <div class="card"><h4>Reporting text unavailable</h4>
-      <p style="font-size:14px;line-height:1.5;color:var(--dim)">The reporting rules did not load, so HazPost will not paraphrase them from memory. The numbers above do not depend on it.</p>
-      <div style="font:500 12.5px 'Roboto Mono';color:var(--bad);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:12px;word-break:break-word">${esc(INCIDENT_URL)} — ${esc(incError||"not loaded")}</div>
-      <button class="btn" style="margin-top:12px" onclick="loadIncident().then(render)">Try again</button>
+      <p class="sub">The reporting rules did not load, so HazPost will not paraphrase them from memory. The numbers above do not depend on it.</p>
+      <div class="msg">${esc(INCIDENT_URL)} — ${esc(incError||"not loaded")}</div>
+      <button class="btn" onclick="loadIncident().then(render)">Try again</button>
       <div class="hint">Notice to the National Response Center is due as soon as practical and no later than 12 hours after a reportable incident, and a written report follows. Read 49 CFR 171.15 and 171.16 in full before deciding anything.</div></div>`;
+}
+
+/* ---- THE EMERGENCY TAB ----
+   Opens on Right now: 911 first, as a tel: link, with nothing above it but
+   the title — no offline strip, no question, nothing to dismiss. Do I report?
+   and Written report are rows below the phone numbers, never ahead of them.
+   Reachable when hazmat.json failed, and when incident.json failed too:
+   incUnavailable() still leads with 911. */
+function emergencyTab(){
+  const titles = {now:"Emergency", notice:"Do I report?", written:"Written report"};
+  if(!INC || !titles[incTab]) incTab = "now";
+  setTop(incTab==="now" ? "" : "Emergency", titles[incTab], "");
+  const body = !INC ? incUnavailable()
+    : (incTab==='now' ? incNowView() + emergencyRows() : incTab==='notice' ? incNoticeView() : incWrittenView());
+  /* no offline strip anywhere in Emergency: it speaks for the cached 172.101
+     table, which none of these screens use */
+  return page(titles[incTab], body, {offline:false});
+}
+
+function emergencyRows(){
+  return `<div class="list" style="margin-top:4px">
+    <button type="button" class="srow" onclick="openScreen('emergency','notice')"><span class="tile blue">${ICON.ask}</span>
+      <span class="tl">Do I have to report this?</span>${ICON.chev}</button>
+    <button type="button" class="srow" onclick="openScreen('emergency','written')"><span class="tile grey">${ICON.doc}</span>
+      <span class="tl">Written report</span>${ICON.chev}</button>
+    <a class="srow" href="${ERG_LINK}" target="_blank" rel="noopener"><span class="tile orange">${ICON.book}</span>
+      <span class="tl2"><span>Open the ERG</span><span class="tsub">PHMSA's official guide</span></span>${ICON.ext}</a>
+  </div>`;
 }
 
 /** The carrier block: a tel link once stored, a two-field form until then. */
@@ -2455,7 +3012,7 @@ function incCarrierBlock(){
         <div class="t"><b>${esc(carrier.name||"Your safety desk")}</b>
           <span class="num">${esc(carrier.tel)}</span>
           <span>They own the notification process. Tell them what happened, and do not wait to be asked.</span></div></a>
-      <div style="text-align:right;margin:-4px 2px 9px"><button class="linkbtn" onclick="clearCarrier()">Change this number</button></div>`;
+      <div style="text-align:right;margin:-6px 4px 12px"><button type="button" class="linkbtn" onclick="clearCarrier()">Change this number</button></div>`;
   }
   const d = carDraft || {tel:"", name:""};
   return `<div class="carbox"><b>Your carrier's safety desk</b>
@@ -2465,7 +3022,7 @@ function incCarrierBlock(){
       <button class="btn" onclick="saveCarrier()">Save</button></div></div>`;
 }
 
-/* ---- TAB 1: RIGHT NOW. The default. Phone numbers, nothing to answer. ---- */
+/* ---- RIGHT NOW. What Emergency opens on. Phone numbers, nothing to answer. ---- */
 function incNowView(){
   return `<a class="call urgent" href="tel:911"><span class="n">911</span>
       <div class="t"><b>Injury, fire, or a spill that is still moving</b>
@@ -2479,17 +3036,17 @@ function incNowView(){
 
     <div class="myth"><b>The NRC is not an emergency number</b>
       <p>The National Response Center line, <b>${esc(NRC_TEL())}</b>, is a <b>regulatory notification</b>. It is not a call for help, and <b>nobody is dispatched because you called it</b>. The rule gives you as soon as practical but <b>no later than 12 hours</b> to make it.</p>
-      <p>So do not stand at a spill working out whether the NRC needs calling. Get safe, call 911, call your carrier. The notice question keeps — that is what the next tab is for.</p>
+      <p>So do not stand at a spill working out whether the NRC needs calling. Get safe, call 911, call your carrier. The notice question keeps — that is what <b>Do I have to report this?</b>, below, is for.</p>
       ${cfrFold("171.15(a)", incText("171.15","(a)"))}
       <span class="cite">49 CFR 171.15(a)</span></div>
 
-    <div class="limitbox"><p><b>What HazPost is not.</b> Not a response guide. It will not give you isolation distances, protective action distances, or how to handle a product — that is the emergency number on your paper and the <a href="https://www.phmsa.dot.gov/training/hazmat/erg/emergency-response-guidebook-erg" target="_blank" rel="noopener" style="color:var(--brand)">official PHMSA Emergency Response Guidebook</a>, in the book on your seat or PHMSA's own ERG app. This module covers who to call, and what has to be reported afterward.</p></div>`;
+    <div class="limitbox"><p><b>What HazPost is not.</b> Not a response guide. It will not give you isolation distances, protective action distances, or how to handle a product — that is the emergency number on your paper and the <a href="https://www.phmsa.dot.gov/training/hazmat/erg/emergency-response-guidebook-erg" target="_blank" rel="noopener">official PHMSA Emergency Response Guidebook</a>, in the book on your seat or PHMSA's own ERG app. This module covers who to call, and what has to be reported afterward.</p></div>`;
 }
 
-/* ---- TAB 2: DO I REPORT? The checklist, and a verdict that always calls. ---- */
+/* ---- DO I REPORT? The checklist, and a verdict that always calls. ---- */
 function incNoticeView(){
   let h = `<div class="card"><h4>Did any of these happen?</h4>
-    <p style="font-size:13px;color:var(--dim);line-height:1.5;margin-bottom:11px">During transportation in commerce — which includes <b>loading, unloading and temporary storage</b>. Tick what applies; nothing is stored and nothing is sent.</p>`;
+    <p class="sub" style="margin-bottom:4px">During transportation in commerce — which includes <b>loading, unloading and temporary storage</b>. Tick what applies; nothing is stored and nothing is sent.</p>`;
 
   h += INC_TRIGGERS.map(t=>
     `<div class="trig ${t.judgment?"judg ":""}${incPicked[t.k]?"on":""}" onclick="incPicked['${t.k}']=!incPicked['${t.k}'];render()">
@@ -2520,7 +3077,7 @@ function incNoticeView(){
         incSec("171.15").paras.filter(p=>/^\(a\)\(\d+\)$/.test(p.id)).map(p=>["171.15"+p.id, p.text]))}</div>
 
     <div class="rule"><b>The phone call does not end it</b>
-      <p>Everyone who makes this report must also make the written report in § 171.16. That one has a wider net — next tab.</p>
+      <p>Everyone who makes this report must also make the written report in § 171.16. That one has a wider net — see <b>Written report</b>.</p>
       <span class="cite">49 CFR 171.15(c)</span>
       ${cfrFold("171.15(c)", incText("171.15","(c)"))}</div>
 
@@ -2532,7 +3089,7 @@ function incNoticeView(){
   return h;
 }
 
-/* ---- TAB 3: WRITTEN REPORT. Wider net than the phone call. ---- */
+/* ---- WRITTEN REPORT. Wider net than the phone call. ---- */
 function incWrittenView(){
   const r = (id, title, body) =>
     `<div class="rule a"><b>${esc(title)}</b>${body}<span class="cite">49 CFR 171.16${esc(id)}</span>${cfrFold("171.16"+id, incText("171.16",id))}</div>`;
@@ -2545,7 +3102,7 @@ function incWrittenView(){
     <div class="hint">Nothing about the telephone call settles this one. The written report has a wider net, and a spill with nobody hurt and no road closed still generates paperwork.</div></div>`;
 
   h += `<div class="card"><h4>What puts a 5800.1 in play</h4>` +
-    r("(a)(1)", "Anything on the telephone list", `<p>Every circumstance in 171.15(b) — the checklist on the previous tab — brings the written report with it.</p>`) +
+    r("(a)(1)", "Anything on the telephone list", `<p>Every circumstance in 171.15(b) — the checklist in <b>Do I report?</b> — brings the written report with it.</p>`) +
     r("(a)(2)", "An unintentional release, or any discharge of hazardous waste", `<p>This is the one drivers are surprised by. There is no injury threshold, no road closure, no minimum quantity here — the exceptions in paragraph (d) are further down and they are narrow.</p>`) +
     r("(a)(3)", "A big cargo tank damaged, even with nothing released", `<p>Two conditions, and both have to hold. First, a specification cargo tank of 1,000 gallons or more carrying any hazardous material. Second, structural damage to the lading retention system — or damage requiring repair to a system meant to protect it. Nothing has to have been released.</p>`) +
     r("(a)(4)", "Undeclared hazmat is discovered", `<p>Found in transportation, whether or not anything happened to it.</p>`) +
@@ -2553,8 +3110,8 @@ function incWrittenView(){
     `</div>`;
 
   h += `<div class="card"><h4>The exceptions — read them, do not assume them</h4>
-    <p style="font-size:13.5px;line-height:1.55;color:#C6CED8">171.16(d) takes some small releases out of the written report. <b>HazPost does not apply them and cannot.</b> They turn on the capacity of the package, the amount that actually came out, and the packing group of the material as shipped — three things the app does not know and must not guess. They are quoted in full behind the fold below, so you can hold them against what happened.</p>
-    <p style="font-size:13.5px;line-height:1.55;color:#C6CED8;margin-top:8px">Note the opening clause. The exceptions do not apply at all if a telephone report was required under 171.15.</p>
+    <p>171.16(d) takes some small releases out of the written report. <b>HazPost does not apply them and cannot.</b> They turn on the capacity of the package, the amount that actually came out, and the packing group of the material as shipped — three things the app does not know and must not guess. They are quoted in full behind the fold below, so you can hold them against what happened.</p>
+    <p>Note the opening clause. The exceptions do not apply at all if a telephone report was required under 171.15.</p>
     <div class="rule care"><b>Verbatim, § 171.16(d)</b>
       <span class="cite">49 CFR 171.16(d)</span>
       ${cfrFolds("§ 171.16(d) — full text", incSec("171.16").paras.filter(p=>p.id.startsWith("(d)")).map(p=>["171.16"+p.id, p.text]))}</div></div>`;
@@ -2692,13 +3249,31 @@ const EXP_FIELDS = [
 
 function carUnavailable(){
   return `<div class="card"><h4>Reference text unavailable</h4>
-    <p style="font-size:14px;line-height:1.5;color:var(--dim)">HazPost will not tell you what to carry from memory. The rules did not load, so this module is showing nothing rather than guessing.</p>
-    <div style="font:500 12.5px 'Roboto Mono';color:var(--bad);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:12px;word-break:break-word">${esc(CARRY_URL)} — ${esc(carError||"not loaded")}</div>
-    <button class="btn" style="margin-top:12px" onclick="loadCarry().then(render)">Try again</button>
+    <p class="sub">HazPost will not tell you what to carry from memory. The rules did not load, so this module is showing nothing rather than guessing.</p>
+    <div class="msg">${esc(CARRY_URL)} — ${esc(carError||"not loaded")}</div>
+    <button class="btn" onclick="loadCarry().then(render)">Try again</button>
     <div class="hint">Your saved dates are untouched — they live on this phone, not in the file that failed.</div></div>`;
 }
 
-/* ---- TAB 1: AT A STOP ---- */
+/* ---- THE CARRY TAB: what expires on top, what is on you at a stop below,
+   and the training rules one row away. ---- */
+function carryTab(){
+  if(CAR && screen==="train"){
+    setTop("Carry", "Training rules", "");
+    return page("Training rules", carTrainView());
+  }
+  screen = "";
+  setTop("", "Carry", "");
+  if(!CAR) return page("Carry", carUnavailable(), {offline:true});
+  return page("Carry", carExpView() +
+    `<div class="sh"><h2>At a stop</h2></div>` + carStopView() +
+    `<div class="list">
+      <button type="button" class="srow" onclick="openScreen('carry','train')"><span class="tile grey">${ICON.school}</span>
+        <span class="tl">Training rules</span>${ICON.chev}</button>
+    </div>`, {offline:true});
+}
+
+/* ---- AT A STOP ---- */
 function carStopView(){
   const tier1 = hasTier1(load);
 
@@ -2720,7 +3295,7 @@ function carStopView(){
 
     item("Medical certification — on the record, not in your pocket",
       `<p>This changed and it is worth knowing. Since <b>23 June 2025</b>, a driver required to hold a CDL or CLP <b>no longer carries the medical examiner's certificate</b>. The examiner reports the result to FMCSA, it reaches your driving record, and that record is what an inspector reads.</p>
-       <p>Carrying the card does no harm. Relying on it does: if the paper copy and the electronic record disagree, <b>the electronic record controls</b>. What actually stops the truck is the certification lapsing on the record, which gets the CDL downgraded — so it is on the next tab.</p>`,
+       <p>Carrying the card does no harm. Relying on it does: if the paper copy and the electronic record disagree, <b>the electronic record controls</b>. What actually stops the truck is the certification lapsing on the record, which gets the CDL downgraded — so it is in <b>What expires</b>, above.</p>`,
       "391.41(a)(2)(i)(B), (a)(2)(iv)",
       cfrFolds("§ 391.41(a)(2) — full text", [
         ["391.41(a)(2)(i)(B)", carText("391.41","(a)(2)(i)(B)")],
@@ -2736,7 +3311,7 @@ function carStopView(){
       ])) +
 
     item("The shipping paper",
-      `<p>Tabbed or first in the stack, and in one of the places the rule names — which depends on whether you are at the controls. <a href="#" style="color:var(--brand)" onclick="view='papers';papTab='where';render();window.scrollTo(0,0);return false">Shipping Papers → Where they live</a> has the whole rule; it is not repeated here.</p>`,
+      `<p>Tabbed or first in the stack, and in one of the places the rule names — which depends on whether you are at the controls. <a href="#" onclick="papTab='where';openScreen('load','papers');return false">Shipping papers → Where they live</a>, on the Load screen, has the whole rule; it is not repeated here.</p>`,
       "177.817(e)", "") +
 
     item("Emergency response information",
@@ -2756,7 +3331,7 @@ function carStopView(){
   if(tier1){
     h += item(`Documents the carrier must have given you<span class="cond-tag">1.1 / 1.2 / 1.3</span>`,
       `<p>Only for Division 1.1, 1.2 or 1.3, which is what you have on. The carrier furnishes a copy of the Part 397 rules and a document of <b>instructions for an accident or delay</b> — who to call, what the explosives are, what to do about fire, accident or leakage. <b>You sign a receipt for them.</b></p>
-       <p>Then (c) requires you to be in possession of, familiar with, and in compliance with those documents, the shipping papers, and the <b>written route plan</b>. Routing is Subpart D and HazPost does not implement it — the route plan comes from your carrier. <a href="#" style="color:var(--brand)" onclick="view='ops';opsTab='where';render();window.scrollTo(0,0);return false">On the Road</a> covers the rest of Part 397.</p>`,
+       <p>Then (c) requires you to be in possession of, familiar with, and in compliance with those documents, the shipping papers, and the <b>written route plan</b>. Routing is Subpart D and HazPost does not implement it — the route plan comes from your carrier. <a href="#" onclick="opsTab='where';openScreen('load','ops');return false">On the road</a>, on the Load screen, covers the rest of Part 397.</p>`,
       "397.19(a), (b), (c)",
       cfrFolds("§ 397.19 — full text", [
         ["397.19(a)", carText("397.19","(a)")],
@@ -2772,7 +3347,7 @@ function carStopView(){
 
   h += `<div class="hint">${tier1
     ? `The explosives item above is showing because Division 1.1, 1.2 or 1.3 is on the load you built.`
-    : `One more item appears here when Division 1.1, 1.2 or 1.3 is on the load. HazPost reads that from <a href="#" style="color:var(--brand)" onclick="view='placards';plcTab='builder';render();window.scrollTo(0,0);return false">Placarding → Load Builder</a>${load.length ? `, and nothing on the ${load.length} line${load.length===1?"":"s"} you built is in those divisions.` : `, which is empty right now.`}`}</div>
+    : `One more item appears here when Division 1.1, 1.2 or 1.3 is on the load. HazPost reads that from the load on the <a href="#" onclick="goTab('load');return false">Load</a> screen${load.length ? `, and nothing on the ${load.length} line${load.length===1?"":"s"} you built is in those divisions.` : `, which is empty right now.`}`}</div>
     </div>`;
 
   h += `<div class="card"><h4>What you do not carry</h4>
@@ -2788,10 +3363,29 @@ function carStopView(){
   return h;
 }
 
-/* ---- TAB 2: WHAT EXPIRES ---- */
+/* ---- WHAT EXPIRES ----
+   A stack of cards, like a wallet: each shows its name and how long is left,
+   and one at a time opens to its date field and what the date means. Every
+   date field is always in the page — a closed card only folds it away — so
+   nothing about a date depends on which card happens to be open. */
+function toggleCard(k){ carOpen = (openCard()===k ? "" : k); render(); }
+
+/** The open card: the driver's pick, or else the one that runs out first. */
+function openCard(){
+  if(carOpen!==null) return carOpen;
+  const today = todayISO();
+  let best = null, bestDays = Infinity;
+  EXP_FIELDS.forEach(f=>{
+    const d = expRow(f, dates, today).days;
+    if(d!==null && d < bestDays){ best = f.k; bestDays = d; }
+  });
+  return best || EXP_FIELDS[0].k;
+}
+
 function carExpView(){
   const today = todayISO();
   const anySet = DATE_KEYS.some(k=>dates[k]);
+  const open = openCard();
 
   const NOTES = {
     hme: `<p><b>At least every five years</b> — the State must set the renewal cycle so you go through a TSA security threat assessment at least that often, and it may not issue or renew without a <b>Determination of No Security Threat</b>. Holding a valid <b>TWIC</b> is the alternative route.</p>
@@ -2804,21 +3398,26 @@ function carExpView(){
       <p><b>This is the carrier's obligation and the carrier's record.</b> You cannot fix it yourself and you are not the one who keeps it. It is tracked here for one reason: so you can prompt them before it lapses, and so you know which question to ask.</p>`,
   };
 
-  let h = `<div class="card"><h4>Your dates</h4>
-    <p style="font-size:12.5px;color:var(--dim);line-height:1.55;margin-bottom:12px">All four are optional. They are stored <b style="color:var(--ink)">on this phone only</b> — HazPost has no account, no server and nothing to sync to, so nothing here leaves the device.</p>`;
-
+  let h = `<div class="sh" style="margin-top:4px"><h2>What expires</h2></div><div class="wallet">`;
   EXP_FIELDS.forEach(f=>{
     const r = expRow(f, dates, today);
-    h += `<div class="exp"><div class="top"><b>${esc(f.lbl)}</b>
-        <input type="date" id="date-${f.k}" value="${esc(r.typed)}" onchange="setDate('${f.k}', this.value)" aria-label="${esc(f.lbl)}"></div>
-      <span class="days ${r.status.cls}">${esc(r.status.txt)}</span>${
-        f.addYears && r.due ? `<span class="due">due ${esc(r.due)}</span>` : ""}
-      <div class="note">${NOTES[f.k]}</div>
-      <span class="cite">${esc(f.cite)}</span></div>`;
+    const isOpen = open===f.k;
+    h += `<section class="wcard w-${f.k}${isOpen?" open":""}" aria-label="${esc(f.lbl)}">
+      <button type="button" class="wh" aria-expanded="${isOpen}" onclick="toggleCard('${f.k}')">
+        <span>${esc(f.lbl)}</span><span class="days ${r.status.cls}">${esc(r.status.txt)}</span></button>
+      <div class="wb">
+        <div class="wk">${f.addYears ? "Last training" : "Expires"}</div>
+        <input type="date" id="date-${f.k}" value="${esc(r.typed)}" onchange="carOpen='${f.k}';setDate('${f.k}', this.value)" aria-label="${esc(f.lbl)}">
+        ${f.addYears && r.due ? `<span class="due">Next training due ${esc(r.due)}</span>` : ""}
+        <div class="note">${NOTES[f.k]}</div>
+        <span class="cite">${esc(f.cite)}</span>
+      </div></section>`;
   });
+  h += `</div>
+    <p class="foot c" style="margin-top:10px">All four are optional. They are stored <b>on this phone only</b> — HazPost has no account, no server and nothing to sync to, so nothing here leaves the device.</p>
+    <button class="btn ghost" onclick="clearDates()"${anySet?"":" disabled"}>Clear all dates</button>
 
-  h += `<button class="btn ghost" style="margin-top:4px${anySet?"":";opacity:.45"}" onclick="clearDates()"${anySet?"":" disabled"}>Clear all dates</button>
-
+    <div class="card" style="margin-top:12px">
     <div class="limitbox"><p><b>A reminder, not a record.</b> HazPost cannot verify any of these dates and does not try. Whatever your State and your carrier hold beats what is typed here — if the two disagree, they are right and this is wrong.</p></div>
 
     <div class="limitbox"><p><b>No reminders, and that is deliberate.</b> There are no notifications, no alerts and nothing scheduled. A static site with no backend cannot reliably fire one, and a reminder that silently fails to arrive is worse than no reminder at all. This screen tells you where you stand when you open it.</p></div>
@@ -2850,12 +3449,12 @@ function carExpView(){
   return h;
 }
 
-/* ---- TAB 3: TRAINING RULES ---- */
+/* ---- TRAINING RULES, a screen of its own ---- */
 function carTrainView(){
   const r = (title, body, cite, verb) =>
     `<div class="rule a"><b>${esc(title)}</b>${body}<span class="cite">49 CFR ${esc(cite)}</span>${verb||""}</div>`;
 
-  let h = `<div class="limitbox" style="margin:0 0 12px"><p><b>None of this is yours to do.</b> 172.704 is an employer obligation from end to end — the hazmat employer trains, tests, certifies and keeps the record. It is here so you know what your carrier owes you and what to ask for, not because there is a box for you to tick.</p></div>`;
+  let h = `<div class="limitbox"><p><b>None of this is yours to do.</b> 172.704 is an employer obligation from end to end — the hazmat employer trains, tests, certifies and keeps the record. It is here so you know what your carrier owes you and what to ask for, not because there is a box for you to tick.</p></div>`;
 
   h += `<div class="card"><h4>Whose job it is</h4>` +
     r("The employer's, throughout",
@@ -2929,6 +3528,7 @@ function carTrainView(){
 
 /* ---------------- BOOT ---------------- */
 window.addEventListener("online",  paintOffline);
+window.addEventListener("scroll", paintTop, {passive:true});
 window.addEventListener("offline", paintOffline);
 /* the connection can drop between launches; re-check when the app comes back
    to the foreground, which is how a phone in a pocket behaves. The update
