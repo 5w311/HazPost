@@ -61,7 +61,11 @@ main{flex:1;padding:0 18px calc(40px + env(safe-area-inset-bottom, 0px))}
 .tile .cfr{font:500 10.5px 'Roboto Mono';color:var(--faint);margin-top:8px}
 .tile.stub{opacity:.62}
 .tile.stub::after{content:"NEXT";position:absolute;top:12px;right:12px;font:700 9.5px 'Barlow Condensed';letter-spacing:1.2px;color:var(--faint);border:1px solid var(--line);padding:3px 6px;border-radius:20px}
-.tile.live::after{content:"LIVE";position:absolute;top:12px;right:12px;font:700 9.5px 'Barlow Condensed';letter-spacing:1.2px;color:#14171C;background:var(--ok);padding:3px 7px;border-radius:20px}
+/* No .tile.live::after badge. All six modules are live now, so a pill
+   announcing that on every tile is noise with nothing left to contrast
+   against — .tile.live still exists as a class (full opacity, vs. .stub's
+   dimming) so the "NEXT" treatment above is ready the day a seventh module
+   ships as a stub. */
 
 /* tabs */
 .tabs{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:4px;margin:6px 0 16px}
@@ -364,7 +368,7 @@ table.mat td.b{background:var(--panel)}
 <script>
 /* The build a driver is running, shown in the home footer.
    Bump this and VERSION in sw.js together on every deploy — see README. */
-const APP_VERSION = "0.9.1";
+const APP_VERSION = "0.9.2";
 
 /* ---------------- DATA: the 172.101 table, fetched from hazmat.json ---------------- */
 const DATA_URL = "hazmat.json";

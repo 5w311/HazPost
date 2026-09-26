@@ -40,10 +40,11 @@ HazPost is a verification aid for hazmat drivers. It does not classify materials
 - `tools/build-papers.mjs` — regenerates `papers.json` from the eCFR API
 - `tools/build-incident.mjs` — regenerates `incident.json` from the eCFR API
 - `tools/build-carry.mjs` — regenerates `carry.json` from the eCFR API
-- `tools/build-icons.mjs` — regenerates `icons/`
+- `tools/icon-source/*.png` — the committed source art `build-icons.mjs` derives `icons/` from
+- `tools/build-icons.mjs` — regenerates `icons/` from `tools/icon-source/`
 - `tools/test-harness.mjs` — the shared vm harness the tests run on
 - `tools/test.mjs` — the test suite; runs every `tools/test-*.mjs`
-- `tools/GENERATION-REPORT.md`, `tools/SEGREGATION-REPORT.md`, `tools/OPS-REPORT.md`, `tools/PAPERS-REPORT.md`, `tools/INCIDENT-REPORT.md`, `tools/CARRY-REPORT.md` — what each generation run decided, and why
+- `tools/GENERATION-REPORT.md`, `tools/SEGREGATION-REPORT.md`, `tools/OPS-REPORT.md`, `tools/PAPERS-REPORT.md`, `tools/INCIDENT-REPORT.md`, `tools/CARRY-REPORT.md`, `tools/ICONS-REPORT.md` — what each generation run decided, and why
 - Deployed via GitHub Pages
 - Mobile-first, offline-first
 
@@ -172,11 +173,28 @@ copy of the old worker script.
 node tools/build-icons.mjs
 ```
 
-Pure Node, no dependencies: the mark is a signed distance field and the PNGs
-are encoded against `node:zlib`. Re-run it rather than editing the binaries.
-Every icon is drawn full-bleed and fully opaque — iOS composites a transparent
-`apple-touch-icon` onto white, which would put the yellow diamond on a white
-tile instead of the app's dark one.
+The mark used to be procedurally generated — a signed distance field with no
+source art at all. It is now supplied artwork, committed under
+`tools/icon-source/` at the three sizes this app's "any" icons need (512,
+192, 180) and derived from there. Still pure Node, no dependencies: the
+script carries its own PNG decoder (chunk walk, CRC-32 verification, zlib
+inflate, all five PNG filter types) alongside the encoder the old version
+already had. Re-run it rather than editing `icons/*.png` by hand — and
+replace the source PNGs and re-run rather than hand-editing those either.
+
+`icon-maskable-192.png` and `icon-maskable-512.png` are byte-identical to
+`icon-192.png` and `icon-512.png`. That's a measured result, not a shortcut:
+the build decodes the 512 source and checks how far the diamond's farthest
+pixel sits from centre against the 40%-radius safe zone a maskable icon must
+survive being cropped to, and aborts if a future re-export ever fails that
+check rather than shipping an icon a launcher would clip. `favicon-32.png`
+has no supplied source at that size, so it's the one output actually
+computed — an exact 16:1 box average of the 512 source, chosen because it
+divides evenly, not a general resampling filter with a ratio to get subtly
+wrong. Every icon stays full-bleed and fully opaque, same reason as before:
+iOS composites a transparent `apple-touch-icon` onto white, which would put
+the diamond on a white tile instead of the app's dark one. Full provenance,
+checks and the safe-zone measurement are in `tools/ICONS-REPORT.md`.
 
 ## Material data
 
