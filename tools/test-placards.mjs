@@ -95,7 +95,7 @@ r.section("Aggregation across categories");
 }
 
 /* ---------------- 2,205 lb from one facility ---------------- */
-r.section("172.504(b)(2) — 2,205 lb from a single loading point");
+r.section("172.504(b) — 2,205 lb from a single loading point");
 {
   const oneFac = (await appWith({
     lines: [line(M.gasoline, 600), line(M.oxidizer, 2400, "A")],
@@ -104,7 +104,8 @@ r.section("172.504(b)(2) — 2,205 lb from a single loading point");
   r.ok(oneFac.placards.includes("flam3"), "and FLAMMABLE for the gasoline");
   r.eq(oneFac.dangerOption, null,
     "and with only one category left eligible, DANGEROUS is off the table entirely");
-  r.ok(hasCite(oneFac, "172.504(b)(2)"), "the block cites 172.504(b)(2)");
+  r.ok(oneFac.why.some((w) => w.cite === "172.504(b)" && w.tone === "bad"),
+    "the block cites 172.504(b)");
 
   const split = (await appWith({
     lines: [line(M.gasoline, 600), line(M.oxidizer, 1200, "A"), line(M.oxidizer, 1200, "B")],
@@ -112,7 +113,8 @@ r.section("172.504(b)(2) — 2,205 lb from a single loading point");
   r.eq(split.agg, 3000, "the same 2,400 lb split across two facilities still aggregates to 3,000");
   r.ok(split.dangerOption !== null, "but DANGEROUS comes back");
   r.sameSet((split.dangerOption || {}).cats || [], ["3", "5.1"], "covering both categories");
-  r.ok(!hasCite(split, "172.504(b)(2)"), "and nothing cites the single-loading-point rule");
+  r.ok(!split.why.some((w) => w.cite === "172.504(b)" && w.tone === "bad"),
+    "and nothing blocks under the single-loading-point rule");
 }
 {
   /* the boundary: 2,204 lb from one facility does not block, 2,205 does */
