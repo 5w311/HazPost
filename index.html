@@ -368,7 +368,7 @@ table.mat td.b{background:var(--panel)}
 <script>
 /* The build a driver is running, shown in the home footer.
    Bump this and VERSION in sw.js together on every deploy — see README. */
-const APP_VERSION = "0.9.2";
+const APP_VERSION = "0.9.3";
 
 /* ---------------- DATA: the 172.101 table, fetched from hazmat.json ---------------- */
 const DATA_URL = "hazmat.json";
@@ -1237,7 +1237,7 @@ function compute(){
       } else {
         dangerOption={cats:nonNine.filter(c=>!blocked.includes(c)), blocked};
         blocked.forEach(c=>{
-          why.push({tone:"bad", txt:`<b>${CLSNAME[c]}</b>: ${Math.max(...Object.values(cats[c].byFac)).toLocaleString()} lb came aboard at one facility — 2,205 lb or more from a single loading point kills the DANGEROUS shortcut for that class. Its own placard must be displayed.`, cite:"172.504(b)(2)"});
+          why.push({tone:"bad", txt:`<b>${CLSNAME[c]}</b>: ${Math.max(...Object.values(cats[c].byFac)).toLocaleString()} lb came aboard at one facility — 2,205 lb or more from a single loading point kills the DANGEROUS shortcut for that class. Its own placard must be displayed.`, cite:"172.504(b)"});
         });
         if(dangerOption.cats.length<2) dangerOption=null;
       }
