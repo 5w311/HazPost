@@ -150,8 +150,11 @@ r.section("INVARIANT 1 — the default view is who to call, 911 first, as a tel:
   r.ok(now.trimStart().startsWith('<a class="call urgent" href="tel:911"'),
     "911 is the first element rendered", now.trimStart().slice(0, 80));
 
-  /* the router's default tab, and the tab it maps to */
-  r.ok(/let view = "home",[^\n]*incTab = "now"/.test(SRC), "incTab defaults to the landing view");
+  /* the router's defaults: the app opens on Load, and Emergency opens on
+     Right now — goTab('emergency') resets incTab to "now" on every tap */
+  r.ok(/let tab = "load",[^\n]*incTab = "now"/.test(SRC), "incTab defaults to the landing view");
+  r.ok(/function goTab\(t\)\{[^}]*if\(t==="emergency"\) incTab = "now";/.test(SRC),
+    "tapping the Emergency tab always lands on the landing view");
   r.ok(/incTab==='now' \? incNowView\(\)/.test(SRC), "the landing tab renders incNowView()");
 
   /* the module must survive the shipping paper's number being absent */
