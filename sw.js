@@ -23,7 +23,7 @@
  * every phone already holding a cached copy.
  */
 
-const VERSION = "v1.7.3";
+const VERSION = "v1.8.0";
 const CACHE = `hazpost-${VERSION}`;
 
 /** Where the cache-refresh timestamp lives, for the offline indicator. */
@@ -101,7 +101,7 @@ self.addEventListener("install", (event) => {
   })());
 });
 
-const FONT_CSS = "https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700&family=Roboto+Mono:wght@400;500;700&display=swap";
+const FONT_CSS = "https://fonts.googleapis.com/css2?family=Instrument+Sans:wdth,wght@75..100,400..700&family=Atkinson+Hyperlegible+Mono:wght@400..700&family=Source+Serif+4:ital,wght@0,400;1,400&display=swap";
 
 /**
  * Cache the Google Fonts stylesheet and the font files it points at.

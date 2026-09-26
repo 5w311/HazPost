@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>HazPost — Hazmat Tools for Drivers</title>
 <meta name="description" content="Hazmat placarding and lookup tools for truck drivers, built to work with no signal.">
-<meta name="theme-color" content="#14171C">
+<!-- The app follows the phone's light or dark setting, so the browser chrome
+     does too. manifest.json can only hold one theme colour and is left alone. -->
+<meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <!-- All install paths are relative: HazPost is a GitHub Pages project site
      under /HazPost/, so a leading slash would resolve to the domain root. -->
 <link rel="manifest" href="manifest.json">
@@ -15,340 +18,472 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="HazPost">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<!-- One URL, character for character the same as FONT_CSS in sw.js: that
+     string is the offline cache key, and if the two differ the fonts go
+     missing offline with no error. -->
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wdth,wght@75..100,400..700&family=Atkinson+Hyperlegible+Mono:wght@400..700&family=Source+Serif+4:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
 <style>
+/* ---------------- tokens ----------------
+   The app follows the phone's light or dark setting, in CSS alone — the test
+   harness has no matchMedia. Light is the default; dark overrides below.
+
+   Nothing after these two blocks names a colour or a typeface. The only
+   literal colours in the app are these definitions, the two theme-color
+   metas, and the placard colours in PLC and plcHTML. */
 :root{
-  --bg:#14171C; --panel:#1C2129; --panel2:#232A34; --line:#2E3743;
-  --ink:#EDF0F4; --dim:#8B96A5; --faint:#5A6473;
-  --flam:#C8102E; --oxy:#FFB612; --wet:#0F5FBF; --gas:#1E8A44;
-  --expl:#FF6720; --tox:#F2F2F2; --brand:#FFB612;
-  --ok:#3BAA5C; --warn:#FFB612; --bad:#E5484D;
-  --r:14px;
+  color-scheme:light dark;
+
+  --font-ui:'Instrument Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  --font-mono:'Atkinson Hyperlegible Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --font-serif:'Source Serif 4',ui-serif,'Iowan Old Style',Georgia,serif;
+
+  --bg:#F2F2F7; --card:#FFFFFF;
+  --label:#000000; --secondary:#6C6C70; --body:#3A3A3C;
+  --sep:#E3E3E8; --chevron:#BDBDC2;
+  /* HazPost's amber, darkened until it passes contrast as text. #FFB612 is
+     never text in light mode — it only appears as a fill (--mark). */
+  --tint:#A35400; --on-tint:#FFFFFF;
+  --red:#D70015; --blue:#0A5BD3;
+  /* icon tiles and glyph circles: solid colour, white glyph. Green is a tile
+     colour only and never means a status. Orange is the ERG's. */
+  --tile-red:#D70015; --tile-blue:#0A5BD3; --tile-green:#1E7A3E;
+  --tile-orange:#C93400; --tile-grey:#636366; --on-tile:#FFFFFF;
+  /* the 911 button's phone circle */
+  --on-tile-soft:rgba(255,255,255,.18);
+  /* fills: segmented tracks, chips, inputs, grey buttons */
+  --fill:rgba(118,118,128,.12); --seg-on:#FFFFFF;
+  --red-fill:rgba(215,0,21,.08); --tint-fill:rgba(163,84,0,.1); --blue-fill:rgba(10,91,211,.08);
+  --mark:#FFB612; --on-mark:#000000;
+  --shadow:rgba(0,0,0,.08); --shadow-red:rgba(215,0,21,.28);
+  /* placard edge, so white and black placards still read against a card */
+  --plc-edge:rgba(0,0,0,.35); --plc-shadow:rgba(0,0,0,.18);
+
+  /* glyph masks — shapes only; the colour comes from the element's background */
+  --icon-phone:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5.2 3.5h3.3l1.6 4.1-2.1 1.4a11 11 0 005.9 5.9l1.4-2.1 4.1 1.6v3.3a2 2 0 01-2.2 2A16.5 16.5 0 013.2 5.7a2 2 0 012-2.2z'/%3E%3C/svg%3E");
+  --icon-doc:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3h8l5 5v13H6z'/%3E%3Cpath d='M14 3v5h5M9 13h7M9 17h7'/%3E%3C/svg%3E");
+
+  --r:22px;
 }
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#000000; --card:#1C1C1E;
+    --label:#FFFFFF; --secondary:#AEAEB2; --body:#D1D1D6;
+    --sep:#38383A; --chevron:#5A5A5E;
+    --tint:#FFB612; --on-tint:#000000;
+    --red:#FF453A; --blue:#409CFF;
+    --tile-red:#E0243A; --tile-blue:#0A6CE0; --tile-green:#248A3D;
+    --fill:rgba(118,118,128,.24); --seg-on:#636366;
+    --red-fill:rgba(255,69,58,.08); --tint-fill:rgba(255,182,18,.14); --blue-fill:rgba(64,156,255,.16);
+    --shadow:rgba(0,0,0,.5); --shadow-red:rgba(224,36,58,.3);
+    --plc-edge:rgba(255,255,255,.25); --plc-shadow:rgba(0,0,0,.5);
+  }
+}
+
+/* ---------------- base ----------------
+   Scale: large title 34/40 · section title 22/28 · row and card title 17/22 ·
+   body 15/20 · footnotes and cites 13/18. Interface text is tracked +0.2px.
+   Cites, weights, dates and phone numbers use tabular figures, not a mono. */
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
-body{background:var(--bg);color:var(--ink);font-family:'Barlow',sans-serif;font-size:16px;overscroll-behavior:none}
-.mono{font-family:'Roboto Mono',monospace}
+body{background:var(--bg);color:var(--label);font:400 15px/20px var(--font-ui);letter-spacing:.2px;overscroll-behavior:none;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%}
+a{color:var(--tint)}
+button,input,select{font-family:var(--font-ui);letter-spacing:.2px}
+:focus-visible{outline:2px solid var(--tint);outline-offset:2px}
+.mono{font-family:var(--font-mono);letter-spacing:0}
 .app{max-width:520px;margin:0 auto;min-height:100%;display:flex;flex-direction:column}
 
 /* header */
-header{padding:18px 18px 14px;display:flex;align-items:center;gap:12px;position:sticky;top:0;background:linear-gradient(var(--bg) 75%,transparent);z-index:20}
-.logo-d{width:34px;height:34px;position:relative;flex:none}
-.logo-d::before{content:"";position:absolute;inset:3px;background:var(--brand);transform:rotate(45deg);border-radius:4px}
-.logo-d::after{content:"HZ";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:800 13px 'Barlow Condensed';color:#14171C;letter-spacing:.5px}
-h1{font:700 22px/1 'Barlow';letter-spacing:.2px}
-h1 span{color:var(--brand)}
-.sub{font-size:12.5px;color:var(--dim);margin-top:3px}
-.back{background:none;border:none;color:var(--brand);font:600 15px 'Barlow';padding:6px 10px 6px 0;cursor:pointer;display:none;align-items:center;gap:4px}
-main{flex:1;padding:0 18px calc(40px + env(safe-area-inset-bottom, 0px))}
+header{padding:12px 16px 10px;display:flex;align-items:center;gap:12px;position:sticky;top:0;background:linear-gradient(var(--bg) 78%,transparent);z-index:20}
+.logo-d{width:36px;height:36px;position:relative;flex:none}
+.logo-d::before{content:"";position:absolute;inset:5px;background:var(--mark);transform:rotate(45deg);border-radius:5px;box-shadow:0 0 0 1px var(--plc-edge)}
+.logo-d::after{content:"HZ";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:700 13px/1 var(--font-ui);font-stretch:75%;color:var(--on-mark);letter-spacing:.4px}
+h1{font:700 34px/40px var(--font-ui);letter-spacing:-.4px}
+h1 span{color:var(--tint)}
+.sub{font-size:15px;line-height:20px;color:var(--secondary)}
+.back{background:none;border:none;color:var(--tint);font:400 17px/22px var(--font-ui);letter-spacing:.2px;padding:0 10px 0 0;min-height:44px;cursor:pointer;display:none;align-items:center;gap:4px;flex:none;white-space:nowrap}
+main{flex:1;padding:0 16px calc(40px + env(safe-area-inset-bottom, 0px))}
 
 /* offline indicator — a strip under the header, only while actually offline */
-.offbar{display:flex;align-items:center;gap:9px;margin:0 18px 12px;padding:8px 11px;background:#2A2418;border:1px solid #5A4A1E;border-radius:10px;font-size:12.5px;color:#E8C877;line-height:1.4}
+.offbar{display:flex;align-items:center;gap:10px;margin:0 16px 12px;padding:10px 14px;background:var(--card);border-radius:14px;font-size:13px;line-height:18px;letter-spacing:.25px;font-variant-numeric:tabular-nums;color:var(--body)}
 .offbar[hidden]{display:none}
-.offbar .dot{width:7px;height:7px;border-radius:50%;background:var(--warn);flex:none;box-shadow:0 0 0 3px rgba(255,182,18,.16)}
-.offbar b{font-weight:700;color:#FFCE5C}
-.offbar .when{color:#A8936A;white-space:nowrap}
+.offbar .dot{width:8px;height:8px;border-radius:50%;background:var(--tint);flex:none}
+.offbar b{font-weight:600;color:var(--label)}
+.offbar .when{color:var(--secondary);white-space:nowrap;font-variant-numeric:tabular-nums}
 
 /* module grid */
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
-.tile{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px 14px 14px;cursor:pointer;position:relative;transition:transform .08s ease;min-height:118px;display:flex;flex-direction:column;justify-content:space-between}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+.tile{background:var(--card);border-radius:var(--r);padding:14px 14px 12px;cursor:pointer;position:relative;transition:transform .08s ease;min-height:132px;display:flex;flex-direction:column;justify-content:space-between}
 .tile:active{transform:scale(.97)}
-.tile .td{width:26px;height:26px;position:relative;margin-bottom:10px}
-.tile .td::before{content:"";position:absolute;inset:2px;transform:rotate(45deg);border-radius:3px;background:var(--tc,#39424F)}
-.tile h3{font:700 16.5px 'Barlow';letter-spacing:.2px}
-.tile p{font-size:12px;color:var(--dim);margin-top:3px;line-height:1.35}
-.tile .cfr{font:500 10.5px 'Roboto Mono';color:var(--faint);margin-top:8px}
+.tile .td{width:30px;height:30px;border-radius:8px;background:var(--tc,var(--tile-grey));position:relative;margin-bottom:10px}
+.tile .td::before{content:"";position:absolute;inset:9px;border-radius:2px;background:var(--on-tile);transform:rotate(45deg)}
+.tile h3{font:600 17px/22px var(--font-ui);letter-spacing:0}
+.tile p{font-size:13px;line-height:18px;letter-spacing:.25px;color:var(--secondary);margin-top:2px}
+.tile .cfr{font-size:13px;line-height:18px;letter-spacing:.25px;color:var(--secondary);margin-top:8px;font-variant-numeric:tabular-nums}
 .tile.stub{opacity:.62}
-.tile.stub::after{content:"NEXT";position:absolute;top:12px;right:12px;font:700 9.5px 'Barlow Condensed';letter-spacing:1.2px;color:var(--faint);border:1px solid var(--line);padding:3px 6px;border-radius:20px}
+.tile.stub::after{content:"NEXT";position:absolute;top:12px;right:12px;font:600 11px/14px var(--font-ui);letter-spacing:.6px;color:var(--secondary);background:var(--fill);padding:3px 7px;border-radius:20px}
 /* No .tile.live::after badge. All six modules are live now, so a pill
    announcing that on every tile is noise with nothing left to contrast
    against — .tile.live still exists as a class (full opacity, vs. .stub's
    dimming) so the "NEXT" treatment above is ready the day a seventh module
    ships as a stub. */
 
-/* tabs */
-.tabs{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:4px;margin:6px 0 16px}
-.tabs button{flex:1;border:none;background:none;color:var(--dim);font:600 14.5px 'Barlow';padding:9px 0;border-radius:9px;cursor:pointer}
-.tabs button.on{background:var(--panel2);color:var(--ink)}
+/* tabs — a segmented control */
+.tabs{display:flex;gap:2px;background:var(--fill);border-radius:999px;padding:3px;margin:4px 0 16px}
+.tabs button{flex:1 1 0;border:none;background:none;color:var(--label);font:500 14px/18px var(--font-ui);letter-spacing:.2px;padding:8px 6px;min-height:38px;border-radius:999px;cursor:pointer}
+.tabs button.on{background:var(--seg-on);font-weight:600;box-shadow:0 2px 6px var(--shadow)}
+@media (max-width:374px){.tabs button{font-stretch:87.5%;letter-spacing:0;padding:8px 2px}}
 
-/* load builder */
-.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:12px}
-.card h4{font:700 13px 'Barlow Condensed';letter-spacing:1.4px;color:var(--dim);text-transform:uppercase;margin-bottom:10px}
+/* ---------------- cards and rows ----------------
+   Every panel is a plain card. Tone lives on a 30px glyph at the start of the
+   card or row, never on the background. Rows are separated by hairlines
+   inset to the text. */
+.card{background:var(--card);border-radius:var(--r);padding:14px 16px;margin-bottom:14px}
+.card h4{font:600 22px/28px var(--font-ui);letter-spacing:-.2px;color:var(--label);margin-bottom:4px}
 .row{display:flex;gap:8px;margin-bottom:8px}
-input,select{background:var(--bg);border:1px solid var(--line);border-radius:10px;color:var(--ink);font:500 15px 'Barlow';padding:11px 12px;width:100%;outline:none}
-input:focus,select:focus{border-color:var(--brand)}
-input.mono{font:500 15px 'Roboto Mono'}
-.btn{background:var(--brand);color:#14171C;border:none;border-radius:10px;font:700 15px 'Barlow';padding:12px 16px;cursor:pointer;width:100%}
+input,select{background:var(--fill);border:none;border-radius:12px;color:var(--label);font:400 17px/22px var(--font-ui);letter-spacing:.2px;padding:13px 14px;width:100%;min-height:48px;outline:none}
+input{-webkit-appearance:none;appearance:none}
+input::placeholder{color:var(--secondary);opacity:1}
+input:focus,select:focus{box-shadow:0 0 0 2px var(--tint)}
+input:focus-visible,select:focus-visible{outline:none}
+input.mono{font-family:var(--font-mono);letter-spacing:0}
+/* what gets typed is an identifier; the prompt is ordinary words */
+input.mono::placeholder{font-family:var(--font-ui);letter-spacing:.2px}
+.row>select{width:auto;flex:none}
+/* weight and phone number are figures, not identifiers */
+#wtIn,#carTel{font-family:var(--font-ui);letter-spacing:.2px;font-variant-numeric:tabular-nums}
+.btn{background:var(--tint);color:var(--on-tint);border:none;border-radius:14px;font:600 17px/22px var(--font-ui);letter-spacing:.2px;padding:13px 16px;min-height:50px;cursor:pointer;width:100%}
 .btn:active{opacity:.85}
-.btn.ghost{background:none;border:1px solid var(--line);color:var(--ink)}
-.hint{font-size:12px;color:var(--faint);margin-top:8px;line-height:1.4}
-.sugg{background:var(--panel2);border:1px solid var(--line);border-radius:10px;margin-top:-4px;margin-bottom:8px;max-height:180px;overflow:auto;display:none}
-.sugg div{padding:10px 12px;font-size:13.5px;border-bottom:1px solid var(--line);cursor:pointer}
-.sugg div:last-child{border-bottom:none}
-.sugg .u{font:600 13px 'Roboto Mono';color:var(--brand);margin-right:8px}
+.btn.ghost{background:var(--fill);color:var(--label)}
+.hint{font-size:13px;line-height:18px;letter-spacing:.25px;font-variant-numeric:tabular-nums;color:var(--secondary);margin-top:8px}
+.hint b{color:var(--label)}
+.sugg{background:var(--card);border-radius:14px;box-shadow:0 8px 24px var(--shadow),0 0 0 1px var(--sep);margin:-2px 0 8px;max-height:260px;overflow:auto;display:none}
+.sugg div{padding:14px;min-height:48px;font-size:15px;line-height:20px;border-top:1px solid var(--sep);cursor:pointer}
+.sugg div:first-child{border-top:none}
+.sugg .u{font:700 15px/20px var(--font-mono);letter-spacing:0;color:var(--label);margin-right:8px}
 
-/* load lines */
-.line-item{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:8px}
-.line-item .un{font:700 14px 'Roboto Mono';color:var(--brand);flex:none}
-.line-item .nm{flex:1;min-width:0}
-.line-item .nm b{display:block;font:600 14px 'Barlow';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.line-item .nm span{font-size:11.5px;color:var(--dim)}
-.line-item .wt{font:500 13px 'Roboto Mono';color:var(--ink);flex:none}
-.line-item .x{background:none;border:none;color:var(--faint);font-size:18px;cursor:pointer;flex:none;padding:2px 4px}
-.t1tag{font:700 9px 'Barlow Condensed';letter-spacing:1px;background:var(--bad);color:#fff;padding:2px 5px;border-radius:4px;margin-left:6px;vertical-align:2px}
+/* the CFR cite: the last line of whatever it cites, grey, 13px, tabular */
+.cite{display:block;font:400 13px/18px var(--font-ui);letter-spacing:.25px;font-variant-numeric:tabular-nums;color:var(--secondary);margin-top:6px}
 
-/* trailer result */
-.trailer{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:12px}
-.trailer h4{font:700 13px 'Barlow Condensed';letter-spacing:1.4px;color:var(--dim);text-transform:uppercase}
-.trailer .tr-body{background:repeating-linear-gradient(90deg,var(--panel2) 0 46px,var(--line) 46px 47px);border:2px solid var(--line);border-radius:8px;min-height:120px;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:18px;padding:20px 10px;flex-wrap:wrap}
-.tr-none{color:var(--faint);font-size:14px}
-.plc{width:86px;height:86px;position:relative;flex:none}
-.plc .dia{position:absolute;inset:6px;transform:rotate(45deg);border-radius:6px;border:2.5px solid rgba(0,0,0,.55);overflow:hidden;box-shadow:0 3px 10px rgba(0,0,0,.4)}
-.plc .fill{position:absolute;width:141.4%;height:141.4%;left:-20.7%;top:-20.7%;transform:rotate(-45deg)}
-.plc .txt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2;text-align:center}
-.plc .w{font:800 11px 'Barlow Condensed';letter-spacing:.6px;line-height:1.05;text-transform:uppercase}
-.plc .n{font:800 17px 'Barlow Condensed';margin-top:2px}
-.plc .cap{position:absolute;left:0;right:0;bottom:-16px;text-align:center;font:600 10px 'Barlow Condensed';letter-spacing:1px;color:var(--dim);text-transform:uppercase}
+/* hairlines between rows of the same kind */
+.line-item+.line-item,.why+.why,.rule+.rule,.pflag+.pflag,.item+.item,.exp+.exp,.trig+.trig,.kv+.kv,.refp+.refp,.desc+.desc{
+  background-image:linear-gradient(var(--sep),var(--sep));background-repeat:no-repeat;background-position:right top;background-size:100% 1px}
+/* rows with a glyph start their text 42px in, and so does the hairline */
+.why,.pflag,.rule.stop,.rule.care{background-size:calc(100% - 42px) 1px}
+.item+.item{background-size:calc(100% - 20px) 1px}
+.trig+.trig{background-size:calc(100% - 36px) 1px}
+
+/* ---------------- tone glyphs ----------------
+   bad: red, with ! · warn: amber, with ! · questions and pending verdicts:
+   blue, with ? · the myth and limitbox callouts: blue, with i · ok and neutral
+   notes: no glyph. Nothing shows a check. */
+.why.bad::before,.why.warn::before,.pflag.pih::before,.pflag.warn::before,.pflag.gap::before,
+.rule.stop::before,.rule.care::before,.limitbox::before,
+.opshead.bad::before,.verdict.yes::before,.verdict.judg::before,.myth::before,.stateq::before{
+  width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font:700 17px/1 var(--font-ui);letter-spacing:0;background:var(--tile-red);color:var(--on-tile)}
+.why.bad::before,.why.warn::before,.pflag.pih::before,.pflag.warn::before,.pflag.gap::before,
+.rule.stop::before,.rule.care::before,.opshead.bad::before,.verdict.yes::before,.verdict.judg::before{content:"!"}
+.why.warn::before,.pflag.warn::before,.pflag.gap::before,.rule.care::before,.verdict.judg::before{background:var(--tint);color:var(--on-tint)}
+.stateq::before{content:"?";background:var(--tile-blue)}
+.limitbox::before,.myth::before{content:"i";background:var(--tile-blue)}
+/* in a row the glyph sits in its own column */
+.why.bad::before,.why.warn::before,.pflag.pih::before,.pflag.warn::before,.pflag.gap::before,
+.rule.stop::before,.rule.care::before,.limitbox::before{position:absolute;left:0;top:12px}
+.rule.stop,.rule.care{padding-left:42px}
+.limitbox::before{left:16px;top:14px}
+/* on a card it sits beside the title, and the body runs full width under it */
+.opshead.bad::before,.verdict.yes::before,.verdict.judg::before,.myth::before,.stateq::before{float:left;margin-right:12px}
 
 /* reasoning */
-.why{border-left:3px solid var(--line);padding:2px 0 2px 12px;margin:10px 0}
-.why.ok{border-color:var(--ok)} .why.warn{border-color:var(--warn)} .why.bad{border-color:var(--bad)}
-.why p{font-size:14px;line-height:1.45}
-.why .cite{display:inline-block;font:500 11px 'Roboto Mono';color:var(--faint);margin-top:3px}
-.optlbl{font:700 12px 'Barlow Condensed';letter-spacing:1.4px;color:var(--brand);text-transform:uppercase;margin:14px 0 4px}
+/* every note keeps the glyph column, so a card's notes share one text edge */
+.why{position:relative;padding:12px 0 12px 42px;min-height:48px}
+.why p{font-size:15px;line-height:20px;color:var(--body)}
+.why p b{color:var(--label)}
+#opsBody>.why{background:var(--card);border-radius:var(--r);padding:14px 16px 14px 58px;margin-bottom:14px}
+#opsBody>.why::before{left:16px;top:14px}
+
+/* load lines */
+.line-item{display:flex;align-items:center;gap:10px;padding:10px 0;min-height:56px}
+.line-item .un{font:700 15px/20px var(--font-mono);letter-spacing:0;color:var(--label);flex:none}
+.line-item .nm{flex:1;min-width:0}
+.line-item .nm b{display:block;font:600 17px/22px var(--font-ui);letter-spacing:0}
+.line-item .nm>span{display:block;font-size:13px;line-height:18px;letter-spacing:.25px;color:var(--secondary)}
+.line-item .wt{font:600 15px/20px var(--font-ui);font-variant-numeric:tabular-nums;color:var(--label);flex:none}
+.line-item .x{background:none;border:none;color:var(--secondary);font-size:17px;min-width:44px;min-height:44px;margin-right:-10px;cursor:pointer;flex:none}
+.t1tag{font:700 11px/14px var(--font-ui);letter-spacing:.5px;background:var(--tile-red);color:var(--on-tile);padding:2px 6px;border-radius:5px;margin-left:6px;vertical-align:2px}
+
+/* trailer result — the hero card */
+.trailer{background:var(--card);border-radius:26px;padding:16px;margin-bottom:14px}
+.trailer h4{font:600 22px/28px var(--font-ui);letter-spacing:-.2px;color:var(--label)}
+.trailer .tr-body{display:flex;align-items:center;justify-content:center;gap:28px 18px;flex-wrap:wrap;min-height:110px;margin-top:8px;padding:10px 0 32px}
+.tr-none{color:var(--secondary);font-size:15px;line-height:20px}
+
+/* placards — a rotated square with a thin inner border in the text colour,
+   inset about 7%, the hazard word across the middle and the class number
+   under it. The fills are the PLC colours; plcHTML sets them inline. */
+.plc{width:86px;height:86px;position:relative;flex:none}
+.plc .dia{position:absolute;inset:6px;transform:rotate(45deg);border-radius:6px;border:1px solid var(--plc-edge);overflow:hidden;box-shadow:0 3px 8px var(--plc-shadow)}
+.plc .fill{position:absolute;width:141.4%;height:141.4%;left:-20.7%;top:-20.7%;transform:rotate(-45deg)}
+.plc .in{position:absolute;inset:11px;transform:rotate(45deg);border-radius:4px;border:1.5px solid;z-index:1}
+.plc .txt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2;text-align:center;padding-top:18px}
+.plc .w{font:700 9.5px/10.5px var(--font-ui);font-stretch:75%;letter-spacing:.3px;text-transform:uppercase;max-width:64px}
+.plc .w .nb{white-space:nowrap}
+.plc .n{font:700 17px/18px var(--font-ui);letter-spacing:0;margin-top:4px}
+/* CORROSIVE: the word and number sit in the black lower half */
+.plc.lower .txt{padding-top:46px}
+.plc.lower .n{margin-top:1px;font-size:15px}
+.plc .cap{position:absolute;left:0;right:0;bottom:-33px;text-align:center;font:600 11px/14px var(--font-ui);font-stretch:75%;letter-spacing:.8px;color:var(--secondary);text-transform:uppercase}
 
 /* lookup detail */
-.lk{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:14px;margin-top:10px}
-.lk .un{font:700 18px 'Roboto Mono';color:var(--brand)}
-.lk h5{font:700 17px 'Barlow';margin:4px 0 10px}
-.kv{display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid var(--line);font-size:14px}
-.kv span:first-child{color:var(--dim)}
-.kv span:last-child{font-weight:600;text-align:right}
-.pill{display:inline-block;font:700 11px 'Barlow Condensed';letter-spacing:1px;padding:3px 8px;border-radius:20px;text-transform:uppercase}
-.pill.t1{background:var(--bad);color:#fff}.pill.t2{background:var(--panel);border:1px solid var(--line);color:var(--dim)}
+.lk{padding:14px 0 2px;margin-top:10px;border-top:1px solid var(--sep)}
+.lk .un{font:700 22px/28px var(--font-mono);letter-spacing:0;color:var(--label)}
+.lk h5{font:600 17px/22px var(--font-ui);letter-spacing:0;margin:2px 0 6px}
+.kv{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:4px 12px;padding:12px 0;min-height:48px;font-size:15px;line-height:20px}
+.kv>span:first-child{color:var(--secondary)}
+.kv>span:last-child{font-weight:600;text-align:right}
+.lk .kv:first-of-type{background-image:linear-gradient(var(--sep),var(--sep));background-repeat:no-repeat;background-size:100% 1px}
+.pill{display:inline-block;font:600 13px/18px var(--font-ui);letter-spacing:.2px;padding:2px 9px;border-radius:20px;white-space:nowrap}
+.pill.t1{background:var(--tile-red);color:var(--on-tile)}
+.pill.t2{background:var(--fill);color:var(--secondary)}
 
 /* stub view */
-.stubview{text-align:center;padding:60px 20px;color:var(--dim)}
+.stubview{text-align:center;padding:60px 20px;color:var(--secondary)}
 .stubview .big-d{width:64px;height:64px;position:relative;margin:0 auto 18px;opacity:.5}
-.stubview .big-d::before{content:"";position:absolute;inset:5px;transform:rotate(45deg);border-radius:6px;border:2.5px dashed var(--faint)}
-.stubview h3{font:700 20px 'Barlow';color:var(--ink);margin-bottom:8px}
-.stubview p{font-size:14px;line-height:1.5;max-width:320px;margin:0 auto}
-.stubview .cfr{font:500 12px 'Roboto Mono';color:var(--faint);margin-top:14px;display:block}
+.stubview .big-d::before{content:"";position:absolute;inset:5px;transform:rotate(45deg);border-radius:6px;border:2.5px dashed var(--secondary)}
+.stubview h3{font:600 22px/28px var(--font-ui);letter-spacing:-.2px;color:var(--label);margin-bottom:8px}
+.stubview p{font-size:15px;line-height:20px;max-width:320px;margin:0 auto}
+.stubview .cfr{font-size:13px;line-height:18px;font-variant-numeric:tabular-nums;color:var(--secondary);margin-top:14px;display:block}
 
-.disclaimer{font-size:11.5px;color:var(--faint);line-height:1.5;padding:14px 4px 0;border-top:1px solid var(--line);margin-top:20px}
+.disclaimer{font-size:13px;line-height:18px;letter-spacing:.25px;font-variant-numeric:tabular-nums;color:var(--secondary);padding:14px 4px 0;border-top:1px solid var(--sep);margin-top:20px}
 
-/* shipping papers module */
-.desc{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:10px}
-.desc-id{font:700 10px 'Barlow Condensed';letter-spacing:1.2px;color:var(--faint);text-transform:uppercase;margin-bottom:7px}
-.bd{font:600 14px 'Roboto Mono';line-height:1.8;word-break:break-word}
-.bd .e-i{color:var(--brand)}
-.bd .e-s{color:var(--ink)}
-.bd .e-h{color:#7FD1E8}
-.bd .e-p{color:#C9A7E8}
-.bd .e-c{color:var(--faint)}
-.bd .e-gap{background:#3A2A15;border:1px dashed #6B5520;color:#E8C98A;padding:1px 6px;border-radius:4px;font-size:12.5px}
-.seq{display:flex;gap:5px;margin-top:9px;flex-wrap:wrap}
-.seq span{font:700 9px 'Barlow Condensed';letter-spacing:.9px;padding:2px 6px;border-radius:4px;background:var(--panel);border:1px solid var(--line);color:var(--dim);text-transform:uppercase}
-.pflag{border-left:3px solid var(--line);padding:5px 0 5px 11px;margin-top:10px}
-.pflag p{font-size:12.5px;line-height:1.5;color:#C6CED8}
-.pflag .cite{display:inline-block;font:500 10.5px 'Roboto Mono';color:var(--faint);margin-top:3px}
-.pflag.pih{border-color:var(--bad)}
-.pflag.gap{border-color:var(--brand)}
-.pflag.warn{border-color:var(--warn)}
-.pflag.ok{border-color:var(--ok)}
-.pflag .mono{font:500 11.5px 'Roboto Mono';color:#A9B3C0}
-.rule.a{border-color:var(--brand)}
-.rule ul{margin:6px 0 0 17px}
-.rule li{font-size:13.5px;line-height:1.55;color:#C6CED8;margin-bottom:4px}
+/* ---------------- shipping papers ---------------- */
+.desc{padding:12px 0}
+.desc-id{font:700 13px/18px var(--font-mono);letter-spacing:0;color:var(--secondary);margin-bottom:6px}
+.bd{font:600 16px/26px var(--font-mono);letter-spacing:0;word-break:break-word}
+.bd .e-i{color:var(--tint)}
+.bd .e-s,.bd .e-p{color:var(--label)}
+.bd .e-h{color:var(--blue)}
+.bd .e-c{color:var(--secondary)}
+.bd .e-gap{background:var(--tint-fill);border:1px dashed var(--tint);color:var(--tint);padding:1px 6px;border-radius:6px;font-size:14px}
+.seq{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.seq span{font:500 13px/18px var(--font-ui);letter-spacing:.2px;padding:2px 9px;border-radius:999px;background:var(--fill);color:var(--secondary)}
+.pflag{position:relative;padding:12px 0 12px 42px;min-height:48px}
+.desc .seq+.pflag{margin-top:6px}
+.pflag p{font-size:15px;line-height:20px;color:var(--body)}
+.pflag p b{color:var(--label)}
+.pflag .mono{font:500 14px/20px var(--font-mono);color:var(--label)}
 
-/* on the road module */
-.tierbar{border-radius:12px;padding:12px 14px;margin-bottom:12px;border:1px solid;display:flex;gap:11px;align-items:flex-start}
-.tierbar.e{background:#2A1618;border-color:#6B2429}
-.tierbar.o{background:#1B2430;border-color:#31465E}
-.tierbar .badge{font:800 10px 'Barlow Condensed';letter-spacing:1px;padding:4px 7px;border-radius:5px;flex:none;text-transform:uppercase;margin-top:1px}
-.tierbar.e .badge{background:var(--bad);color:#fff}
-.tierbar.o .badge{background:#3C566F;color:#DCE9F5}
-.tierbar>b{display:block;font:700 15px 'Barlow';margin-bottom:2px}
-.tierbar p{font-size:13px;line-height:1.45;color:#C6CED8}
-.seg{display:flex;flex-wrap:wrap;gap:6px}
-.seg button{flex:1 1 46%;border:1px solid var(--line);background:var(--bg);color:var(--dim);font:600 13px 'Barlow';padding:11px 8px;border-radius:10px;cursor:pointer;line-height:1.25;text-align:left}
-.seg button.on{background:var(--panel2);color:var(--ink);border-color:var(--brand)}
-.opshead{border-radius:12px;padding:14px;margin-bottom:12px;border:1px solid}
-.opshead.bad{background:#2A1618;border-color:#6B2429}
-.opshead.ok{background:#16241A;border-color:#265731}
-.opshead>b{display:block;font:800 16px 'Barlow';margin-bottom:5px}
-.opshead.bad b{color:#FF9CA1} .opshead.ok b{color:#7FD69B}
-.opshead p{font-size:13.5px;line-height:1.5;color:#DCE2EA}
-.rule{border-left:3px solid var(--line);padding:6px 0 6px 12px;margin:12px 0}
-.rule.stop{border-color:var(--bad)} .rule.care{border-color:var(--brand)} .rule.ok{border-color:var(--ok)}
-.rule>b{display:block;font:700 14.5px 'Barlow';margin-bottom:3px}
-.rule p{font-size:13.5px;line-height:1.5;color:#C6CED8}
-.rule .cite{display:inline-block;font:500 11px 'Roboto Mono';color:var(--faint);margin-top:5px}
-.verb{background:var(--bg);border:1px solid var(--line);border-left:2px solid var(--faint);border-radius:0 8px 8px 0;padding:8px 10px;margin-top:8px}
-.verb>b{display:block;font:500 10px 'Roboto Mono';color:var(--faint);letter-spacing:.3px;margin-bottom:4px}
-.verb p{font-size:12.5px;line-height:1.5;color:#A9B3C0;font-style:italic}
-.eyebox{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px 12px;margin-top:10px}
-.eyebox b{font:700 10px 'Barlow Condensed';letter-spacing:1.2px;color:var(--brand);display:block;margin-bottom:4px;text-transform:uppercase}
-.eyebox p{font-size:12.5px;color:#B4BDC9;line-height:1.5}
-.limitbox{border:1px dashed var(--line);border-radius:10px;padding:11px 12px;margin-top:12px}
-.limitbox p{font-size:12.5px;color:var(--dim);line-height:1.55}
-.limitbox b{color:var(--ink)}
-.onboard{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-top:8px}
-.onboard b{font:700 9.5px 'Barlow Condensed';letter-spacing:1.2px;color:var(--bad);display:block;margin-bottom:3px;text-transform:uppercase}
-.onboard.ok b{color:var(--ok)}
-.onboard p{font:600 12.5px 'Roboto Mono';color:#C6CED8;line-height:1.45}
-.refp{display:flex;gap:9px;padding:6px 0;border-top:1px solid var(--line)}
-.refp:first-child{border-top:none}
-.refp .pid{font:600 11.5px 'Roboto Mono';color:var(--brand);flex:none;min-width:52px}
-.verbfold{margin-top:8px}
-.verbfold>summary{font:500 11px 'Roboto Mono';color:var(--brand);cursor:pointer;padding:5px 0;list-style:none;opacity:.85}
+/* rules: a title, the plain-language body, then its cite. A fold of the
+   verbatim text sits above the cite so the cite stays the last line. */
+.rule{position:relative;padding:12px 0;display:flex;flex-direction:column}
+.rule>b{font:600 17px/22px var(--font-ui);letter-spacing:0;color:var(--label);margin-bottom:3px}
+.rule p{font-size:15px;line-height:20px;color:var(--body)}
+.rule p b{color:var(--label)}
+.rule p+p{margin-top:6px}
+.rule ul{margin:6px 0 0 20px;color:var(--body)}
+.rule li{font-size:15px;line-height:20px;margin-bottom:4px}
+.rule>.verbfold,.item .in>.verbfold,.not>.verbfold{order:1}
+.rule>.cite,.item .in>.cite,.not>.cite{order:2}
+
+/* ---------------- on the road ---------------- */
+.tierbar{background:var(--card);border-radius:var(--r);padding:14px 16px;margin-bottom:14px;display:flex;gap:12px;align-items:flex-start}
+.tierbar .badge{font:700 13px/18px var(--font-ui);letter-spacing:.3px;padding:4px 9px;border-radius:8px;flex:none;margin-top:2px}
+.tierbar.e .badge{background:var(--tile-red);color:var(--on-tile)}
+.tierbar.o .badge{background:var(--tile-grey);color:var(--on-tile)}
+.tierbar b{display:block;font:600 17px/22px var(--font-ui);letter-spacing:0;margin-bottom:2px}
+.tierbar p{font-size:15px;line-height:20px;color:var(--body)}
+.seg{display:flex;flex-direction:column;gap:8px}
+.seg button{border:none;background:var(--fill);color:var(--label);font:500 15px/20px var(--font-ui);letter-spacing:.2px;padding:13px 14px;min-height:48px;border-radius:14px;cursor:pointer;text-align:left}
+.seg button.on{background:var(--tint-fill);box-shadow:inset 0 0 0 2px var(--tint);font-weight:600}
+.opshead{background:var(--card);border-radius:var(--r);padding:14px 16px;margin-bottom:14px}
+.opshead>b{display:flex;align-items:center;min-height:30px;font:600 17px/22px var(--font-ui);letter-spacing:0;margin-bottom:4px}
+.opshead p{clear:left;font-size:15px;line-height:20px;color:var(--body)}
+.opshead p b{color:var(--label)}
+.verb{background:var(--bg);border-radius:14px;padding:12px 14px;margin-top:4px}
+.verb+.verb{margin-top:8px}
+.verb>b{display:block;font:600 13px/18px var(--font-ui);letter-spacing:.25px;font-variant-numeric:tabular-nums;color:var(--secondary);margin-bottom:4px}
+/* regulation text, word for word — the law never looks like the app's own words */
+.verbfold .verb p,.refp p{font:400 15px/22px var(--font-serif);letter-spacing:0;color:var(--body);margin:0}
+.eyebox{background:var(--bg);border-radius:16px;padding:12px 14px;margin-top:10px}
+.eyebox>b{display:block;font:600 17px/22px var(--font-ui);letter-spacing:0;color:var(--label);margin-bottom:4px}
+.eyebox p{font-size:15px;line-height:20px;color:var(--body)}
+.eyebox p b{color:var(--label)}
+.eyebox .verb{background:var(--card)}
+.limitbox{position:relative;background:var(--card);border-radius:var(--r);padding:14px 16px 14px 58px;margin:0 0 14px;min-height:58px}
+.card .limitbox{background:var(--bg);margin-top:12px;border-radius:16px}
+.limitbox p{font-size:15px;line-height:20px;color:var(--body)}
+.limitbox b{color:var(--label)}
+.onboard{background:var(--bg);border-radius:12px;padding:10px 12px;margin-top:8px}
+.onboard>b{display:block;font:600 13px/18px var(--font-ui);letter-spacing:.25px;color:var(--red);margin-bottom:2px}
+.onboard.ok>b{color:var(--secondary)}
+.onboard p{font-size:15px;line-height:20px;color:var(--label)}
+.refp{display:flex;gap:10px;padding:10px 0;min-height:48px}
+.refp .pid{font:600 13px/22px var(--font-ui);letter-spacing:.25px;font-variant-numeric:tabular-nums;color:var(--secondary);flex:none;min-width:52px}
+.verbfold{margin-top:4px}
+.verbfold>summary{font:600 13px/18px var(--font-ui);letter-spacing:.25px;font-variant-numeric:tabular-nums;color:var(--tint);cursor:pointer;padding:13px 0;list-style:none}
 .verbfold>summary::-webkit-details-marker{display:none}
-.verbfold>summary::before{content:"▸ ";font-size:10px}
+.verbfold>summary::before{content:"▸ ";font-size:11px}
 .verbfold[open]>summary::before{content:"▾ "}
-.refp p{font-size:13px;line-height:1.55;color:#C6CED8}
 
-/* what you carry module */
-.item{display:flex;gap:11px;align-items:flex-start;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:8px}
-.item .dot{width:9px;height:9px;border-radius:50%;background:var(--brand);flex:none;margin-top:6px}
-.item .dot.cond{background:var(--expl)}
-.item .dot.off{background:var(--faint)}
-.item .in>b{display:block;font:700 14.5px 'Barlow';margin-bottom:2px}
-.item p{font-size:12.8px;line-height:1.45;color:#C6CED8}
-.item p+p{margin-top:5px}
-.item .cite{display:block;font:500 10.5px 'Roboto Mono';color:var(--faint);margin-top:4px}
-.item .in{flex:1;min-width:0}
-.cond-tag{display:inline-block;font:700 9px 'Barlow Condensed';letter-spacing:.9px;background:var(--expl);color:#14171C;padding:2px 5px;border-radius:4px;margin-left:6px;vertical-align:1.5px}
-.not{border:1px dashed var(--line);border-radius:11px;padding:12px}
-.not>b{display:block;font:700 14px 'Barlow';color:var(--ink);margin-bottom:4px}
-.not p{font-size:12.8px;color:var(--dim);line-height:1.5}
+/* ---------------- what you carry ---------------- */
+.item{display:flex;gap:12px;align-items:flex-start;padding:12px 0}
+.item .dot{width:8px;height:8px;border-radius:50%;background:var(--tint);flex:none;margin-top:8px}
+.item .dot.cond{background:var(--red)}
+.item .dot.off{background:var(--chevron)}
+.item .in{flex:1;min-width:0;display:flex;flex-direction:column}
+.item .in>b{font:600 17px/22px var(--font-ui);letter-spacing:0;margin-bottom:3px}
+.item p{font-size:15px;line-height:20px;color:var(--body)}
+.item p b{color:var(--label)}
+.item p+p{margin-top:6px}
+.cond-tag{display:inline-block;font:700 11px/14px var(--font-ui);letter-spacing:.4px;font-variant-numeric:tabular-nums;background:var(--tile-red);color:var(--on-tile);padding:2px 6px;border-radius:5px;margin-left:6px;vertical-align:2px}
+.not{border:1.5px dashed var(--chevron);border-radius:16px;padding:12px 14px;display:flex;flex-direction:column}
+.not>b{font:600 17px/22px var(--font-ui);letter-spacing:0;color:var(--label);margin-bottom:4px}
+.not p{font-size:15px;line-height:20px;color:var(--body)}
+.not p b{color:var(--label)}
 .not p+p{margin-top:6px}
-.not .cite{display:block;font:500 10.5px 'Roboto Mono';color:var(--faint);margin-top:6px}
 
-/* the expiry tracker */
-.exp{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:8px}
-.exp .top{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.exp b{font:700 14.5px 'Barlow'}
-.exp input[type=date]{width:150px;flex:none;font:500 13px 'Roboto Mono';padding:8px 9px}
-.days{display:inline-block;font:700 12px 'Barlow Condensed';letter-spacing:.8px;padding:3px 9px;border-radius:20px;text-transform:uppercase;margin-top:9px}
-.days.ok{background:#16241A;color:#7FD79A;border:1px solid #265731}
-.days.soon{background:#2A2015;color:#FFD98A;border:1px solid #6B5520}
-.days.bad{background:#2A1618;color:#FF9CA1;border:1px solid #6B2429}
-.days.none{background:var(--panel);color:var(--faint);border:1px solid var(--line)}
-.exp .due{font:500 11.5px 'Roboto Mono';color:var(--dim);margin-left:8px}
-.exp .note{font-size:12.3px;color:var(--dim);line-height:1.5;margin-top:8px}
+/* the expiry tracker. Days left read as a count; green is never a status. */
+.exp{padding:12px 0}
+.exp .top{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.exp b{font:600 17px/22px var(--font-ui);letter-spacing:0}
+.exp input[type=date]{width:100%;max-width:240px;font:500 15px/20px var(--font-ui);font-variant-numeric:tabular-nums;padding:10px 12px;min-height:44px}
+.days{display:inline-block;font:600 13px/18px var(--font-ui);letter-spacing:.2px;font-variant-numeric:tabular-nums;padding:3px 10px;border-radius:20px;margin-top:9px}
+.days.ok{background:var(--fill);color:var(--label)}
+.days.soon{background:var(--tint-fill);color:var(--tint)}
+.days.bad{background:var(--red-fill);color:var(--red)}
+.days.none{background:var(--fill);color:var(--secondary)}
+.exp .due{font:500 13px/18px var(--font-ui);letter-spacing:.25px;font-variant-numeric:tabular-nums;color:var(--secondary);margin-left:8px}
+.exp .note{font-size:15px;line-height:20px;color:var(--body);margin-top:8px}
 .exp .note p+p{margin-top:7px}
-.exp .note b{font:700 12.3px 'Barlow';color:#C6CED8;display:inline}
-.exp .cite{display:block;font:500 10.5px 'Roboto Mono';color:var(--faint);margin-top:5px}
+.exp .note b{font:600 15px/20px var(--font-ui);color:var(--label);display:inline}
 
-/* incident response module — the call blocks are never gated behind a question */
-.call{display:flex;align-items:center;gap:13px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:9px;text-decoration:none;color:inherit}
-.call.urgent{background:#2A1618;border-color:#8B2E34}
-.call .n{font:800 21px 'Barlow Condensed';letter-spacing:.5px;flex:none;width:74px;color:var(--brand);line-height:1.05}
-.call.urgent .n{color:#FF7A80;font-size:30px}
-.call .t>b{display:block;font:700 15px 'Barlow'}
-.call .t span{font-size:12.5px;color:var(--dim);line-height:1.4;display:block;margin-top:2px}
-.call .t span.num{font:600 13px 'Roboto Mono';color:#C6CED8}
-.paper{border:2px dashed #6B5520;background:#2A2015;border-radius:12px;padding:14px;margin-bottom:9px}
-.paper>b{display:block;font:700 15px 'Barlow';color:#FFD98A;margin-bottom:3px}
-.paper p{font-size:13px;color:#E0CFA8;line-height:1.5}
-.paper .cite,.myth .cite{display:inline-block;font:500 11px 'Roboto Mono';color:var(--faint);margin-top:6px}
-.myth{background:#1B2430;border:1px solid #31465E;border-radius:12px;padding:14px;margin-bottom:12px}
-.myth>b{display:block;font:700 15px 'Barlow';color:#9FD0F0;margin-bottom:5px}
-.myth p{font-size:13.5px;line-height:1.55;color:#C6D6E4}
-.myth p+p{margin-top:7px}
-.carbox{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:9px}
-.carbox>b{display:block;font:700 15px 'Barlow';margin-bottom:3px}
-.carbox p{font-size:12.5px;color:var(--dim);line-height:1.45}
+/* ---------------- incident response ----------------
+   Only 911 gets the full-width red button. Every other number is a card row
+   with a round call button in the tint colour. The call blocks are never
+   gated behind a question. */
+.call{display:grid;grid-template-columns:minmax(0,1fr) 44px;column-gap:12px;align-items:center;background:var(--card);border-radius:var(--r);padding:12px 12px 12px 16px;min-height:68px;margin-bottom:14px;text-decoration:none;color:var(--label)}
+.call::after{content:"";grid-column:2;grid-row:1 / span 2;width:44px;height:44px;border-radius:50%;background:var(--tint)}
+.call::before{content:"";grid-column:2;grid-row:1 / span 2;justify-self:center;z-index:1;width:19px;height:19px;background:var(--on-tint);-webkit-mask:var(--icon-phone) center/contain no-repeat;mask:var(--icon-phone) center/contain no-repeat}
+.call .n{grid-column:1;font:600 13px/18px var(--font-ui);letter-spacing:.25px;color:var(--secondary)}
+.call .t{grid-column:1;min-width:0}
+.call .t>b{display:block;font:400 17px/22px var(--font-ui);letter-spacing:0;color:var(--label)}
+.call .t span{display:block;font-size:13px;line-height:18px;letter-spacing:.25px;color:var(--secondary);margin-top:2px}
+.call .t span.num{font:400 15px/20px var(--font-ui);letter-spacing:.2px;font-variant-numeric:tabular-nums;color:var(--secondary);margin-top:0}
+.call.urgent{grid-template-columns:44px minmax(0,1fr);column-gap:14px;background:var(--tile-red);color:var(--on-tile);border-radius:24px;padding:14px 18px;min-height:80px;box-shadow:0 6px 18px var(--shadow-red)}
+.call.urgent::after{grid-column:1;background:var(--on-tile-soft)}
+.call.urgent::before{grid-column:1;width:24px;height:24px;background:var(--on-tile)}
+.call.urgent .n{grid-column:2;font:700 30px/32px var(--font-ui);letter-spacing:-.2px;font-variant-numeric:tabular-nums;color:var(--on-tile)}
+.call.urgent .t{grid-column:2}
+.call.urgent .t>b{font-weight:600;color:var(--on-tile)}
+.call.urgent .t span{font-size:14px;color:var(--on-tile)}
+.paper{position:relative;background:var(--card);border-radius:var(--r);padding:14px 16px;margin-bottom:14px}
+.paper::before{content:"";float:left;width:30px;height:30px;border-radius:8px;margin-right:12px;background:var(--tile-green)}
+.paper::after{content:"";position:absolute;left:23px;top:21px;width:16px;height:16px;background:var(--on-tile);-webkit-mask:var(--icon-doc) center/contain no-repeat;mask:var(--icon-doc) center/contain no-repeat}
+.paper>b{display:flex;align-items:center;min-height:30px;font:600 17px/22px var(--font-ui);letter-spacing:0;margin-bottom:4px}
+.paper p{clear:left;font-size:15px;line-height:20px;color:var(--body)}
+.myth{background:var(--card);border-radius:var(--r);padding:14px 16px;margin-bottom:14px}
+.myth>b{display:flex;align-items:center;min-height:30px;font:600 17px/22px var(--font-ui);letter-spacing:0;margin-bottom:4px}
+.myth p{clear:left;font-size:15px;line-height:20px;color:var(--body)}
+.myth p+p{margin-top:8px}
+.carbox{background:var(--card);border-radius:var(--r);padding:14px 16px;margin-bottom:14px}
+.carbox>b{display:block;font:600 17px/22px var(--font-ui);letter-spacing:0;margin-bottom:3px}
+.carbox p{font-size:15px;line-height:20px;color:var(--body)}
 .carrow{display:flex;gap:8px;margin-top:10px}
-.carrow .btn{width:auto;flex:none;padding:11px 15px}
-.linkbtn{background:none;border:none;color:var(--brand);font:600 12px 'Barlow';padding:4px 0;cursor:pointer;text-decoration:underline}
+.carrow .btn{width:auto;flex:none;padding:13px 18px}
+.linkbtn{background:none;border:none;color:var(--tint);font:600 15px/20px var(--font-ui);letter-spacing:.2px;padding:0;min-height:44px;cursor:pointer}
 
-/* the trigger checklist */
-.trig{display:flex;gap:11px;align-items:flex-start;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:8px;cursor:pointer}
-.trig.on{border-color:var(--bad);background:#2A1618}
-.trig.judg{border-style:dashed}
-.trig.judg.on{border-color:var(--brand);background:#2A2015}
-.trig .box{width:21px;height:21px;border-radius:5px;border:2px solid var(--faint);flex:none;margin-top:1px;display:flex;align-items:center;justify-content:center;font:800 13px 'Barlow';color:transparent}
-.trig.on .box{background:var(--bad);border-color:var(--bad);color:#fff}
-.trig.judg.on .box{background:var(--brand);border-color:var(--brand);color:#111}
-.trig p{font-size:13.5px;line-height:1.45}
-.trig .cite{display:block;font:500 10.5px 'Roboto Mono';color:var(--faint);margin-top:3px}
-.verdict{border-radius:12px;padding:15px;margin:12px 0;border:1px solid}
-.verdict.yes{background:#2A1618;border-color:#8B2E34}
-.verdict.judg{background:#2A2015;border-color:#6B5520}
-.verdict b.hd{display:block;font:800 16px 'Barlow';margin-bottom:6px}
-.verdict.yes b.hd{color:#FF9CA1} .verdict.judg b.hd{color:#FFD98A}
-.verdict p{font-size:13.5px;line-height:1.55;color:#DCE2EA;margin-bottom:7px}
-.verdict .cite{display:inline-block;font:500 11px 'Roboto Mono';color:var(--faint)}
-.verdict .call{margin:2px 0 10px}
+/* the trigger checklist. The ✓ in the box is a checkbox, not a verdict. */
+.trig{display:flex;gap:12px;align-items:flex-start;padding:12px 0;cursor:pointer}
+.trig .box{width:24px;height:24px;border-radius:7px;border:2px solid var(--secondary);flex:none;display:flex;align-items:center;justify-content:center;font:700 14px/1 var(--font-ui);color:transparent}
+.trig.judg .box{border-style:dashed}
+.trig.on .box{background:var(--tile-red);border-color:var(--tile-red);color:var(--on-tile)}
+.trig.judg.on .box{background:var(--tint);border-color:var(--tint);border-style:solid;color:var(--on-tint)}
+.trig p{font-size:15px;line-height:20px;color:var(--body)}
+.trig p b{color:var(--label)}
+.verdict{background:var(--card);border-radius:var(--r);padding:14px 16px;margin:0 0 14px}
+.verdict b.hd{display:flex;align-items:center;min-height:30px;font:600 17px/22px var(--font-ui);letter-spacing:0;color:var(--label);margin-bottom:6px}
+.verdict p{clear:left;font-size:15px;line-height:20px;color:var(--body);margin-bottom:8px}
+.verdict p b,.myth p b{color:var(--label);font-variant-numeric:tabular-nums}
+.verdict .call{background:var(--bg);margin:4px 0 10px}
 
-/* segregation module */
-.segchip{font:700 9.5px 'Barlow Condensed';letter-spacing:.8px;padding:2px 6px;border-radius:4px;text-transform:uppercase;flex:none}
-.segchip.sub{background:#3A2E4A;color:#C9A7E8}
-.segv{border-radius:12px;padding:14px;margin-bottom:12px;border:1px solid}
-.segv.x{background:#2A1618;border-color:#6B2429}
-.segv.o{background:#2A2415;border-color:#6B5520}
-.segv.s{background:#1E2430;border-color:#39424F}
-.segv.clear{background:#16241A;border-color:#265731}
-.segv.pend{background:#241E15;border-color:#5A4A1E}
-.segv .hd{font:800 15px 'Barlow';display:flex;align-items:center;gap:8px;margin-bottom:6px}
-.segv p{font-size:13.5px;line-height:1.5;color:#DCE2EA}
-.segv .mark{width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;font:800 13px 'Barlow Condensed';flex:none}
-.segv .mark.x{background:var(--bad);color:#fff}
-.segv .mark.o{background:var(--brand);color:#111}
-.segv .mark.s{background:#39424F;color:var(--brand)}
-.segv .mark.c{background:var(--ok);color:#fff}
-.segv .mark.p{background:var(--warn);color:#111}
-.segv .cite{display:inline-block;font:500 11px 'Roboto Mono';color:var(--faint);margin-top:8px}
-.pairline{font:500 12px 'Roboto Mono';color:var(--dim);margin-top:6px;line-height:1.45}
-.pairline.sub{color:#C9A7E8}
-.stateq{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:10px}
-.stateq p{font-size:13.5px;line-height:1.45}
-.stateq p.q{color:var(--dim);margin:5px 0 10px}
-.c1sum{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
-.c1chip{font:500 11.5px 'Roboto Mono';background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:4px 8px;color:var(--dim)}
-.c1chip b{color:var(--brand);font-weight:700}
-.c1res,.c1rules{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px;margin-top:10px}
-.c1res h5,.c1rules h5{font:700 12px 'Barlow Condensed';letter-spacing:1.3px;color:var(--dim);text-transform:uppercase;margin-bottom:8px}
-.c1res p,.c1rules p{font-size:13.5px;line-height:1.5;margin-bottom:8px}
+/* ---------------- segregation ----------------
+   Markers are 28px rounded squares in the mono face: X red, O in the body
+   colour, the star amber. A pending verdict takes the blue ? of a question.
+   A clear verdict shows no mark at all — the words carry it. */
+.segchip{font:500 13px/18px var(--font-ui);letter-spacing:.2px;padding:2px 8px;border-radius:999px;flex:none;background:var(--fill);color:var(--secondary)}
+.segv{background:var(--card);border-radius:var(--r);padding:14px 16px;margin-bottom:14px}
+.card .segv{background:var(--bg);border-radius:16px;margin:8px 0 10px}
+.segv .hd{display:flex;align-items:center;gap:12px;min-height:30px;font:600 17px/22px var(--font-ui);letter-spacing:0;margin-bottom:6px}
+.segv p{font-size:15px;line-height:20px;color:var(--body)}
+.segv p b{color:var(--label)}
+.segv .mark{width:28px;height:28px;border-radius:8px;border:1.8px solid;display:flex;align-items:center;justify-content:center;font:700 14px/1 var(--font-mono);letter-spacing:0;flex:none}
+.segv .mark.x{border-color:var(--red);color:var(--red)}
+.segv .mark.o{border-color:var(--body);color:var(--body)}
+.segv .mark.s{border-color:var(--tint);color:var(--tint);font-size:18px}
+.segv .mark.c{display:none}
+.segv .mark.p{width:30px;height:30px;border:none;border-radius:50%;background:var(--tile-blue);color:var(--on-tile);font:700 17px/1 var(--font-ui)}
+.pairline{font-size:13px;line-height:18px;letter-spacing:.25px;color:var(--secondary);margin-top:6px}
+.pairline b{color:var(--label)}
+.pairline.sub{color:var(--blue)}
+.stateq{background:var(--bg);border-radius:16px;padding:12px 14px;margin:8px 0 10px}
+.stateq>p:first-child{display:flex;align-items:center;min-height:30px;font:600 17px/22px var(--font-ui);letter-spacing:0}
+.stateq p{font-size:15px;line-height:20px}
+.stateq p.q{clear:left;color:var(--body);margin:6px 0 12px}
+.stateq p.q b{color:var(--label)}
+.c1sum{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 12px}
+.c1chip{font:500 13px/18px var(--font-mono);letter-spacing:0;background:var(--fill);border-radius:8px;padding:3px 8px;color:var(--secondary)}
+.c1chip b{color:var(--label);font-weight:700}
+.c1res,.c1rules{background:var(--bg);border-radius:16px;padding:12px 14px;margin-top:10px}
+.c1res h5,.c1rules h5{font:600 17px/22px var(--font-ui);letter-spacing:0;color:var(--label);margin-bottom:6px}
+.c1res p,.c1rules p{font-size:15px;line-height:20px;color:var(--body);margin-bottom:8px}
+.c1res p b,.c1rules p b{color:var(--label)}
+.c1rules p{font:400 15px/22px var(--font-serif);letter-spacing:0}
+.c1rules p b{font-family:var(--font-ui);letter-spacing:.2px}
 .c1res p:last-child,.c1rules p:last-child{margin-bottom:0}
-.c1res p.warn{color:#FFCE5C}
-.c1res .cite,.c1rules .cite{display:block;font:500 11px 'Roboto Mono';color:var(--faint);margin-top:3px}
-.matwrap{overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:10px}
-table.mat{border-collapse:collapse;font:600 10px 'Roboto Mono'}
-table.mat th,table.mat td{width:27px;height:27px;text-align:center;border:1px solid #262E39;padding:0}
-table.mat th{background:var(--panel2);color:var(--dim);font-size:8.5px;position:sticky;top:0;z-index:2}
-table.mat th.rh{position:sticky;left:0;z-index:3;width:52px;min-width:52px;text-align:left;padding-left:5px}
-table.mat td.x{background:rgba(229,72,77,.85);color:#fff}
-table.mat td.o{background:rgba(255,182,18,.85);color:#111}
-table.mat td.s{background:#39424F;color:var(--brand)}
-table.mat td.n{background:#2A3140;color:var(--brand);font-size:9px}
-table.mat td.b{background:var(--panel)}
-.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;font-size:11.5px;color:var(--dim)}
-.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
-.legend i.x{background:rgba(229,72,77,.85)} .legend i.o{background:rgba(255,182,18,.85)}
-.legend i.s{background:#39424F} .legend i.b{background:var(--panel);border:1px solid var(--line)}
+.c1res p.warn{color:var(--tint)}
+.c1res p.warn b{color:var(--tint)}
+.c1res .cite,.c1rules .cite{margin-top:3px}
+.matwrap{overflow:auto;-webkit-overflow-scrolling:touch;border-radius:12px;box-shadow:inset 0 0 0 1px var(--sep)}
+table.mat{border-collapse:collapse;font:700 12px/1 var(--font-mono);letter-spacing:0}
+table.mat th,table.mat td{min-width:30px;height:30px;text-align:center;border:1px solid var(--sep);padding:0 3px}
+table.mat th{background:var(--card);color:var(--secondary);font-size:11px;font-weight:600;position:sticky;top:0;z-index:2}
+table.mat th.rh{position:sticky;left:0;z-index:3;min-width:58px;text-align:left;padding-left:6px}
+table.mat td.x{background:var(--red-fill);color:var(--red)}
+table.mat td.o{background:var(--fill);color:var(--body)}
+table.mat td.s{background:var(--tint-fill);color:var(--tint);font-size:17px}
+table.mat td.n{background:var(--blue-fill);color:var(--blue)}
+table.mat td.b{background:var(--card)}
+.legend{display:flex;gap:8px 14px;flex-wrap:wrap;margin-top:10px;font-size:13px;line-height:18px;letter-spacing:.25px;color:var(--secondary)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.legend i.x{background:var(--red-fill);box-shadow:inset 0 0 0 1.5px var(--red)}
+.legend i.o{background:var(--fill);box-shadow:inset 0 0 0 1.5px var(--body)}
+.legend i.s{background:var(--tint-fill);box-shadow:inset 0 0 0 1.5px var(--tint)}
+.legend i.n{background:var(--blue-fill);box-shadow:inset 0 0 0 1.5px var(--blue)}
+.legend i.b{background:var(--card);box-shadow:inset 0 0 0 1px var(--secondary)}
 
 /* version footer — home only, tap to check for a new build */
 .verfoot{display:block;width:100%;background:none;border:none;cursor:pointer;
-  font:500 10.5px 'Roboto Mono',monospace;letter-spacing:.4px;color:var(--faint);
-  text-align:center;padding:14px 4px 2px}
+  font:500 13px/18px var(--font-ui);letter-spacing:.25px;font-variant-numeric:tabular-nums;color:var(--secondary);
+  text-align:center;padding:14px 4px 4px;min-height:44px}
 .verfoot:active{opacity:.6}
-.verfoot.live{color:var(--brand)}
+.verfoot.live{color:var(--tint)}
 .hidden{display:none!important}
 
 /* data loading / error states */
-.dstate{text-align:center;padding:56px 20px}
+.dstate{text-align:center;padding:56px 4px}
 .dstate .big-d{width:56px;height:56px;position:relative;margin:0 auto 18px}
-.dstate .big-d::before{content:"";position:absolute;inset:4px;transform:rotate(45deg);border-radius:6px;border:2.5px solid var(--line);border-top-color:var(--brand);animation:spin 1s linear infinite}
-.dstate.err .big-d::before{border:2.5px solid var(--bad);animation:none}
-.dstate.err .big-d::after{content:"!";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:800 22px 'Barlow';color:var(--bad)}
+.dstate .big-d::before{content:"";position:absolute;inset:6px;transform:rotate(45deg);border-radius:8px;border:2.5px solid var(--sep);border-top-color:var(--tint);animation:spin 1s linear infinite}
+.dstate.err .big-d::before{border:2.5px solid var(--red);animation:none}
+.dstate.err .big-d::after{content:"!";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:700 22px/1 var(--font-ui);color:var(--red)}
 @keyframes spin{to{transform:rotate(405deg)}}
-.dstate h3{font:700 19px 'Barlow';margin-bottom:8px}
-.dstate p{font-size:14px;line-height:1.5;color:var(--dim);max-width:340px;margin:0 auto}
-.dstate .msg{font:500 12.5px 'Roboto Mono';color:var(--bad);background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin:14px auto 0;max-width:340px;word-break:break-word;text-align:left}
-.dstate .btn{max-width:220px;margin:18px auto 0}
+.dstate h3{font:600 22px/28px var(--font-ui);letter-spacing:-.2px;margin-bottom:8px}
+.dstate p{font-size:15px;line-height:20px;color:var(--secondary);max-width:340px;margin:0 auto}
+.dstate .msg{font:500 13px/18px var(--font-ui);letter-spacing:.2px;color:var(--red);background:var(--card);border-radius:12px;padding:10px 12px;margin:14px auto 0;max-width:340px;word-break:break-word;text-align:left}
+.dstate .btn{max-width:280px;margin:18px auto 0;display:block}
+
+/* last, so it wins over the rules above it */
+@media (prefers-reduced-motion:reduce){.tile{transition:none}.dstate .big-d::before{animation:none}}
 </style>
 </head>
 <body>
@@ -368,7 +503,7 @@ table.mat td.b{background:var(--panel)}
 <script>
 /* The build a driver is running, shown in the home footer.
    Bump this and VERSION in sw.js together on every deploy — see README. */
-const APP_VERSION = "0.9.3";
+const APP_VERSION = "0.10.0";
 
 /* ---------------- DATA: the 172.101 table, fetched from hazmat.json ---------------- */
 const DATA_URL = "hazmat.json";
@@ -986,12 +1121,12 @@ let opsPlace = null;   /* where the truck is stopping — rides with the load */
 
 /* ---------------- ROUTER ---------------- */
 const MODULES = [
- {id:"placards", tc:"var(--brand)", t:"Placarding", d:"Build your load, get the placard set for the trailer", cfr:"49 CFR 172.504", live:true},
- {id:"seg", tc:"var(--flam)", t:"Segregation", d:"What can and can't ride together", cfr:"49 CFR 177.848", live:true},
- {id:"ops", tc:"var(--wet)", t:"On the Road", d:"Attendance, parking, fueling, tire checks", cfr:"49 CFR Part 397", live:true},
- {id:"papers", tc:"var(--gas)", t:"Shipping Papers", d:"What must be on them, where they must sit", cfr:"49 CFR 177.817", live:true},
- {id:"incident", tc:"var(--expl)", t:"Incident Response", d:"When and who you must call, immediately", cfr:"49 CFR 171.15", live:true},
- {id:"carry", tc:"var(--tox)", t:"What You Carry", d:"What is on you at a stop, and what expires", cfr:"49 CFR 383.93", live:true},
+ {id:"placards", tc:"var(--tile-red)", t:"Placarding", d:"Build your load, get the placard set for the trailer", cfr:"49 CFR 172.504", live:true},
+ {id:"seg", tc:"var(--tile-blue)", t:"Segregation", d:"What can and can't ride together", cfr:"49 CFR 177.848", live:true},
+ {id:"ops", tc:"var(--tile-grey)", t:"On the Road", d:"Attendance, parking, fueling, tire checks", cfr:"49 CFR Part 397", live:true},
+ {id:"papers", tc:"var(--tile-green)", t:"Shipping Papers", d:"What must be on them, where they must sit", cfr:"49 CFR 177.817", live:true},
+ {id:"incident", tc:"var(--tile-red)", t:"Incident Response", d:"When and who you must call, immediately", cfr:"49 CFR 171.15", live:true},
+ {id:"carry", tc:"var(--tile-grey)", t:"What You Carry", d:"What is on you at a stop, and what expires", cfr:"49 CFR 383.93", live:true},
 ];
 /* Every tile is live. STUBTXT is kept for the next module that is not. */
 const STUBTXT = {};
@@ -1023,7 +1158,7 @@ function render(){
         <div class="msg">${esc(DATA_URL)} — ${esc(dataError)}</div>
         <button class="btn" onclick="loadData()">Try again</button>
         <button class="btn ghost" style="margin-top:9px" onclick="go('incident')">Incident Response — who to call</button>
-        <p style="margin-top:16px;font-size:12.5px">If you opened this file straight off the disk, your browser blocks the fetch. Serve the folder over HTTP instead.</p></div>`;
+        <p style="margin-top:16px;font-size:13px;line-height:18px">If you opened this file straight off the disk, your browser blocks the fetch. Serve the folder over HTTP instead.</p></div>`;
     }
     return;
   }
@@ -1125,9 +1260,9 @@ function renderBuilder(){
    </div>
    <div class="card" id="loadCard">
      <h4>Current load — ${load.length} line${load.length===1?'':'s'}</h4>
-     ${restoreNote?`<div class="why bad" style="margin:0 0 10px"><p style="font-size:13px">${esc(restoreNote)}</p></div>`:''}
+     ${restoreNote?`<div class="why bad" style="margin:0 0 10px"><p>${esc(restoreNote)}</p></div>`:''}
      <div id="lines"></div>
-     ${load.length? `<button class="btn ghost" onclick="clearLoad()" style="margin-top:4px">Clear load</button>`:`<div class="hint" style="margin-top:0">Nothing on the trailer yet. Add lines above, or <a href="#" style="color:var(--brand)" onclick="demo();return false">load a demo mixed load</a>.</div>`}
+     ${load.length? `<button class="btn ghost" onclick="clearLoad()" style="margin-top:4px">Clear load</button>`:`<div class="hint" style="margin-top:0">Nothing on the trailer yet. Add lines above, or <a href="#" style="color:var(--tint)" onclick="demo();return false">load a demo mixed load</a>.</div>`}
    </div>
    <div id="result"></div>`;
   drawLines(); computeAndDraw();
@@ -1294,12 +1429,22 @@ function computeAndDraw(){
     `</div>`;
   el.innerHTML=html;
 }
+/* A rotated square in the PLC colours, with a thin inner border in the text
+   colour inset about 7%, the hazard word across the middle and the class
+   number under it. CORROSIVE is the one with a dark lower half: fg2 is the
+   colour that reads on it, so the word and number drop into that half in fg2,
+   and the inner border runs fg on the upper edges and fg2 on the lower. The
+   square is turned 45° clockwise, so its top and left sides are the upper
+   edges. Class 9 has no word, so its number drops below the stripes too.
+   NON-FLAMMABLE keeps its hyphen unbroken, the way the placard prints it. */
 function plcHTML(key){
   const p=PLC[key];
   if(!p || p.none) return "";
+  const low = p.fg2 || p.fg;
   const stripes = p.stripes? `<div style="position:absolute;top:0;left:0;right:0;height:50%;background:repeating-linear-gradient(90deg,#111 0 7px,#F2F2F2 7px 14px)"></div>`:"";
-  return `<div class="plc"><div class="dia"><div class="fill" style="background:${p.bg}">${stripes}</div></div>
-    <div class="txt" style="color:${p.fg}"><span class="w" style="max-width:60px">${p.w}</span><span class="n">${p.n}</span></div>
+  return `<div class="plc${p.fg2||p.stripes?" lower":""}"><div class="dia"><div class="fill" style="background:${p.bg}">${stripes}</div></div>
+    <div class="in" style="border-color:${p.fg} ${low} ${low} ${p.fg}"></div>
+    <div class="txt" style="color:${low}"><span class="w">${p.w.replace(/\S+-\S+/g, m=>`<span class="nb">${m}</span>`)}</span><span class="n">${p.n}</span></div>
     <div class="cap">${key==='danger'?'dangerous':''}</div></div>`;
 }
 
@@ -1591,7 +1736,7 @@ function class1Check(){
 function class1View(r){
   if(!r) return "";
   const R = SEG.compat.rules;
-  const line = x => `${idLabel(x.l)} <span style="color:var(--faint)">${esc(x.l.cls.split(" ")[0])}</span>`;
+  const line = x => `${idLabel(x.l)} <span style="color:var(--secondary)">${esc(x.l.cls.split(" ")[0])}</span>`;
 
   let h = `<div class="card"><h4>Explosives compatibility — 177.848(f)</h4>`;
 
@@ -1601,14 +1746,14 @@ function class1View(r){
   r.bans.forEach(bn=>{
     h += `<div class="segv x"><div class="hd"><span class="mark x">X</span>May not travel together</div>
       <p>${bn.why}</p>
-      <div class="pairline">${line(bn.A)} <span style="color:var(--faint)">✕</span> ${line(bn.B)} — table cell <b>${esc(bn.cell)}</b></div>
+      <div class="pairline">${line(bn.A)} <span style="color:var(--secondary)">✕</span> ${line(bn.B)} — table cell <b>${esc(bn.cell)}</b></div>
       <span class="cite">49 CFR ${bn.cite}</span></div>`;
   });
 
   r.conds.forEach(c=>{
     h += `<div class="segv o"><div class="hd"><span class="mark o">${esc(c.rule)}</span>Allowed, with a condition</div>
       <p>${c.text}</p>
-      <div class="pairline">${line(c.A)} <span style="color:var(--faint)">✕</span> ${line(c.B)}</div>
+      <div class="pairline">${line(c.A)} <span style="color:var(--secondary)">✕</span> ${line(c.B)}</div>
       <span class="cite">49 CFR ${c.cite}</span></div>`;
   });
 
@@ -1664,15 +1809,15 @@ function setLineState(i, v){
 
 function segUnavailable(){
   return `<div class="card"><h4>Segregation data unavailable</h4>
-    <p style="font-size:14px;line-height:1.5;color:var(--dim)">The 177.848 tables could not be loaded, so HazPost will not guess at what can ride together.</p>
-    <div class="msg" style="font:500 12.5px 'Roboto Mono';color:var(--bad);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:12px;word-break:break-word">${esc(SEG_URL)} — ${esc(segError||"not loaded")}</div>
+    <p style="font-size:15px;line-height:20px;color:var(--body)">The 177.848 tables could not be loaded, so HazPost will not guess at what can ride together.</p>
+    <div class="msg" style="font:500 13px/18px var(--font-ui);color:var(--red);background:var(--bg);border-radius:12px;padding:10px 12px;margin-top:12px;word-break:break-word">${esc(SEG_URL)} — ${esc(segError||"not loaded")}</div>
     <button class="btn" style="margin-top:12px" onclick="loadSeg().then(render)">Try again</button></div>`;
 }
 
 function segLoadView(){
   if(!load.length){
     return `<div class="card"><h4>Nothing on the trailer</h4>
-      <div class="hint" style="margin-top:0">Segregation reads the same load you built for placarding. Add lines in <a href="#" style="color:var(--brand)" onclick="view='placards';plcTab='builder';commit();return false">Placarding → Load Builder</a>, then come back.</div></div>`;
+      <div class="hint" style="margin-top:0">Segregation reads the same load you built for placarding. Add lines in <a href="#" style="color:var(--tint)" onclick="view='placards';plcTab='builder';commit();return false">Placarding → Load Builder</a>, then come back.</div></div>`;
   }
 
   const {mapped, pairs, outstanding, notes} = segCheck();
@@ -1749,7 +1894,7 @@ function segVerdict(p, cls, title, body, cite){
   return `<div class="segv ${cls}"><div class="hd"><span class="mark ${cls}">${mark}</span>${title}</div>
     <p>${body}</p>
     <div class="pairline">${idLabel(p.A.l)} ${esc(p.A.l.name.slice(0,34))}${p.A.l.name.length>34?"…":""}
-      <span style="color:var(--faint)">✕</span> ${idLabel(p.B.l)} ${esc(p.B.l.name.slice(0,34))}${p.B.l.name.length>34?"…":""}</div>
+      <span style="color:var(--secondary)">✕</span> ${idLabel(p.B.l)} ${esc(p.B.l.name.slice(0,34))}${p.B.l.name.length>34?"…":""}</div>
     <div class="pairline">via <b>${esc(ca.axis)}</b> ✕ <b>${esc(cb.axis)}</b></div>
     ${p.bySub?`<div class="pairline sub">Triggered by a subsidiary hazard — ${esc(p.via[0].from)} on ${idLabel(p.A.l)}, ${esc(p.via[1].from)} on ${idLabel(p.B.l)}. A driver reading placards alone would not see this.</div>`:""}
     <span class="cite">49 CFR ${cite}</span></div>`;
@@ -1787,8 +1932,8 @@ function segAdvisories(mapped, notes){
   adv.push(["", `If this trailer is going onto a vessel other than a ferry, segregation follows § 176.83(b) instead of this table. HazPost does not implement vessel segregation.`, "177.848(b)"]);
 
   return `<div class="card"><h4>Also applies</h4>` +
-    adv.map(a=>`<div class="why ${a[0]}"><p style="font-size:13.5px">${a[1]}</p><span class="cite">49 CFR ${a[2]}</span></div>`).join("") +
-    notes.map(n=>`<div class="why warn"><p style="font-size:13.5px">${n}</p></div>`).join("") +
+    adv.map(a=>`<div class="why ${a[0]}"><p>${a[1]}</p><span class="cite">49 CFR ${a[2]}</span></div>`).join("") +
+    notes.map(n=>`<div class="why warn"><p>${n}</p></div>`).join("") +
     `</div>`;
 }
 
@@ -1840,7 +1985,7 @@ function segTableView(){
 
   h += `<div class="card"><h4>Markers</h4>` +
     Object.entries(SEG.markers).map(([k,v])=>
-      `<div class="why ${k==="X"?"bad":k==="O"?"warn":""}"><p style="font-size:13.5px"><b>${k===""?"blank":k==="*"?"★":k}</b> — ${esc(v)}</p></div>`).join("") +
+      `<div class="why ${k==="X"?"bad":k==="O"?"warn":""}"><p><b>${k===""?"blank":k==="*"?"★":k}</b> — ${esc(v)}</p></div>`).join("") +
     `<div class="hint">${esc(SEG.source)}, current as of ${esc(SEG.cfrDate)} (table v${esc(SEG.version)}).</div></div>`;
   return h;
 }
@@ -1941,15 +2086,15 @@ function papExcepted(l){
 
 function papersUnavailable(){
   return `<div class="card"><h4>Shipping paper text unavailable</h4>
-    <p style="font-size:14px;line-height:1.5;color:var(--dim)">HazPost will not describe a requirement it could not load.</p>
-    <div style="font:500 12.5px 'Roboto Mono';color:var(--bad);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:12px;word-break:break-word">${esc(PAPERS_URL)} — ${esc(papersError||"not loaded")}</div>
+    <p style="font-size:15px;line-height:20px;color:var(--body)">HazPost will not describe a requirement it could not load.</p>
+    <div style="font:500 13px/18px var(--font-ui);color:var(--red);background:var(--bg);border-radius:12px;padding:10px 12px;margin-top:12px;word-break:break-word">${esc(PAPERS_URL)} — ${esc(papersError||"not loaded")}</div>
     <button class="btn" style="margin-top:12px" onclick="loadPapers().then(render)">Try again</button></div>`;
 }
 
 function papCheckView(){
   if(!load.length){
     return `<div class="card"><h4>Nothing on the trailer</h4>
-      <div class="hint" style="margin-top:0">Shipping Papers reads the same load you built for placarding. Add lines in <a href="#" style="color:var(--brand)" onclick="view='placards';plcTab='builder';commit();return false">Placarding → Load Builder</a>, then come back.</div></div>`;
+      <div class="hint" style="margin-top:0">Shipping Papers reads the same load you built for placarding. Add lines in <a href="#" style="color:var(--tint)" onclick="view='placards';plcTab='builder';commit();return false">Placarding → Load Builder</a>, then come back.</div></div>`;
   }
 
   const marked = load.map(l=>({l, ex:papExcepted(l)}));
@@ -1966,7 +2111,7 @@ function papCheckView(){
       marked.map(m=>`<div class="rule ok"><b>${idLabel(m.l)} ${esc(m.l.name.slice(0,44))}${m.l.name.length>44?"…":""}</b>
         <p>Symbol <b>${esc(m.ex.sym)}</b> — subject to the subchapter only when offered for transport by ${esc(m.ex.mode)}.</p>
         <span class="cite">49 CFR 172.200(b)</span></div>`).join("") +
-      `<div class="why warn"><p style="font-size:13px">Three things this does not clear. It does not hold if the material is a <b>hazardous substance, hazardous waste or marine pollutant</b> — those stay in the subpart regardless. It says nothing about placarding or the other modules. And limited-quantity and consumer-commodity exceptions are the shipper's call, not something HazPost can read off the table.</p><span class="cite">49 CFR 172.200(b)</span></div>
+      `<div class="why warn"><p>Three things this does not clear. It does not hold if the material is a <b>hazardous substance, hazardous waste or marine pollutant</b> — those stay in the subpart regardless. It says nothing about placarding or the other modules. And limited-quantity and consumer-commodity exceptions are the shipper's call, not something HazPost can read off the table.</p><span class="cite">49 CFR 172.200(b)</span></div>
       ${cfrFold("172.200(b)", papText("172.200","(b)"))}
       ${cfrFold("177.817(d)", papText("177.817","(d)"))}</div>`;
     return h;
@@ -2205,15 +2350,15 @@ function setOpsPlace(k){ opsPlace = k; commit(); }
 
 function opsUnavailable(){
   return `<div class="card"><h4>Part 397 text unavailable</h4>
-    <p style="font-size:14px;line-height:1.5;color:var(--dim)">HazPost will not paraphrase a rule it could not load.</p>
-    <div style="font:500 12.5px 'Roboto Mono';color:var(--bad);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:12px;word-break:break-word">${esc(OPS_URL)} — ${esc(opsError||"not loaded")}</div>
+    <p style="font-size:15px;line-height:20px;color:var(--body)">HazPost will not paraphrase a rule it could not load.</p>
+    <div style="font:500 13px/18px var(--font-ui);color:var(--red);background:var(--bg);border-radius:12px;padding:10px 12px;margin-top:12px;word-break:break-word">${esc(OPS_URL)} — ${esc(opsError||"not loaded")}</div>
     <button class="btn" style="margin-top:12px" onclick="loadOps().then(render)">Try again</button></div>`;
 }
 
 function opsWhereView(){
   if(!load.length){
     return `<div class="card"><h4>Nothing on the trailer</h4>
-      <div class="hint" style="margin-top:0">On the Road reads the same load you built for placarding. Add lines in <a href="#" style="color:var(--brand)" onclick="view='placards';plcTab='builder';commit();return false">Placarding → Load Builder</a>, then come back.</div></div>`;
+      <div class="hint" style="margin-top:0">On the Road reads the same load you built for placarding. Add lines in <a href="#" style="color:var(--tint)" onclick="view='placards';plcTab='builder';commit();return false">Placarding → Load Builder</a>, then come back.</div></div>`;
   }
 
   const st = opsCheck();
@@ -2241,7 +2386,7 @@ function opsWhereView(){
         <p>Baseline tier. The 5-foot rule, and attendance only while on the roadway.</p></div></div>`;
 
   if(st.cls1sub.length){
-    h += `<div class="why warn" style="margin:0 0 12px"><p style="font-size:13px">${st.cls1sub.map(l=>idLabel(l)).join(", ")} carr${st.cls1sub.length===1?"ies":"y"} a <b>Class 1 subsidiary</b> label. That does not make the material a Division 1.1, 1.2 or 1.3 — its division is what column 3 assigns — so it does not by itself put you in Tier 1. Worth confirming against the papers.</p><span class="cite">49 CFR 397.5(a)</span></div>`;
+    h += `<div class="why warn" style="margin:0 0 12px"><p>${st.cls1sub.map(l=>idLabel(l)).join(", ")} carr${st.cls1sub.length===1?"ies":"y"} a <b>Class 1 subsidiary</b> label. That does not make the material a Division 1.1, 1.2 or 1.3 — its division is what column 3 assigns — so it does not by itself put you in Tier 1. Worth confirming against the papers.</p><span class="cite">49 CFR 397.5(a)</span></div>`;
   }
 
   /* the one question */
@@ -2319,7 +2464,7 @@ function opsRefView(){
   OPS.sections.forEach(s=>{
     h += `<div class="card"><h4>${esc(s.head.replace(/^§\s*/,""))}</h4>` +
       (s.reserved
-        ? `<p style="font-size:13.5px;color:var(--dim)">[Reserved]</p>`
+        ? `<p style="font-size:15px;line-height:20px;color:var(--secondary)">[Reserved]</p>`
         : s.paras.map(p=>`<div class="refp">${p.id?`<span class="pid">${esc(p.id)}</span>`:""}<p>${esc(p.text)}</p></div>`).join("")) +
       `</div>`;
   });
@@ -2416,7 +2561,7 @@ function incVerdictHTML(picked){
         ? `<p>You answered that this should be reported in your judgment. That is a trigger in its own right, and it stands whether or not any of the listed circumstances applies.</p>`
         : `<p>Triggered by: ${v.hit.map(t=>`<b>${esc(t.c.replace("171.15",""))}</b>`).join(", ")}.</p>`}
       <p>A written report on Form 5800.1 also becomes due — see the <b>Written report</b> tab.</p>
-      <a class="call urgent" href="tel:${esc(nrc.replace(/[^\d+]/g,""))}"><span class="n" style="font-size:19px">NRC</span>
+      <a class="call" href="tel:${esc(nrc.replace(/[^\d+]/g,""))}"><span class="n">NRC</span>
         <div class="t"><b>National Response Center</b><span class="num">${esc(nrc)}</span></div></a>
       ${carrierLine}
       <span class="cite">49 CFR 171.15(a), (b), (c)</span></div>`;
@@ -2442,8 +2587,8 @@ function incUnavailable(){
       <p>The emergency response telephone number on the paper in your door holder is monitored the whole time the load is rolling, by somebody who knows this product. HazPost does not have it and never will.</p>
       <span class="cite">49 CFR 172.604</span></div>
     <div class="card"><h4>Reporting text unavailable</h4>
-      <p style="font-size:14px;line-height:1.5;color:var(--dim)">The reporting rules did not load, so HazPost will not paraphrase them from memory. The numbers above do not depend on it.</p>
-      <div style="font:500 12.5px 'Roboto Mono';color:var(--bad);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:12px;word-break:break-word">${esc(INCIDENT_URL)} — ${esc(incError||"not loaded")}</div>
+      <p style="font-size:15px;line-height:20px;color:var(--body)">The reporting rules did not load, so HazPost will not paraphrase them from memory. The numbers above do not depend on it.</p>
+      <div style="font:500 13px/18px var(--font-ui);color:var(--red);background:var(--bg);border-radius:12px;padding:10px 12px;margin-top:12px;word-break:break-word">${esc(INCIDENT_URL)} — ${esc(incError||"not loaded")}</div>
       <button class="btn" style="margin-top:12px" onclick="loadIncident().then(render)">Try again</button>
       <div class="hint">Notice to the National Response Center is due as soon as practical and no later than 12 hours after a reportable incident, and a written report follows. Read 49 CFR 171.15 and 171.16 in full before deciding anything.</div></div>`;
 }
@@ -2483,13 +2628,13 @@ function incNowView(){
       ${cfrFold("171.15(a)", incText("171.15","(a)"))}
       <span class="cite">49 CFR 171.15(a)</span></div>
 
-    <div class="limitbox"><p><b>What HazPost is not.</b> Not a response guide. It will not give you isolation distances, protective action distances, or how to handle a product — that is the emergency number on your paper and the <a href="https://www.phmsa.dot.gov/training/hazmat/erg/emergency-response-guidebook-erg" target="_blank" rel="noopener" style="color:var(--brand)">official PHMSA Emergency Response Guidebook</a>, in the book on your seat or PHMSA's own ERG app. This module covers who to call, and what has to be reported afterward.</p></div>`;
+    <div class="limitbox"><p><b>What HazPost is not.</b> Not a response guide. It will not give you isolation distances, protective action distances, or how to handle a product — that is the emergency number on your paper and the <a href="https://www.phmsa.dot.gov/training/hazmat/erg/emergency-response-guidebook-erg" target="_blank" rel="noopener" style="color:var(--tint)">official PHMSA Emergency Response Guidebook</a>, in the book on your seat or PHMSA's own ERG app. This module covers who to call, and what has to be reported afterward.</p></div>`;
 }
 
 /* ---- TAB 2: DO I REPORT? The checklist, and a verdict that always calls. ---- */
 function incNoticeView(){
   let h = `<div class="card"><h4>Did any of these happen?</h4>
-    <p style="font-size:13px;color:var(--dim);line-height:1.5;margin-bottom:11px">During transportation in commerce — which includes <b>loading, unloading and temporary storage</b>. Tick what applies; nothing is stored and nothing is sent.</p>`;
+    <p style="font-size:15px;line-height:20px;color:var(--body);margin-bottom:8px">During transportation in commerce — which includes <b>loading, unloading and temporary storage</b>. Tick what applies; nothing is stored and nothing is sent.</p>`;
 
   h += INC_TRIGGERS.map(t=>
     `<div class="trig ${t.judgment?"judg ":""}${incPicked[t.k]?"on":""}" onclick="incPicked['${t.k}']=!incPicked['${t.k}'];render()">
@@ -2553,8 +2698,8 @@ function incWrittenView(){
     `</div>`;
 
   h += `<div class="card"><h4>The exceptions — read them, do not assume them</h4>
-    <p style="font-size:13.5px;line-height:1.55;color:#C6CED8">171.16(d) takes some small releases out of the written report. <b>HazPost does not apply them and cannot.</b> They turn on the capacity of the package, the amount that actually came out, and the packing group of the material as shipped — three things the app does not know and must not guess. They are quoted in full behind the fold below, so you can hold them against what happened.</p>
-    <p style="font-size:13.5px;line-height:1.55;color:#C6CED8;margin-top:8px">Note the opening clause. The exceptions do not apply at all if a telephone report was required under 171.15.</p>
+    <p style="font-size:15px;line-height:20px;color:var(--body)">171.16(d) takes some small releases out of the written report. <b>HazPost does not apply them and cannot.</b> They turn on the capacity of the package, the amount that actually came out, and the packing group of the material as shipped — three things the app does not know and must not guess. They are quoted in full behind the fold below, so you can hold them against what happened.</p>
+    <p style="font-size:15px;line-height:20px;color:var(--body);margin-top:8px">Note the opening clause. The exceptions do not apply at all if a telephone report was required under 171.15.</p>
     <div class="rule care"><b>Verbatim, § 171.16(d)</b>
       <span class="cite">49 CFR 171.16(d)</span>
       ${cfrFolds("§ 171.16(d) — full text", incSec("171.16").paras.filter(p=>p.id.startsWith("(d)")).map(p=>["171.16"+p.id, p.text]))}</div></div>`;
@@ -2692,8 +2837,8 @@ const EXP_FIELDS = [
 
 function carUnavailable(){
   return `<div class="card"><h4>Reference text unavailable</h4>
-    <p style="font-size:14px;line-height:1.5;color:var(--dim)">HazPost will not tell you what to carry from memory. The rules did not load, so this module is showing nothing rather than guessing.</p>
-    <div style="font:500 12.5px 'Roboto Mono';color:var(--bad);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:12px;word-break:break-word">${esc(CARRY_URL)} — ${esc(carError||"not loaded")}</div>
+    <p style="font-size:15px;line-height:20px;color:var(--body)">HazPost will not tell you what to carry from memory. The rules did not load, so this module is showing nothing rather than guessing.</p>
+    <div style="font:500 13px/18px var(--font-ui);color:var(--red);background:var(--bg);border-radius:12px;padding:10px 12px;margin-top:12px;word-break:break-word">${esc(CARRY_URL)} — ${esc(carError||"not loaded")}</div>
     <button class="btn" style="margin-top:12px" onclick="loadCarry().then(render)">Try again</button>
     <div class="hint">Your saved dates are untouched — they live on this phone, not in the file that failed.</div></div>`;
 }
@@ -2736,7 +2881,7 @@ function carStopView(){
       ])) +
 
     item("The shipping paper",
-      `<p>Tabbed or first in the stack, and in one of the places the rule names — which depends on whether you are at the controls. <a href="#" style="color:var(--brand)" onclick="view='papers';papTab='where';render();window.scrollTo(0,0);return false">Shipping Papers → Where they live</a> has the whole rule; it is not repeated here.</p>`,
+      `<p>Tabbed or first in the stack, and in one of the places the rule names — which depends on whether you are at the controls. <a href="#" style="color:var(--tint)" onclick="view='papers';papTab='where';render();window.scrollTo(0,0);return false">Shipping Papers → Where they live</a> has the whole rule; it is not repeated here.</p>`,
       "177.817(e)", "") +
 
     item("Emergency response information",
@@ -2756,7 +2901,7 @@ function carStopView(){
   if(tier1){
     h += item(`Documents the carrier must have given you<span class="cond-tag">1.1 / 1.2 / 1.3</span>`,
       `<p>Only for Division 1.1, 1.2 or 1.3, which is what you have on. The carrier furnishes a copy of the Part 397 rules and a document of <b>instructions for an accident or delay</b> — who to call, what the explosives are, what to do about fire, accident or leakage. <b>You sign a receipt for them.</b></p>
-       <p>Then (c) requires you to be in possession of, familiar with, and in compliance with those documents, the shipping papers, and the <b>written route plan</b>. Routing is Subpart D and HazPost does not implement it — the route plan comes from your carrier. <a href="#" style="color:var(--brand)" onclick="view='ops';opsTab='where';render();window.scrollTo(0,0);return false">On the Road</a> covers the rest of Part 397.</p>`,
+       <p>Then (c) requires you to be in possession of, familiar with, and in compliance with those documents, the shipping papers, and the <b>written route plan</b>. Routing is Subpart D and HazPost does not implement it — the route plan comes from your carrier. <a href="#" style="color:var(--tint)" onclick="view='ops';opsTab='where';render();window.scrollTo(0,0);return false">On the Road</a> covers the rest of Part 397.</p>`,
       "397.19(a), (b), (c)",
       cfrFolds("§ 397.19 — full text", [
         ["397.19(a)", carText("397.19","(a)")],
@@ -2772,7 +2917,7 @@ function carStopView(){
 
   h += `<div class="hint">${tier1
     ? `The explosives item above is showing because Division 1.1, 1.2 or 1.3 is on the load you built.`
-    : `One more item appears here when Division 1.1, 1.2 or 1.3 is on the load. HazPost reads that from <a href="#" style="color:var(--brand)" onclick="view='placards';plcTab='builder';render();window.scrollTo(0,0);return false">Placarding → Load Builder</a>${load.length ? `, and nothing on the ${load.length} line${load.length===1?"":"s"} you built is in those divisions.` : `, which is empty right now.`}`}</div>
+    : `One more item appears here when Division 1.1, 1.2 or 1.3 is on the load. HazPost reads that from <a href="#" style="color:var(--tint)" onclick="view='placards';plcTab='builder';render();window.scrollTo(0,0);return false">Placarding → Load Builder</a>${load.length ? `, and nothing on the ${load.length} line${load.length===1?"":"s"} you built is in those divisions.` : `, which is empty right now.`}`}</div>
     </div>`;
 
   h += `<div class="card"><h4>What you do not carry</h4>
@@ -2805,7 +2950,7 @@ function carExpView(){
   };
 
   let h = `<div class="card"><h4>Your dates</h4>
-    <p style="font-size:12.5px;color:var(--dim);line-height:1.55;margin-bottom:12px">All four are optional. They are stored <b style="color:var(--ink)">on this phone only</b> — HazPost has no account, no server and nothing to sync to, so nothing here leaves the device.</p>`;
+    <p style="font-size:15px;line-height:20px;color:var(--body);margin-bottom:10px">All four are optional. They are stored <b style="color:var(--label)">on this phone only</b> — HazPost has no account, no server and nothing to sync to, so nothing here leaves the device.</p>`;
 
   EXP_FIELDS.forEach(f=>{
     const r = expRow(f, dates, today);

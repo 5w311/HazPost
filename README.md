@@ -55,8 +55,10 @@ was written from. The plain language is ours and renders open; the verbatim
 text renders behind a **closed fold** — a `details.verbfold` element whose
 summary reads the section number — uniformly, in every module, with no
 exceptions for blocks that seem short or important. A driver learns once that
-regulatory text lives behind the grey line and never has to wonder which state
+regulatory text lives behind the § line and never has to wonder which state
 they are looking at: folds are closed on every render and remember nothing.
+Opened, the verbatim text is set in a serif, so the law never looks like the
+app's own words.
 
 The CFR cite on every verdict and rule stays visible and unfolded — the cite
 is what lets a driver verify a verdict against a printed table. The
@@ -65,6 +67,31 @@ honest-limit statements stay open too.
 One code path produces this: `cfrFold(cite, text)` for a single paragraph,
 `cfrFolds(label, pairs)` for a group, both built on `cfrVerb`, which is never
 called anywhere else. A verbatim block that renders any other way is a bug.
+
+### Type and colour
+
+The look follows the Apple-style design concept. The app follows the phone's
+light or dark setting through `prefers-color-scheme`, in CSS alone.
+
+- **Three typefaces**, all from one Google Fonts URL. The interface is
+  Instrument Sans. Identifiers (UN and NA numbers, the basic description, the
+  segregation markers and table) are Atkinson Hyperlegible Mono. Regulation
+  text quoted word for word is Source Serif 4. CFR cites, weights, dates and
+  phone numbers use Instrument Sans with tabular figures. Placard words use
+  Instrument Sans at its condensed width (`font-stretch: 75%`).
+- **The font URL appears twice**, in the stylesheet link in `index.html` and
+  as `FONT_CSS` in `sw.js`, and the two must match character for character.
+  `FONT_CSS` is the offline cache key, so if they differ, the fonts go missing
+  offline with no error.
+- **Colours are tokens.** The only literal colours in the app are the token
+  definitions at the top of the stylesheet (light, then dark), the two
+  `theme-color` metas, and the placard colours in `PLC` and `plcHTML`. The
+  light tint is HazPost's amber darkened to pass contrast; `#FFB612` is never
+  text in light mode.
+- **Tone is a glyph, not a background.** A red `!`, an amber `!`, a blue `?`
+  for a question or pending verdict, a blue `i` for a caveat, and nothing for
+  an ok or neutral note. No status shows a check mark, and green is only ever
+  an icon-tile colour.
 
 ## Offline
 
