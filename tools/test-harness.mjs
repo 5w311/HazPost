@@ -23,7 +23,9 @@
  *   addLine()             typed values, and alert() is recorded in __alerts
  *   checkForUpdate(s),    the update check: every fetch() is recorded in
  *   tapVersion()          __fetches, and document listeners in __docListeners
- *                         so a test can bring the app back to the foreground
+ *                         so a test can bring the app back to the foreground;
+ *                         appWith({serviceWorker}) puts a stand-in worker
+ *                         container in navigator before the script runs
  *   setDate(k, v)         sets one of the What You Carry dates
  *
  * Driving a load in therefore means seeding `hazpost.load.v1` and letting the
@@ -62,14 +64,26 @@ export function json(name) {
 
 /* ------------------------------------------------------------------ */
 
-function makeContext({ storage = {}, offline = false } = {}) {
+/* Enough of MessageChannel for the app to ask a worker which build it serves:
+   whatever is posted on port2 arrives at port1's onmessage a microtask later. */
+class MessageChannel {
+  constructor() {
+    const port1 = { onmessage: null, close() { this.onmessage = null; } };
+    this.port1 = port1;
+    this.port2 = { postMessage: (data) => { Promise.resolve().then(() => port1.onmessage && port1.onmessage({ data })); } };
+  }
+}
+
+function makeContext({ storage = {}, offline = false, serviceWorker = null } = {}) {
   const els = new Map();
   const el = (id) => {
     if (!els.has(id)) {
       els.set(id, {
         id, style: {}, innerHTML: "", textContent: "", className: "",
-        hidden: false, value: "", disabled: false,
-        addEventListener() {}, setAttribute() {}, removeAttribute() {}, focus() {},
+        hidden: false, value: "", disabled: false, attrs: {},
+        addEventListener() {}, focus() {},
+        setAttribute(k, v) { this.attrs[k] = String(v); },
+        removeAttribute(k) { delete this.attrs[k]; },
       });
     }
     return els.get(id);
@@ -102,9 +116,11 @@ function makeContext({ storage = {}, offline = false } = {}) {
 
   const ctx = {
     console, setTimeout, clearTimeout, setInterval, clearInterval,
-    fetch, localStorage,
+    fetch, localStorage, AbortController, MessageChannel,
     location: { href: "https://example.test/HazPost/" },
-    navigator: { onLine: !offline },     /* no serviceWorker key: registerSW() returns at the door */
+    /* No serviceWorker key unless a test brings its own stand-in: without one
+       registerSW() returns at the door and the install tap is a plain reload. */
+    navigator: serviceWorker ? { onLine: !offline, serviceWorker } : { onLine: !offline },
     document: { getElementById: el, hidden: false,
       addEventListener: (type, fn) => { (docListeners[type] ||= []).push(fn); } },
     confirm: () => true,                 /* clearLoad()/clearDates() ask; tests always say yes */
@@ -140,13 +156,13 @@ export function runApp(opts) {
  * phone. That is deliberate: a test cannot conjure a material the table does
  * not have.
  */
-export async function appWith({ lines = [], place = null, dates = null, carrier = null, offline = false } = {}) {
+export async function appWith({ lines = [], place = null, dates = null, carrier = null, offline = false, serviceWorker = null } = {}) {
   const storage = {};
   if (lines.length) storage["hazpost.load.v1"] = JSON.stringify({ saved: "2026-08-14T00:00:00.000Z", lines });
   if (dates) storage["hazpost.dates.v1"] = JSON.stringify(dates);
   if (carrier) storage["hazpost.carrier.v1"] = JSON.stringify(carrier);
 
-  const ctx = runApp({ storage, offline });
+  const ctx = runApp({ storage, offline, serviceWorker });
   await ctx.loadData();
   if (place) ctx.setOpsPlace(place);
   return ctx;

@@ -15,12 +15,10 @@
  * root, precache the GitHub Pages 404 page, and serve that to drivers — the
  * classic project-page failure.
  *
- * Bump VERSION on every release, together with APP_VERSION in index.html.
- * The cache name carries VERSION, so a new worker installs into a fresh cache
- * and drops the old ones on activate. They answer different questions —
- * VERSION is the cache generation, APP_VERSION is the build a driver is
- * running — but a deploy that bumps one and not the other is invisible to
- * every phone already holding a cached copy.
+ * RELEASING: bump APP_VERSION in index.html, version.txt and APP_BUILD below
+ * to the same number, and bump VERSION. The first three are one number and
+ * tools/test-update.mjs fails if they drift. VERSION names the cache: a new
+ * worker installs into a fresh cache and drops the old ones on activate.
  */
 
 const VERSION = "v1.10.0";
@@ -40,6 +38,33 @@ const META_PATH = "__cache-meta";
 
 /** Resolve a scope-relative path to an absolute URL. */
 const url = (p) => new URL(p, self.registration.scope).toString();
+
+/** The APP_VERSION a page declares, or null. The same anchored pattern as
+ *  extractVersion() in index.html. */
+const buildOf = (html) => (String(html).match(/^\s*const\s+APP_VERSION\s*=\s*['"](\d+\.\d+\.\d+)['"]/m) || [])[1] || null;
+
+/** Is this the app shell — the page itself, by whatever URL it was asked for? */
+const isShell = (request) => request.mode === "navigate" || request.url === url("./") || request.url === url("index.html");
+
+/**
+ * Fetch a file for the cache past every cache between here and the server.
+ *
+ * GitHub Pages sends max-age=600 on everything, so for ten minutes after any
+ * fetch the browser's HTTP cache answers a plain request with the copy it
+ * already holds. A worker installed in that window would precache the build
+ * it is replacing and reload the driver straight back into it. cache:
+ * "no-cache" makes the browser check with the server every time, and the
+ * ?v= stamp is a key the CDN has never seen, so its edge cannot answer from
+ * an older deploy either. Callers store the response under the plain URL,
+ * which is what the app asks for.
+ */
+async function fetchFresh(p) {
+  const u = new URL(url(p));
+  u.searchParams.set("v", APP_BUILD);
+  const res = await fetch(new Request(u.toString(), { cache: "no-cache" }));
+  if (!res.ok) throw new Error(`${p}: HTTP ${res.status}`);
+  return res;
+}
 
 /**
  * The app shell. If any of these fail the install fails and the old worker
@@ -83,11 +108,23 @@ const OPTIONAL_TIMEOUT = 10000;
 
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
-    const cache = await caches.open(CACHE);
-
     // The shell must land in full or the install fails and the previous
     // worker stays in charge.
-    await cache.addAll(SHELL.map(url));
+    const shell = await Promise.all(SHELL.map(async (p) => [url(p), await fetchFresh(p)]));
+
+    // This worker's own build, or no install at all. A page from any other
+    // build — a deploy still propagating, a release that bumped sw.js but not
+    // the page — is refused before anything is written, so the old worker
+    // stays in charge and the next check tries again. Installing it would
+    // reload the driver into a build this worker was not written for.
+    for (const [key, res] of shell) {
+      if (key !== url("./") && key !== url("index.html")) continue;
+      const got = buildOf(await res.clone().text());
+      if (got !== APP_BUILD) throw new Error(`${key} is build ${got}; this worker is ${APP_BUILD}`);
+    }
+
+    const cache = await caches.open(CACHE);
+    await Promise.all(shell.map(([key, res]) => cache.put(key, res)));
 
     const now = new Date().toISOString();
     await writeMeta(cache, { refreshed: now, installed: now });
@@ -97,7 +134,7 @@ self.addEventListener("install", (event) => {
     // A CDN that hangs must not hold back a release: the app is already
     // usable the moment the shell is cached.
     await Promise.race([
-      Promise.allSettled([...OPTIONAL.map((p) => cache.add(url(p))), cacheFonts(cache)]),
+      Promise.allSettled([...OPTIONAL.map(async (p) => cache.put(url(p), await fetchFresh(p))), cacheFonts(cache)]),
       new Promise((r) => setTimeout(r, OPTIONAL_TIMEOUT)),
     ]);
 
@@ -170,12 +207,24 @@ async function staleWhileRevalidate(request) {
   // never matches the page's own request for it.
   const cached = await cache.match(request, { ignoreVary: true });
 
-  const fresh = fetch(request)
+  // Our own files revalidate with the server rather than taking the browser
+  // HTTP cache's word for it (see fetchFresh). Derived from the request
+  // itself, not rebuilt from its URL: a navigation keeps redirect "manual", so
+  // a redirect still reaches the browser as one instead of failing the page.
+  // The fonts never change under a URL, so they take whatever the browser has.
+  const own = inScope(new URL(request.url));
+  const fresh = fetch(own ? new Request(request, { cache: "no-cache" }) : request)
     .then(async (res) => {
       // Opaque responses (no-cors) have status 0; they are still worth storing
       // for fonts, but a failed same-origin request must not overwrite a good
       // cache entry.
       if (res && (res.ok || res.type === "opaque")) {
+        // A worker serves its own build and nothing else. A newer page goes
+        // to the screen when there is nothing cached to show, but it is not
+        // written into this cache: it arrives with its own worker, on the
+        // driver's tap. Caching it here would run new code against this
+        // build's data, and a later install could swap it back.
+        if (own && isShell(request) && buildOf(await res.clone().text()) !== APP_BUILD) return res;
         await cache.put(request, res.clone());
         if (request.url === url("hazmat.json")) {
           await writeMeta(cache, { refreshed: new Date().toISOString() });
@@ -204,15 +253,16 @@ self.addEventListener("fetch", (event) => {
   // answered by the live server — never from this cache, and never written
   // into it. Passing it through untouched leaves the request's own
   // cache:"no-store" in charge.
-  if (request.mode !== "navigate" &&
-      (u.searchParams.has("_cb") || (inScope(u) && u.pathname.endsWith("/version.txt")))) return;
+  const live = u.searchParams.has("_cb") || (inScope(u) && u.pathname.endsWith("/version.txt"));
+  if (live && request.mode !== "navigate") return;
 
   // Navigations: always land on the cached shell when the network is gone,
-  // whatever path within scope was requested.
+  // whatever path within scope was requested. A _cb navigation goes to the
+  // network and is never cached; offline it falls back like any other.
   if (request.mode === "navigate") {
     event.respondWith((async () => {
       try {
-        return await staleWhileRevalidate(request);
+        return live ? await fetch(request) : await staleWhileRevalidate(request);
       } catch {
         const cache = await caches.open(CACHE);
         return (await cache.match(url("index.html"), { ignoreVary: true })) ||
@@ -235,9 +285,12 @@ self.addEventListener("fetch", (event) => {
 });
 
 self.addEventListener("message", (event) => {
-  /** Which cache generation is actually serving this page. Diagnostics only —
-   *  the driver-facing footer shows APP_VERSION, not this. */
-  if (event.data === "version") event.source?.postMessage({ type: "version", version: VERSION, build: APP_BUILD });
+  /** Which build and cache generation this worker serves. The page asks
+   *  before an install: a worker already serving a newer build than the page
+   *  means a reload is the whole update. Answered on the port the page sent,
+   *  or to the page itself. */
+  const reply = (msg) => (event.ports && event.ports[0] ? event.ports[0].postMessage(msg) : event.source?.postMessage(msg));
+  if (event.data === "version") reply({ type: "version", version: VERSION, build: APP_BUILD });
 
   /** The page's explicit go-ahead to take over. Sent only when the driver taps
    *  the version footer, never by a background check: activating here triggers
