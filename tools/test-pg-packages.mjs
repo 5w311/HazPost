@@ -116,7 +116,7 @@ r.section("Packages: a number and a type, or neither");
     r.eq(saved(app).length, 0, `${label} is refused`);
     r.ok(/number and a type/.test(app.__alerts.at(-1) || ""), "with the same message", app.__alerts.at(-1));
   }
-  for (const t of ["DR", "CS", "CT", "BG"]) {
+  for (const t of ["DR", "CS", "CT", "BG", "PL"]) {
     const app = await addForm();
     fill(app, { id: "UN1203", wt: "650", pkN: "1,200", pkT: t });
     r.eq(saved(app), [{ id: "UN1203", wt: 650, fac: "A", pkgCount: 1200, pkgType: t }], `1,200 ${t} is stored as a count and a type`);
