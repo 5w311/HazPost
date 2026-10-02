@@ -132,10 +132,36 @@ The current load is written to `localStorage` on every change and restored on
 start, so a load built at the dock survives the phone going in a pocket. The
 load comes back; the screen does not — the app opens on Load every time, with
 the placards for that load on top and every check one tap below.
-Only the record id, weight and facility are stored: the hazard classification
-is re-read from `hazmat.json` each time, so a load saved before a CFR
-amendment can never resurrect a stale placard category. Lines whose entry has
-left the table are dropped with a notice rather than silently kept.
+Only what the driver read off the paper is stored: the record id, weight and
+facility, plus the packing group and packages where they were entered. The
+hazard classification is re-read from `hazmat.json` each time, so a load saved
+before a CFR amendment can never resurrect a stale placard category. Lines
+whose entry has left the table are dropped with a notice rather than silently
+kept, and a saved packing group or package entry that does not fit its line is
+dropped on its own, leaving the line.
+
+### Packing group and packages, from the paper
+
+353 entries in the 172.101 table allow more than one packing group ("I, II,
+III"), and only the paper says which one a shipment is. **HazPost asks for it
+then, and only then:** Add a line shows a PG choice for those entries and
+won't add the line without one. An entry with a single packing group answers
+for itself, and one with none (explosives, Division 5.2) has nothing to ask.
+HazPost never picks a group from a range. A line saved before the question
+existed shows *PG ?* and asks on its line screen. Where one ID number has a
+separate table entry per packing group (UN1197, for one), the suggestion list
+shows each entry's group, so picking the entry picks the group.
+
+The answer fills the packing group into the expected basic description in
+Shipping Papers, in place of the range's gap, with a note that it came from the
+paper. It also feeds the Division 6.1 segregation row, which only PG I reaches.
+An unanswered range that includes PG I stays on that row, the stricter answer.
+
+**Packages** are the number and type 172.202(a)(7) puts on the paper, such as
+*12 DR*: drums (DR), cases (CS), cartons (CT) or bags (BG), all non-bulk. They
+are optional, so a line packed in anything else can still go on the load. They
+show on the line and in the Shipping Papers packages card, to hold against the
+paper. Bulk packaging is still not modelled.
 
 While offline, a strip under the title says so and shows when the cached
 table was generated and when the cache last refreshed. The foot of the Load
@@ -506,7 +532,8 @@ the letter on every Class 1 line.
 Packing group is omitted, with a note saying the absence is correct, for Class
 1, self-reactive substances, Division 5.2 and entries with none assigned. A
 collapsed packing group range renders as a visible gap rather than inline,
-so its commas cannot be mistaken for extra elements.
+so its commas cannot be mistaken for extra elements, until the driver enters
+the group from the paper. Then the group fills the gap.
 
 ### False mismatches are the failure mode
 
@@ -604,7 +631,7 @@ row, never dressed as the red emergency button only 911 wears.
 node tools/test.mjs
 ```
 
-679 checks across eight files, in about a second and a half. No framework and
+756 checks across nine files, in about a second and a half. No framework and
 nothing to install — the app has no dependencies and neither does its suite,
 because a suite that needs a package install is a suite that stops being run.
 `tools/test.mjs` runs every `tools/test-*.mjs`, prints each file's count and
@@ -620,6 +647,7 @@ fails if any of them does.
 | `test-carry.mjs` | date arithmetic across month, year and leap boundaries; the 397.19 conditional; the absence of any image capture |
 | `test-data.mjs` | all six JSON files — provenance, counts, one CFR date across the set, and precaching |
 | `test-load.mjs` | the Load screen's summary rows against the engines, the tab bar, Emergency on every path including with no data, the line and Look Up screens against 172.505(a), and a corrupted saved load |
+| `test-pg-packages.mjs` | the packing-group question and packages: asked only for a range, never guessed, refused without an answer, saved and restored with bad values dropped, and read by Shipping Papers and the 6.1 segregation row |
 
 ### How they run
 
