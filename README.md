@@ -158,7 +158,8 @@ paper. It also feeds the Division 6.1 segregation row, which only PG I reaches.
 An unanswered range that includes PG I stays on that row, the stricter answer.
 
 **Packages** are the number and type 172.202(a)(7) puts on the paper, such as
-*12 DR*: drums (DR), cases (CS), cartons (CT) or bags (BG), all non-bulk. They
+*12 DR*: drums (DR), cases (CS), cartons (CT), bags (BG) or pallets (PL), all
+non-bulk. They
 are optional, so a line packed in anything else can still go on the load. They
 show on the line and in the Shipping Papers packages card, to hold against the
 paper. Bulk packaging is still not modelled.
@@ -199,6 +200,8 @@ and must not be collapsed into one.
 | Where | Constant | Answers |
 |---|---|---|
 | `index.html` | `APP_VERSION` | which build of the code a driver is running |
+| `version.txt` | the whole file | which build is live — what the update check asks for |
+| `sw.js` | `APP_BUILD` | the build this worker ships with; what makes `sw.js` change on every release |
 | `sw.js` | `VERSION` | the cache generation, which forces a fresh install |
 | `hazmat.json` | `version` / `cfrDate` | which CFR edition the material table came from |
 | `segregation.json` | `version` / `cfrDate` | which CFR edition the segregation tables came from |
@@ -211,36 +214,82 @@ The first and third are on screen: `APP_VERSION` at the foot of the Load
 screen, the data edition in the disclaimer line above it. The cache generation is
 plumbing and stays off screen.
 
-**Bump `APP_VERSION` and `VERSION` together on every deploy.** There is no
-build step joining the two files, so nothing enforces it. A deploy that bumps
-only `APP_VERSION` never reaches a phone holding a cached copy — the worker
-sees no change and serves the old build forever. A deploy that bumps only
-`VERSION` ships the new code but reports the old number, so a driver checking
-which build they are on is told the wrong thing. Either way the failure is
-silent, which is the exact failure the version footer exists to prevent.
+**Releasing:** bump `APP_VERSION`, `version.txt` and `APP_BUILD` in `sw.js` to
+the same number, and bump `VERSION` in `sw.js` alongside. The first three are
+one number and `tools/test-update.mjs` fails the build if they drift:
+
+- a `version.txt` behind `APP_VERSION` tells a driver they are on the latest
+  when they are not; one ahead offers an update that does not exist;
+- an `APP_BUILD` left behind means `sw.js` did not change, and a `sw.js` that
+  did not change is never installed — the release would never reach a phone
+  holding a cached copy.
+
+`VERSION` is checked for shape only, because nothing in one snapshot of the
+repo can tell whether it moved. Bump it every time: it names the cache, and
+the old cache is only deleted when a new name activates.
 
 Each data file's `version` field moves on its own schedule, whenever the
 generator that writes it changes the record shape or the mapping rules.
 
-### How an update reaches a driver
+### The update check
 
-`sw.js` does **not** call `skipWaiting()` on its own. A new worker installs
-and then parks in `waiting` until the page sends it a `"skip"` message, and
-the page only sends that when the driver taps the version footer. On
-activation `clients.claim()` fires `controllerchange`, and the page turns that
-into a reload — guarded so it can only follow a tap.
+The same standard as FuelPost's update checker, adapted to an app that works
+offline.
 
-That gate is what makes background checking safe. HazPost checks for a new
-build silently on load and whenever the app returns to the foreground, so a
-driver who has been away for a week is told they are stale without having to
-go looking. A silent check can surface an update; it can never apply one.
-Reloading someone who is halfway through typing a load off a shipping paper
-is not acceptable, and load persistence is not a licence to do it.
+**What it asks.** `checkForUpdate` fetches `version.txt` — seven bytes —
+rather than the whole app.
 
-The registration uses `updateViaCache: "none"` so a check always asks the
-server for `sw.js` rather than trusting whatever cache headers Pages sends —
-otherwise a driver can tap "check" and be told they are current by a cached
-copy of the old worker script.
+- Resolved against the page (`new URL("version.txt", location.href)`), never
+  rooted at `/`.
+- `?_cb=` and `cache: "no-store"`, because this is the one request that must
+  never be answered from anything but the live server. `sw.js` passes it, and
+  anything else carrying `_cb`, straight through to the network: never
+  answered from the offline cache, never written into it. `version.txt` is not
+  in `SHELL`.
+- `parseVersionFile` is **strict**: only a bare dotted number. A 404 page, a
+  captive-portal login or `index.html` served by mistake are all "text that
+  came back 200", and a loose parse would report one of them as a version.
+- **The HTML fallback is kept on purpose.** If `version.txt` is missing or
+  unreadable, `extractVersion` reads `APP_VERSION` out of the live
+  `index.html`, anchored to the start of a line so a comment that mentions the
+  declaration cannot shadow it. Losing the check entirely is worse than paying
+  for the big fetch once.
+
+**When it runs.** Silently on load and every time the app returns to the
+foreground: no "Checking…", no note, whatever it finds. Out loud when the
+driver taps the version footer: *Checking for updates…*, then *You're on the
+latest (v…)* or *Couldn't check for updates*. It never says "on the latest"
+for a check that did not reach the server. One check runs at a time.
+
+**What it shows.** A newer version is offered on the footer and on a banner
+at the top of Load — *Update available (v0.12.0) — tap to install* — and the
+offer persists until it is acted on. The service worker check runs alongside
+and downloads the new build into the offline cache in the background, so the
+install tap is quick.
+
+**How it installs — never by itself.** The tap that checks only checks.
+Installing takes the next tap. `sw.js` does **not** call `skipWaiting()` on its
+own: a new worker parks in `waiting` until the page sends it `"skip"`, which
+only that second tap does. On activation `clients.claim()` fires
+`controllerchange`, and the page turns that into a reload — guarded so it can
+only follow the tap. With no service worker at all (unsupported, or
+registration failed), the install tap is a cache-busted reload. Reloading
+someone halfway through typing a load off a shipping paper is not acceptable,
+and load persistence is not a licence to do it.
+
+The registration uses `updateViaCache: "none"` so the browser's own check asks
+the server for `sw.js` rather than trusting whatever cache headers Pages sends.
+
+### Things not to undo
+
+- **`version.txt`, `APP_VERSION` and `APP_BUILD` are one number**, and
+  `parseVersionFile` stays strict. Both are tested.
+- **The update check bypasses the worker.** A cached `version.txt` would tell
+  every driver they are on the latest, forever.
+- **A check offers; only a tap installs.** No background path may reload.
+- **CI runs the whole suite on every pull request** (`.github/workflows/tests.yml`).
+  `tools/test-update.mjs` fails if it is narrowed to one file, to pushes only,
+  or given an install step.
 
 ## Icons
 
@@ -631,11 +680,12 @@ row, never dressed as the red emergency button only 911 wears.
 node tools/test.mjs
 ```
 
-756 checks across nine files, in about a second and a half. No framework and
+833 checks across ten files, in a few seconds. No framework and
 nothing to install — the app has no dependencies and neither does its suite,
 because a suite that needs a package install is a suite that stops being run.
 `tools/test.mjs` runs every `tools/test-*.mjs`, prints each file's count and
-fails if any of them does.
+fails if any of them does. GitHub Actions runs it on every pull request and
+every push to `main` (`.github/workflows/tests.yml`, Node 22, no install step).
 
 | File | Covers |
 |---|---|
@@ -648,6 +698,7 @@ fails if any of them does.
 | `test-data.mjs` | all six JSON files — provenance, counts, one CFR date across the set, and precaching |
 | `test-load.mjs` | the Load screen's summary rows against the engines, the tab bar, Emergency on every path including with no data, the line and Look Up screens against 172.505(a), and a corrupted saved load |
 | `test-pg-packages.mjs` | the packing-group question and packages: asked only for a range, never guessed, refused without an answer, saved and restored with bad values dropped, and read by Shipping Papers and the 6.1 segregation row |
+| `test-update.mjs` | the update check: the strict `version.txt` parse and the anchored fallback, one number in `version.txt`, `APP_VERSION` and `sw.js`, the worker passing the check through, silent checks on load and foreground, the two-tap install, and the CI workflow |
 
 ### How they run
 

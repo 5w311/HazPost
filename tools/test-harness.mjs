@@ -21,6 +21,9 @@
  *   setLinePG(i, p)       answers the packing-group question on one line
  *   pick(id), pickPG(p),  the Add a line form: the stub elements hold the
  *   addLine()             typed values, and alert() is recorded in __alerts
+ *   checkForUpdate(s),    the update check: every fetch() is recorded in
+ *   tapVersion()          __fetches, and document listeners in __docListeners
+ *                         so a test can bring the app back to the foreground
  *   setDate(k, v)         sets one of the What You Carry dates
  *
  * Driving a load in therefore means seeding `hazpost.load.v1` and letting the
@@ -74,6 +77,7 @@ function makeContext({ storage = {}, offline = false } = {}) {
 
   const store = { ...storage };
   const alerts = [];
+  const docListeners = {};
   const localStorage = {
     getItem: (k) => (k in store ? store[k] : null),
     setItem: (k, v) => { store[k] = String(v); },
@@ -83,8 +87,10 @@ function makeContext({ storage = {}, offline = false } = {}) {
   /* Serves the repo off disk, so loadData() in a test is the same loadData()
      a phone runs. A file that is not in the repo 404s, which is how the
      failure paths get exercised. */
-  const fetch = async (url) => {
-    const name = String(url).replace(/^.*\//, "").split("?")[0];
+  const fetches = [];
+  const fetch = async (url, opts) => {
+    fetches.push({ url: String(url), opts: opts || {} });
+    const name = String(url).split("?")[0].replace(/^.*\//, "");
     const body = offline ? null : fileText(name);
     if (body === null) {
       return { ok: false, status: 404, statusText: "Not Found",
@@ -99,12 +105,15 @@ function makeContext({ storage = {}, offline = false } = {}) {
     fetch, localStorage,
     location: { href: "https://example.test/HazPost/" },
     navigator: { onLine: !offline },     /* no serviceWorker key: registerSW() returns at the door */
-    document: { getElementById: el, addEventListener() {}, hidden: false },
+    document: { getElementById: el, hidden: false,
+      addEventListener: (type, fn) => { (docListeners[type] ||= []).push(fn); } },
     confirm: () => true,                 /* clearLoad()/clearDates() ask; tests always say yes */
     alert: (m) => { alerts.push(String(m)); },   /* addLine() refuses with one; tests read __alerts */
     URL, Date, Math, JSON,
     __store: store,                      /* so a test can read what was persisted */
     __alerts: alerts,                    /* every alert() the app raised, in order */
+    __fetches: fetches,                  /* every fetch() the app made: {url, opts} */
+    __docListeners: docListeners,        /* document listeners by type, so a test can fire one */
     __els: els,
   };
   ctx.window = ctx;                      /* `"caches" in window` — no caches key, so readCacheMeta() returns */

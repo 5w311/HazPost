@@ -533,7 +533,7 @@ table.mat td.b{background:var(--card)}
 <script>
 /* The build a driver is running, shown at the foot of the Load screen.
    Bump this and VERSION in sw.js together on every deploy — see README. */
-const APP_VERSION = "0.11.0";
+const APP_VERSION = "0.12.0";
 
 /* ---------------- DATA: the 172.101 table, fetched from hazmat.json ---------------- */
 const DATA_URL = "hazmat.json";
@@ -766,8 +766,49 @@ function paintOffline(){
 
 let swReg = null;             /* registration, reachable from the footer handler */
 let updateReady = false;      /* a new worker is installed and waiting */
-let verState = "idle";        /* idle | checking | uptodate | ready | updating */
+let updateTo = null;          /* the newer version the live server reports; persists until reload */
+let verChecking = false;      /* one check at a time — a tap mid-check is ignored */
+let verState = "idle";        /* idle | checking | uptodate | nocheck | updating | failed */
 let verRevert = null;
+
+/* ---------------- WHICH VERSION IS LIVE ----------------
+   The same standard FuelPost holds: ask the server for version.txt — one
+   version and a newline — rather than the whole app. Both readers are strict
+   on purpose. A captive portal, a 404 page or index.html served by mistake
+   are all "text that came back 200", and read loosely any of them would be
+   reported to the driver as a version number. */
+
+/** version.txt's answer: a bare dotted x.y.z, or null. */
+function parseVersionFile(text){
+  if(typeof text!=="string") return null;
+  const t = text.trim();
+  return /^\d+\.\d+\.\d+$/.test(t) ? t : null;
+}
+/** APP_VERSION out of fetched index.html, or null. Anchored to the start of a
+    line, so a comment that mentions the declaration can never shadow it. */
+function extractVersion(source){
+  const m = String(source||"").match(/^\s*const\s+APP_VERSION\s*=\s*['"](\d+\.\d+\.\d+)['"]/m);
+  return m ? m[1] : null;
+}
+/** A URL in scope that no cache may answer: the service worker passes any
+    request carrying _cb straight to the network, and so does the server's CDN. */
+const liveURL = path => `${new URL(path, location.href).href.split("?")[0]}?_cb=${Date.now()}`;
+
+/** The version the live server is on, or null when it could not be read. */
+async function fetchLiveVersion(){
+  try{
+    const r = await fetch(liveURL("version.txt"), {cache:"no-store"});
+    if(r.ok){ const v = parseVersionFile(await r.text()); if(v) return v; }
+  }catch(e){ /* fall through to the page */ }
+  /* Kept on purpose: a deploy that lost version.txt, or a host that rewrites
+     404s to a page. Reading the version out of index.html costs more, but an
+     update check that silently stopped working costs a driver far more. */
+  try{
+    const r = await fetch(liveURL("index.html"), {cache:"no-store"});
+    if(r.ok) return extractVersion(await r.text());
+  }catch(e){ /* offline, or the server is unreachable */ }
+  return null;
+}
 
 /* Set by applyUpdate(), and by nothing else. It is the whole guard on the
    reload below.
@@ -794,17 +835,16 @@ if("serviceWorker" in navigator){
 }
 
 function registerSW(){
-  if(!("serviceWorker" in navigator)) return;
-  /* Relative on purpose. HazPost is served from /HazPost/ on GitHub Pages, so
-     "sw.js" resolves against this document to /HazPost/sw.js and the default
-     scope becomes /HazPost/. A leading slash would ask for /sw.js at the
-     domain root, which does not exist and would fail registration outright.
+  if(!("serviceWorker" in navigator)) return Promise.resolve();
+  /* Relative on purpose: "sw.js" resolves against this document, so the
+     worker's scope follows wherever the app is served from. A leading slash
+     would pin it to the domain root.
 
      updateViaCache:"none" keeps sw.js itself out of the HTTP cache, so a check
      asks the server rather than trusting whatever headers Pages happens to
      send. Without it a driver can tap "check" and be told they are current by
      a cached copy of the old worker script. */
-  navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(reg=>{
+  return navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(reg=>{
     swReg = reg;
 
     reg.addEventListener("updatefound", ()=>{
@@ -820,8 +860,6 @@ function registerSW(){
 
     /* a worker may already be waiting from a previous visit */
     if(reg.waiting && navigator.serviceWorker.controller) markUpdateReady();
-
-    checkForUpdate();  /* silent check on load */
   }).catch(e=>{
     /* No worker means no offline mode, but the app still runs online. */
     console.warn("HazPost: service worker registration failed —", e && e.message);
@@ -830,88 +868,105 @@ function registerSW(){
 
 function markUpdateReady(){
   updateReady = true;
-  /* never stomp on a tap already in flight */
-  if(verState==="idle" || verState==="uptodate"){ setVerState("ready"); }
+  paintVersionFoot();
 }
+
+/** True once there is something to install: the server reports a newer
+    version, or a newer worker has already finished installing. */
+const updateAvailable = () => !!(updateTo || updateReady);
 
 function setVerState(s){
   verState = s;
   clearTimeout(verRevert);
   if(s==="uptodate" || s==="nocheck" || s==="failed"){
-    /* fall back to whatever is true once the message has been read */
-    verRevert = setTimeout(()=>setVerState(updateReady ? "ready" : "idle"), s==="failed" ? 5000 : 2000);
+    /* a note, not a state: it gives way once it has been read */
+    verRevert = setTimeout(()=>setVerState("idle"), s==="failed" ? 5000 : 2500);
   }
   paintVersionFoot();
 }
 
-/* Silent by design: no checking label, no result message. A driver who
-   backgrounds the app for a week should not have to go tapping to find out
-   they are stale — but a check they did not ask for never reloads and never
-   flashes. All it can do is light up the footer via markUpdateReady. */
-async function checkForUpdate(){
-  if(!swReg) return;
-  try{ await swReg.update(); }catch(e){ /* offline, or the server is unreachable */ }
+/* Two ways in, one rule. On load and every time the app comes back to the
+   foreground the check runs silently: no "Checking…", no note, whatever it
+   finds. The driver's tap runs it out loud. Either way it can only ever
+   surface an update — "Update available (v…)" — and never install one. That
+   takes a second, explicit tap: reloading someone halfway through typing a
+   load off a shipping paper is not acceptable, and load persistence is not a
+   licence to do it.
+
+   The worker check runs alongside: it is what downloads the new build into
+   the offline cache in the background, so the install tap is quick. */
+async function checkForUpdate(silent){
+  if(verChecking || verState==="updating") return;
+  verChecking = true;
+  if(!silent) setVerState("checking");
+
+  const live = await fetchLiveVersion();
+  /* Started, not awaited: when a new worker is found, update() only settles
+     once it has finished installing — seconds, on a slow connection — and a
+     check held open that long swallows every check behind it. The worker
+     reports in through markUpdateReady when it is done. */
+  if(swReg) swReg.update().catch(()=>{ /* offline — version.txt has already said so */ });
+  if(live && live!==APP_VERSION) updateTo = live;
+  verChecking = false;
+
+  if(silent){ paintVersionFoot(); return; }
+  /* Never answer "on the latest" for a check that never reached the server.
+     A driver reading that would take it as confirmation their rules are
+     current, which is the exact thing this footer exists to prevent. */
+  setVerState(updateAvailable() ? "idle" : live===APP_VERSION ? "uptodate" : "nocheck");
 }
 
 function verFootText(){
   switch(verState){
     case "checking": return "Checking for updates…";
-    case "uptodate": return "You're up to date";
-    case "nocheck":  return "Offline — can't check for updates";
+    case "uptodate": return `You're on the latest (v${APP_VERSION})`;
+    case "nocheck":  return "Couldn't check for updates";
     case "failed":   return "Update didn't finish — tap to retry";
-    case "ready":    return "Update ready — tap to install";
     case "updating": return "Updating…";
-    default:         return `HazPost v${APP_VERSION}`;
   }
+  if(updateTo)    return `Update available (v${updateTo}) — tap to install`;
+  if(updateReady) return "Update available — tap to install";
+  return `HazPost v${APP_VERSION}`;
 }
 
 /* The Load screen is rebuilt by render() on every navigation, so the footer
-   is drawn from verState each time rather than being written once at startup. */
+   is drawn from the state each time rather than being written once at startup. */
+const verLive = () => verState==="updating" || verState==="failed" || (verState==="idle" && updateAvailable());
 function paintVersionFoot(){
-  const live = verState==="ready" || verState==="updating";
+  const live = verLive();
   const el = document.getElementById('verFoot');
   if(el){ el.textContent = verFootText(); el.className = "verfoot" + (live ? " live" : ""); }
   const b = document.getElementById('verBanner');
   if(b){ b.textContent = verFootText(); b.hidden = !live; }
 }
 
-/* The driver's explicit tap — the only path that is allowed to reload. */
-async function tapVersion(){
-  if(!swReg || verState==="checking" || verState==="updating") return;
-
-  if(updateReady && swReg.waiting){ applyUpdate(); return; }
-
-  setVerState("checking");
-
-  /* updatefound fires as soon as a new worker starts installing — the earliest
-     positive signal that a new build exists. */
-  let found = false;
-  const onFound = ()=>{ found = true; };
-  swReg.addEventListener("updatefound", onFound);
-
-  let reached = true;
-  try{ await swReg.update(); }catch(e){ reached = false; }
-  await sleep(600);                       /* let a just-started install announce itself */
-  swReg.removeEventListener("updatefound", onFound);
-
-  if(found || swReg.installing || swReg.waiting){
-    /* Wait for the lifecycle rather than a fixed window. Installing a new
-       HazPost means caching a ~370 KB table plus icons, and sw.js gives its
-       optional phase up to 10 s — a short fixed timeout here would report
-       "up to date" while the update was still downloading. */
-    setVerState("updating");
-    if(await waitForWaiting(swReg, 30000)){ applyUpdate(); return; }
-    setVerState("failed");
-    return;
-  }
-
-  /* Never answer "up to date" for a check that never reached the server. A
-     driver reading that would take it as confirmation their rules are
-     current, which is the exact thing this footer exists to prevent. */
-  setVerState(reached && navigator.onLine ? "uptodate" : "nocheck");
+/* The driver's tap. The first one checks; once an update is showing, the next
+   one installs it. This is the only path that is allowed to reload. */
+function tapVersion(){
+  if(verChecking || verState==="checking" || verState==="updating") return;
+  if(updateAvailable()){ installUpdate(); return; }
+  checkForUpdate(false);
 }
 
-const sleep = ms => new Promise(r=>setTimeout(r, ms));
+async function installUpdate(){
+  userAskedToUpdate = true;
+  if(!swReg){
+    /* No worker — unsupported, or registration failed — so nothing is cached
+       and a reload is the whole update. Cache-busted, so it cannot land back
+       on the same stale copy. */
+    location.href = liveURL("./");
+    return;
+  }
+  setVerState("updating");
+  if(!swReg.waiting){ try{ await swReg.update(); }catch(e){} }
+  /* Wait for the lifecycle rather than a fixed window. Installing a new
+     HazPost means caching a ~370 KB table plus icons, and sw.js gives its
+     optional phase up to 10 s — a short fixed timeout would give up while
+     the update was still downloading. */
+  if(swReg.waiting || await waitForWaiting(swReg, 30000)){ applyUpdate(); return; }
+  userAskedToUpdate = false;
+  setVerState("failed");
+}
 
 /** Resolve true once a new worker finishes installing and parks in `waiting`. */
 function waitForWaiting(reg, ms){
@@ -1020,9 +1075,9 @@ let restoreNote = "";
    and one with none (explosives, Division 5.2) has nothing to ask.
 
    The packages are the number and type 172.202(a)(7) puts on the paper —
-   "12 DR". All four types are non-bulk. They are optional, so a line packed
+   "12 DR". All five types are non-bulk. They are optional, so a line packed
    in anything else (a cylinder, a box) can still go on the load. */
-const PKG_TYPES = {DR:"drums", CS:"cases", CT:"cartons", BG:"bags"};
+const PKG_TYPES = {DR:"drums", CS:"cases", CT:"cartons", BG:"bags", PL:"pallets"};
 
 /** The packing groups an entry allows: "I, II, III" → ["I","II","III"], none → []. */
 function pgList(l){
@@ -1417,7 +1472,7 @@ function loadTab(){
 
 function loadRoot(){
   setTop("", "Load", `<button type="button" class="gbtn" onclick="openScreen('load','add')" aria-label="Add a line from the paper">${ICON.plus}</button>`);
-  const live = verState==="ready" || verState==="updating";
+  const live = verLive();
   /* an update waiting is worth seeing without scrolling to the footer */
   let h = `<button type="button" class="upd" id="verBanner" onclick="tapVersion()"${live?"":" hidden"}>${esc(verFootText())}</button>`;
   if(restoreNote) h += `<div class="why bad"><p>${esc(restoreNote)}</p></div>`;
@@ -3637,10 +3692,11 @@ window.addEventListener("offline", paintOffline);
 document.addEventListener("visibilitychange", ()=>{
   if(document.hidden) return;
   readCacheMeta().then(paintOffline);
-  checkForUpdate();
+  checkForUpdate(true);
 });
 
-registerSW();
+/* the first silent check, once the worker is registered (or known not to be) */
+registerSW().then(()=>checkForUpdate(true));
 loadData();
 </script>
 </body>

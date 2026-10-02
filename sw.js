@@ -23,7 +23,16 @@
  * every phone already holding a cached copy.
  */
 
-const VERSION = "v1.9.0";
+const VERSION = "v1.10.0";
+
+/**
+ * The app build this worker ships with. It must equal APP_VERSION in
+ * index.html and the whole of version.txt; tools/test-update.mjs holds the
+ * three together. It is also what makes sw.js change on every release, and a
+ * byte change in sw.js is the only thing that makes a browser install a new
+ * worker, so a release that skipped it would never reach a phone.
+ */
+const APP_BUILD = "0.12.0";
 const CACHE = `hazpost-${VERSION}`;
 
 /** Where the cache-refresh timestamp lives, for the offline indicator. */
@@ -191,6 +200,13 @@ self.addEventListener("fetch", (event) => {
 
   const u = new URL(request.url);
 
+  // The update check, and anything else marked _cb, must only ever be
+  // answered by the live server — never from this cache, and never written
+  // into it. Passing it through untouched leaves the request's own
+  // cache:"no-store" in charge.
+  if (request.mode !== "navigate" &&
+      (u.searchParams.has("_cb") || (inScope(u) && u.pathname.endsWith("/version.txt")))) return;
+
   // Navigations: always land on the cached shell when the network is gone,
   // whatever path within scope was requested.
   if (request.mode === "navigate") {
@@ -221,7 +237,7 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener("message", (event) => {
   /** Which cache generation is actually serving this page. Diagnostics only —
    *  the driver-facing footer shows APP_VERSION, not this. */
-  if (event.data === "version") event.source?.postMessage({ type: "version", version: VERSION });
+  if (event.data === "version") event.source?.postMessage({ type: "version", version: VERSION, build: APP_BUILD });
 
   /** The page's explicit go-ahead to take over. Sent only when the driver taps
    *  the version footer, never by a background check: activating here triggers
