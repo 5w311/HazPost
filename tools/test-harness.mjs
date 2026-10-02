@@ -18,6 +18,9 @@
  *   restoreLoad()         rebuilds `load` from localStorage against HM
  *   setOpsPlace(k)        sets the On the Road location
  *   setLineState(i, v)    answers the physical-state question on one line
+ *   setLinePG(i, p)       answers the packing-group question on one line
+ *   pick(id), pickPG(p),  the Add a line form: the stub elements hold the
+ *   addLine()             typed values, and alert() is recorded in __alerts
  *   setDate(k, v)         sets one of the What You Carry dates
  *
  * Driving a load in therefore means seeding `hazpost.load.v1` and letting the
@@ -63,13 +66,14 @@ function makeContext({ storage = {}, offline = false } = {}) {
       els.set(id, {
         id, style: {}, innerHTML: "", textContent: "", className: "",
         hidden: false, value: "", disabled: false,
-        addEventListener() {}, setAttribute() {}, removeAttribute() {},
+        addEventListener() {}, setAttribute() {}, removeAttribute() {}, focus() {},
       });
     }
     return els.get(id);
   };
 
   const store = { ...storage };
+  const alerts = [];
   const localStorage = {
     getItem: (k) => (k in store ? store[k] : null),
     setItem: (k, v) => { store[k] = String(v); },
@@ -97,8 +101,10 @@ function makeContext({ storage = {}, offline = false } = {}) {
     navigator: { onLine: !offline },     /* no serviceWorker key: registerSW() returns at the door */
     document: { getElementById: el, addEventListener() {}, hidden: false },
     confirm: () => true,                 /* clearLoad()/clearDates() ask; tests always say yes */
+    alert: (m) => { alerts.push(String(m)); },   /* addLine() refuses with one; tests read __alerts */
     URL, Date, Math, JSON,
     __store: store,                      /* so a test can read what was persisted */
+    __alerts: alerts,                    /* every alert() the app raised, in order */
     __els: els,
   };
   ctx.window = ctx;                      /* `"caches" in window` — no caches key, so readCacheMeta() returns */

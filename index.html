@@ -533,7 +533,7 @@ table.mat td.b{background:var(--card)}
 <script>
 /* The build a driver is running, shown at the foot of the Load screen.
    Bump this and VERSION in sw.js together on every deploy — see README. */
-const APP_VERSION = "0.10.0";
+const APP_VERSION = "0.11.0";
 
 /* ---------------- DATA: the 172.101 table, fetched from hazmat.json ---------------- */
 const DATA_URL = "hazmat.json";
@@ -1006,11 +1006,58 @@ let load = [];
 
 /* ---------------- LOAD PERSISTENCE ----------------
    A driver builds a load at the dock, pockets the phone, and comes back to it.
-   Only the id, weight and facility are stored: the hazard classification is
-   re-read from hazmat.json on every start, so a load saved before a CFR
-   amendment can never resurrect a stale placard category. */
+   Only what the driver read off the paper is stored — the id, weight and
+   facility, and the packing group and packages where they were entered. The
+   hazard classification is re-read from hazmat.json on every start, so a load
+   saved before a CFR amendment can never resurrect a stale placard category. */
 const LS_LOAD = "hazpost.load.v1";
 let restoreNote = "";
+
+/* ---------------- PACKING GROUP AND PACKAGES, OFF THE PAPER ----------------
+   353 entries in the 172.101 table allow more than one packing group ("I, II,
+   III"), and only the paper says which one this shipment is. HazPost asks for
+   it then, and only then: an entry with one packing group answers for itself,
+   and one with none (explosives, Division 5.2) has nothing to ask.
+
+   The packages are the number and type 172.202(a)(7) puts on the paper —
+   "12 DR". All four types are non-bulk. They are optional, so a line packed
+   in anything else (a cylinder, a box) can still go on the load. */
+const PKG_TYPES = {DR:"drums", CS:"cases", CT:"cartons", BG:"bags"};
+
+/** The packing groups an entry allows: "I, II, III" → ["I","II","III"], none → []. */
+function pgList(l){
+  const s = String((l && l.pg) || "").trim();
+  return !s || s==="—" ? [] : s.split(/\s*,\s*/).filter(Boolean);
+}
+/** The packing group this line carries: the table's when it allows one, the
+    paper's when it allows several, "" when it has none — and null while a
+    range is still unanswered. HazPost never picks one from a range itself. */
+function linePG(l){
+  const L = pgList(l);
+  if(!L.length) return "";
+  if(L.length===1) return L[0];
+  return L.includes(l.pgPaper) ? l.pgPaper : null;
+}
+/** " · PG II" for a line row; " · PG ?" while a range is unanswered. */
+function pgShort(l){ const p = linePG(l); return p===null ? " · PG ?" : p ? ` · PG ${p}` : ""; }
+/** The line screen's packing-group value, with where it came from. */
+function pgLineText(l){
+  const L = pgList(l), p = linePG(l);
+  if(!L.length) return "None";
+  if(L.length===1) return esc(p);
+  return p ? `${esc(p)}, from the paper` : `Not entered — PG ${esc(L.join(", "))}`;
+}
+/** The driver's answer, set from the line screen. Rides with this load only. */
+function setLinePG(i, p){
+  const l = load[i];
+  if(!l || pgList(l).length<2 || !pgList(l).includes(p)) return;
+  l.pgPaper = p;
+  commit();
+}
+/** "12 DR", or "" when the packages were not entered. */
+function pkgLabel(l){ return l && l.pkgCount && PKG_TYPES[l.pkgType] ? `${l.pkgCount} ${l.pkgType}` : ""; }
+/** Whole packages, 1 to 9,999; anything else is not a count. */
+function pkgCountOf(v){ const n = Number(v); return Number.isInteger(n) && n>=1 && n<=9999 ? n : 0; }
 
 function saveLoad(){
   try{
@@ -1021,7 +1068,9 @@ function saveLoad(){
          never reused for the same ID on a later load, because n.o.s. entries
          genuinely vary between shipments. */
       ...(opsPlace?{opsPlace}:{}),
-      lines: load.map(l=>({id:l.id, wt:l.wt, fac:l.fac, ...(l.st?{st:l.st}:{})})),
+      lines: load.map(l=>({id:l.id, wt:l.wt, fac:l.fac, ...(l.st?{st:l.st}:{}),
+        ...(pgList(l).length>1 && linePG(l) ? {pgPaper:l.pgPaper} : {}),
+        ...(pkgLabel(l) ? {pkgCount:l.pkgCount, pkgType:l.pkgType} : {})})),
     }));
   }catch(e){ /* private mode or quota — the app works, it just won't remember */ }
 }
@@ -1044,7 +1093,12 @@ function restoreLoad(){
     const m = HM.find(x=>x.id===l.id);
     const wt = Number(l.wt);
     if(!m || !(Number.isFinite(wt) && wt>0)){ dropped.push(l.id); return null; }
-    return {...m, wt, fac:["A","B","C"].includes(l.fac) ? l.fac : "A", ...(l.st==="liquid"||l.st==="solid" ? {st:l.st} : {})};
+    /* A packing group is kept only where the entry offers a choice and this
+       is one of them; packages only as a whole count with a known type. */
+    const pgPaper = pgList(m).length>1 && pgList(m).includes(l.pgPaper) ? {pgPaper:l.pgPaper} : {};
+    const pkgCount = pkgCountOf(l.pkgCount);
+    const pkg = pkgCount && PKG_TYPES[l.pkgType] ? {pkgCount, pkgType:l.pkgType} : {};
+    return {...m, wt, fac:["A","B","C"].includes(l.fac) ? l.fac : "A", ...(l.st==="liquid"||l.st==="solid" ? {st:l.st} : {}), ...pgPaper, ...pkg};
   }).filter(Boolean);
   if(dropped.length){
     restoreNote = `${dropped.length} saved line${dropped.length===1?" is":"s are"} no longer in the 172.101 table and ${dropped.length===1?"was":"were"} dropped. Re-check your papers.`;
@@ -1477,7 +1531,7 @@ function linesSection(){
   return `<div class="sh"><h2>From the paper</h2><span>${total.toLocaleString()} lb</span></div>
     <div class="list">${load.map((l,i)=>`<button type="button" class="lrow" onclick="openLine(${i})">
       <span class="lm"><span>${esc(l.psn||l.name)}</span>
-        <span class="ls"><span class="mono">${idLabel(l)}</span> · ${l.wt.toLocaleString()} lb · Facility ${esc(l.fac)}${l.t1?`<span class="t1tag">Table 1</span>`:""}</span></span>
+        <span class="ls"><span class="mono">${idLabel(l)}</span>${pgShort(l)}${pkgLabel(l)?` · ${pkgLabel(l)}`:""} · ${l.wt.toLocaleString()} lb · Facility ${esc(l.fac)}${l.t1?`<span class="t1tag">Table 1</span>`:""}</span></span>
       <span class="lc">${plcSwatch(l.plc)}${esc(String(l.cls||"").split(" ")[0])}</span>${ICON.chev}</button>`).join("")}
       <button type="button" class="lrow add" onclick="openScreen('load','add')">${ICON.plusSm}<span>Add a line</span></button>
     </div>
@@ -1493,30 +1547,51 @@ function addLineView(){
       <label class="fl" for="unIn">Material</label>
       <input class="mono" id="unIn" placeholder="UN number or name — try 1203" oninput="suggest(this.value)" autocomplete="off" autocapitalize="off" spellcheck="false">
       <div class="sugg" id="sugg"></div>
+      <div id="pgPick"></div>
       <div class="row" style="margin-top:12px">
         <div><label class="fl" for="wtIn">Gross weight</label><input class="mono" id="wtIn" placeholder="lb" inputmode="numeric"></div>
         <div><label class="fl" for="fac">Loaded at</label><select id="fac"><option value="A">Facility A</option><option value="B">Facility B</option><option value="C">Facility C</option></select></div>
       </div>
+      <div class="row">
+        <div><label class="fl" for="pkN">Packages</label><input class="mono" id="pkN" placeholder="How many" inputmode="numeric"></div>
+        <div><label class="fl" for="pkT">Type</label><select id="pkT"><option value="">—</option>${Object.entries(PKG_TYPES).map(([k,v])=>`<option value="${k}">${k} — ${v}</option>`).join("")}</select></div>
+      </div>
       <button class="btn" onclick="addLine()">Add to load</button>
-      <p class="hint">Weight is package gross weight — the material plus its packaging, straight off the papers. Facility = where you picked it up (it matters for the DANGEROUS placard rule).</p>
+      <p class="hint">Weight is package gross weight — the material plus its packaging, straight off the papers. Facility = where you picked it up (it matters for the DANGEROUS placard rule). Packages are the number and type on the paper, such as 12 DR; leave them empty if the paper lists another kind.</p>
     </div>`, {lede:"One line from the shipping paper."});
 }
-let picked=null;
+let picked=null, pickedPG=null;
 function suggest(q){
-  const s=document.getElementById('sugg'); picked=null;
+  const s=document.getElementById('sugg'); picked=null; pickedPG=null; paintPGPick();
   q=q.trim().toLowerCase();
   if(!q){s.style.display='none';return;}
   const hits=HM.filter(x=>x.un.includes(q)||x.name.toLowerCase().includes(q)).slice(0,6);
   if(!hits.length){s.style.display='none';return;}
-  s.innerHTML=hits.map(x=>`<div onclick="pick('${x.id}')"><span class="u">${idLabel(x)}</span>${esc(x.name)} · ${esc(x.cls)}</div>`).join('');
+  s.innerHTML=hits.map(x=>`<div onclick="pick('${x.id}')"><span class="u">${idLabel(x)}</span>${esc(x.name)} · ${esc(x.cls)}${pgList(x).length?` · PG ${esc(x.pg)}`:""}</div>`).join('');
   s.style.display='block';
 }
 const pickedLabel = x => `${idLabel(x)} — ${x.name}`;
-function pick(id){ picked=HM.find(x=>x.id===id);
+function pick(id){ picked=HM.find(x=>x.id===id); pickedPG=null;
   document.getElementById('unIn').value=pickedLabel(picked);
   document.getElementById('sugg').style.display='none';
+  paintPGPick();
   document.getElementById('wtIn').focus();
 }
+/** The packing-group question, under the material, only when the picked entry
+    allows more than one. */
+function pgChoice(L, on, onclick){
+  return `<div class="tabs" role="group" aria-label="Packing group">${L.map(p=>
+    `<button type="button" class="${on===p?'on':''}" aria-pressed="${on===p}" onclick="${onclick(p)}">PG ${p}</button>`).join("")}</div>`;
+}
+function paintPGPick(){
+  const el = document.getElementById('pgPick'); if(!el) return;
+  const L = picked ? pgList(picked) : [];
+  el.innerHTML = L.length>1
+    ? `<label class="fl" style="margin-top:12px">Packing group, from the paper</label>${pgChoice(L, pickedPG, p=>`pickPG('${p}')`)}
+       <p class="hint" style="margin-top:-6px">This entry covers PG ${esc(L.join(", "))}. The paper names one; HazPost will not guess it.</p>`
+    : "";
+}
+function pickPG(p){ if(picked && pgList(picked).includes(p)){ pickedPG = p; paintPGPick(); } }
 function addLine(){
   const typed = document.getElementById('unIn').value;
   /* a pick counts only while the field still shows it */
@@ -1531,16 +1606,24 @@ function addLine(){
   }
   const wt=parseInt(document.getElementById('wtIn').value.replace(/\D/g,''),10);
   if(!picked){alert('Pick a material from the list — several shipping names can share one ID number, so HazPost needs to know which entry you mean.');return;}
+  if(pgList(picked).length>1 && !pickedPG){
+    paintPGPick();
+    alert(`Pick the packing group from the paper. This entry covers PG ${pgList(picked).join(", ")}, and HazPost will not guess which.`);return;}
   if(!wt){alert('Enter the gross weight in pounds.');return;}
-  load.push({...picked, wt, fac:document.getElementById('fac').value});
-  picked=null; screen=""; saveLoad(); arrive();
+  const pkN=document.getElementById('pkN').value.trim(), pkT=document.getElementById('pkT').value;
+  const pkgCount=pkgCountOf(pkN.replace(/[,\s]/g,''));
+  if((pkN && !pkgCount) || (pkgCount && !PKG_TYPES[pkT]) || (!pkN && pkT)){
+    alert('Enter the packages as a number and a type, such as 12 and DR — or leave both empty.');return;}
+  load.push({...picked, wt, fac:document.getElementById('fac').value,
+    ...(pickedPG?{pgPaper:pickedPG}:{}), ...(pkgCount?{pkgCount, pkgType:pkT}:{})});
+  picked=null; pickedPG=null; screen=""; saveLoad(); arrive();
 }
 function demo(){
   const byUn=u=>HM.find(x=>x.un===u&&(x.pfx||"UN")==="UN");
   load=[
-    {...byUn("1203"), wt:650, fac:"A"},
-    {...byUn("1830"), wt:500, fac:"A"},
-    {...byUn("1479"), wt:2400, fac:"B"},
+    {...byUn("1203"), wt:650, fac:"A", pkgCount:4, pkgType:"DR"},
+    {...byUn("1830"), wt:500, fac:"A", pkgCount:2, pkgType:"DR"},
+    {...byUn("1479"), wt:2400, fac:"B", pgPaper:"II", pkgCount:48, pkgType:"BG"},
   ].filter(l=>l.un);
   commit();
 }
@@ -1558,7 +1641,8 @@ function lineView(){
     <div class="list kvl">
       <div class="kv"><span>ID number</span><span class="mono">${idLabel(l)}</span></div>
       <div class="kv"><span>Hazard class</span><span>${esc(l.cls)}</span></div>
-      <div class="kv"><span>Packing group</span><span>${esc(l.pg)}</span></div>
+      <div class="kv"><span>Packing group</span><span>${pgLineText(l)}</span></div>
+      <div class="kv"><span>Packages</span><span>${pkgLabel(l) ? `${pkgLabel(l)}, ${PKG_TYPES[l.pkgType]}` : "Not entered"}</span></div>
       <div class="kv"><span>Gross weight</span><span>${l.wt.toLocaleString()} lb</span></div>
       <div class="kv"><span>Loaded at</span><span>Facility ${esc(l.fac)}</span></div>
       ${l.st ? `<div class="kv"><span>Physical state</span><span>${l.st==="liquid"?"Liquid":"Solid"}, from the paper</span></div>` : ""}
@@ -1567,6 +1651,9 @@ function lineView(){
       ${l.cond ? `<div class="kv"><span>Condition</span><span>${esc(l.cond)}</span></div>` : ""}
     </div>
     <p class="foot">49 CFR 172.101 table · 172.504(e)${rule.cites.map(c=>" · "+c).join("")}</p>
+    ${pgList(l).length>1 ? `<div class="card"><h4>Packing group, from the paper</h4>
+      ${pgChoice(pgList(l), linePG(l), p=>`setLinePG(${lineAt},'${p}')`)}
+      <p class="hint">This entry covers PG ${esc(pgList(l).join(", "))}. The paper names one; HazPost will not guess it. Shipping Papers uses it for the basic description.</p></div>` : ""}
     <button type="button" class="btn danger" onclick="removeLine(${lineAt})">Remove from load</button>`,
     {lede: l.name!==title ? esc(l.name) : ""});
 }
@@ -1926,7 +2013,9 @@ function segCatFor(tok, l, ctx){
   if(tok==="6.1"){
     /* the row is poisonous LIQUIDS, PG I, Zone A — all three, or no row */
     const zoneA = /Zone\s*A/i.test(l.pih||"");
-    const pgI   = String(l.pg||"").split(",").map(x=>x.trim()).includes("I");
+    /* an unanswered range stays on the stricter row while it includes PG I */
+    const pg    = linePG(l);
+    const pgI   = pg===null ? pgList(l).includes("I") : pg==="I";
     return (zoneA && pgI) ? "6.1I-A" : null;
   }
 
@@ -2211,7 +2300,7 @@ function segLoadView(){
       const all   = [...shown, ...pend];
       return `<div class="line-item">
         <span class="un">${idLabel(m.l)}</span>
-        <div class="nm"><b>${esc(m.l.name)}</b><span>Class ${esc(m.l.cls)} · PG ${esc(m.l.pg)} → ${all.length? esc(all.join(" · ")) : "no segregation row"}</span></div>
+        <div class="nm"><b>${esc(m.l.name)}</b><span>Class ${esc(m.l.cls)} · PG ${esc(linePG(m.l) || m.l.pg)} → ${all.length? esc(all.join(" · ")) : "no segregation row"}</span></div>
         ${m.l.subs?`<span class="segchip sub">sub ${esc(m.l.subs)}</span>`:""}
       </div>`;
     }).join("") + `</div>`;
@@ -2435,14 +2524,21 @@ function basicDescription(l){
   if(pgExcept){
     flags.push({tone:"ok", txt:`<b>No packing group on this line, and that is correct.</b> Class 1 explosives, self-reactive substances, Division 5.2 materials and entries with no packing group assigned are excepted. An empty space here is not a missing element.`, cite:"172.202(a)(4)"});
   } else {
-    if(/,/.test(l.pg)){
+    if(/,/.test(l.pg) && linePG(l)){
+      /* The range is settled by the packing group the driver entered off the
+         paper. It goes in as the element it is, and the note says where it
+         came from, because the table alone could not have produced it. */
+      els.push(`<span class="e-p">${esc(linePG(l))}</span>`);
+      seq.push("Packing group");
+      flags.push({tone:"", txt:`Packing group <b>${esc(linePG(l))}</b> is the one you entered from the paper. The 172.101 entry allows <b>${esc(pgList(l).join(", "))}</b>, so the table alone cannot settle it.`, cite:"172.202(a)(4)"});
+    } else if(/,/.test(l.pg)){
       /* The commas in a collapsed range would read as extra elements in a
          comma-separated description, so it is rendered as the placeholder it
          actually is rather than inlined. */
       const alts = l.pg.split(/,\s*/).join(" / ");
       els.push(`<span class="e-gap">…${esc(alts)}…</span>`);
       seq.push("Packing group");
-      flags.push({tone:"warn", txt:`The 172.101 entry covers packing groups <b>${esc(alts)}</b> and HazPost cannot tell which this shipment is — that depends on the material, not the entry. The paper names <b>one</b>; read it off there. Shown as a gap above so it is not mistaken for three elements.`, cite:"172.202(a)(4)"});
+      flags.push({tone:"warn", txt:`The 172.101 entry covers packing groups <b>${esc(alts)}</b> and HazPost cannot tell which this shipment is — that depends on the material, not the entry. The paper names <b>one</b>; read it off there, and set it on the line on the Load screen to fill this in. Shown as a gap above so it is not mistaken for three elements.`, cite:"172.202(a)(4)"});
     } else {
       els.push(`<span class="e-p">${esc(l.pg)}</span>`);
       seq.push("Packing group");
@@ -2525,7 +2621,11 @@ function papCheckView(){
   /* what the app cannot supply */
   h += `<div class="card"><h4>Only the paper can supply these</h4>
     <div class="rule a"><b>Total quantity, and the number and type of packages</b>
-      <p>Quantity by mass or volume with its unit, and the packages described — "12 drums". HazPost knows the gross weight you typed for placarding; it does not know how the shipment is packaged, and the two are not the same number.</p>
+      <p>Quantity by mass or volume with its unit, and the packages described — "12 drums". HazPost knows the gross weight you typed for placarding, which is not the same number as the quantity.</p>
+      ${load.some(pkgLabel)
+        ? `<p>The packages you entered from the paper. Each line on the paper should show the same count and type:</p>
+          <ul>${load.map(l=>`<li><span class="mono">${idLabel(l)}</span> — ${pkgLabel(l) ? `${pkgLabel(l)}, ${PKG_TYPES[l.pkgType]}` : "not entered"}</li>`).join("")}</ul>`
+        : `<p>You can enter the packages on each line from the paper, such as 12 DR, and they will show here to hold against it.</p>`}
       <span class="cite">49 CFR 172.202(a)(5), (a)(7)</span>
       ${cfrFold("172.202(a)(7)", papText("172.202","(a)(7)"))}</div>
 
