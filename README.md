@@ -158,11 +158,12 @@ paper. It also feeds the Division 6.1 segregation row, which only PG I reaches.
 An unanswered range that includes PG I stays on that row, the stricter answer.
 
 **Packages** are the number and type 172.202(a)(7) puts on the paper, such as
-*12 DR*: drums (DR), cases (CS), cartons (CT), bags (BG) or pallets (PL), all
-non-bulk. They
-are optional, so a line packed in anything else can still go on the load. They
-show on the line and in the Shipping Papers packages card, to hold against the
-paper. Bulk packaging is still not modelled.
+*12 DR*: drums (DR), cases (CS), cartons (CT), bags (BG) or pallets (PL). None
+is bulk packaging: the first four are non-bulk packagings, and a pallet of them
+strapped or wrapped together is an overpack (171.8). They are optional, so a
+line packed in anything else can still go on the load. They show on the line
+and in the Shipping Papers packages card, to hold against the paper. Bulk
+packaging is still not modelled.
 
 While offline, a strip under the title says so and shows when the cached
 table was generated and when the cache last refreshed. The foot of the Load

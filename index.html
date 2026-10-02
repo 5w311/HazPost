@@ -1200,8 +1200,10 @@ let restoreNote = "";
    and one with none (explosives, Division 5.2) has nothing to ask.
 
    The packages are the number and type 172.202(a)(7) puts on the paper —
-   "12 DR". All five types are non-bulk. They are optional, so a line packed
-   in anything else (a cylinder, a box) can still go on the load. */
+   "12 DR". None is bulk packaging: drums, cases, cartons and bags are
+   non-bulk packagings, and a pallet of them strapped or wrapped together is
+   an overpack (171.8). They are optional, so a line packed in anything else
+   (a cylinder, a box) can still go on the load. */
 const PKG_TYPES = {DR:"drums", CS:"cases", CT:"cartons", BG:"bags", PL:"pallets"};
 
 /** The packing groups an entry allows: "I, II, III" → ["I","II","III"], none → []. */
